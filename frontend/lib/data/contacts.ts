@@ -1,0 +1,108 @@
+import type { Contact } from "@/types"
+
+export const contacts: Contact[] = [
+  {
+    id: "c1",
+    firstName: "Sarah",
+    lastName: "Chen",
+    email: "sarah.chen@acme.com",
+    phone: "+1 (555) 123-4567",
+    company: "Acme Corp",
+    role: "VP of Engineering",
+    status: "active",
+    createdAt: "2024-01-15T10:30:00Z",
+    lastContactedAt: "2024-02-01T14:22:00Z",
+  },
+  {
+    id: "c2",
+    firstName: "Michael",
+    lastName: "Rodriguez",
+    email: "m.rodriguez@techstart.io",
+    phone: "+1 (555) 234-5678",
+    company: "TechStart Inc",
+    role: "CEO",
+    status: "active",
+    createdAt: "2024-01-20T09:15:00Z",
+    lastContactedAt: "2024-01-28T11:45:00Z",
+  },
+  {
+    id: "c3",
+    firstName: "Emily",
+    lastName: "Watson",
+    email: "emily.watson@globex.net",
+    phone: "+1 (555) 345-6789",
+    company: "Globex Industries",
+    role: "Product Manager",
+    status: "lead",
+    createdAt: "2024-01-25T16:00:00Z",
+    lastContactedAt: "2024-01-25T16:00:00Z",
+  },
+  {
+    id: "c4",
+    firstName: "James",
+    lastName: "Park",
+    email: "jpark@innovate.co",
+    phone: "+1 (555) 456-7890",
+    company: "Innovate Co",
+    role: "CTO",
+    status: "active",
+    createdAt: "2024-01-10T08:00:00Z",
+    lastContactedAt: "2024-02-02T09:30:00Z",
+  },
+  {
+    id: "c5",
+    firstName: "Lisa",
+    lastName: "Thompson",
+    email: "lisa.t@enterprise.com",
+    phone: "+1 (555) 567-8901",
+    company: "Enterprise Solutions",
+    role: "Director of Operations",
+    status: "inactive",
+    createdAt: "2023-11-05T12:00:00Z",
+    lastContactedAt: "2024-01-05T10:00:00Z",
+  },
+  {
+    id: "c6",
+    firstName: "David",
+    lastName: "Kim",
+    email: "david.kim@startup.io",
+    phone: "+1 (555) 678-9012",
+    company: "Startup Labs",
+    role: "Founder",
+    status: "lead",
+    createdAt: "2024-02-01T14:30:00Z",
+    lastContactedAt: "2024-02-01T14:30:00Z",
+  },
+  {
+    id: "c7",
+    firstName: "Amanda",
+    lastName: "Foster",
+    email: "afoster@bigcorp.com",
+    phone: "+1 (555) 789-0123",
+    company: "BigCorp International",
+    role: "Head of Partnerships",
+    status: "active",
+    createdAt: "2024-01-08T11:00:00Z",
+    lastContactedAt: "2024-01-30T15:45:00Z",
+  },
+  {
+    id: "c8",
+    firstName: "Robert",
+    lastName: "Martinez",
+    email: "rmartinez@cloudtech.io",
+    phone: "+1 (555) 890-1234",
+    company: "CloudTech Solutions",
+    role: "Engineering Lead",
+    status: "active",
+    createdAt: "2024-01-12T09:30:00Z",
+    lastContactedAt: "2024-02-03T08:15:00Z",
+  },
+]
+
+export function getContactById(id: string): Contact | undefined {
+  return contacts.find((c) => c.id === id)
+}
+
+export function getContactsByStatus(status: Contact["status"]): Contact[] {
+  return contacts.filter((c) => c.status === status)
+}

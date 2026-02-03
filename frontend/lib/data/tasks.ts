@@ -1,0 +1,130 @@
+import type { Task } from "@/types"
+
+export const tasks: Task[] = [
+  {
+    id: "t1",
+    title: "Review enterprise license agreement",
+    description: "Go through the terms and conditions for Acme Corp's enterprise license",
+    status: "in_progress",
+    priority: "high",
+    assignee: "Alex Johnson",
+    dueDate: "2024-02-05",
+    createdAt: "2024-01-29T10:00:00Z",
+    updatedAt: "2024-02-01T14:00:00Z",
+    tags: ["legal", "enterprise"],
+  },
+  {
+    id: "t2",
+    title: "Schedule demo with TechStart",
+    description: "Coordinate with Michael Rodriguez for product demo",
+    status: "todo",
+    priority: "medium",
+    assignee: "Sarah Miller",
+    dueDate: "2024-02-07",
+    createdAt: "2024-02-01T09:00:00Z",
+    updatedAt: "2024-02-01T09:00:00Z",
+    tags: ["demo", "sales"],
+  },
+  {
+    id: "t3",
+    title: "Prepare quarterly report",
+    description: "Compile Q4 sales data and create presentation",
+    status: "backlog",
+    priority: "low",
+    createdAt: "2024-01-25T11:00:00Z",
+    updatedAt: "2024-01-25T11:00:00Z",
+    tags: ["reporting"],
+  },
+  {
+    id: "t4",
+    title: "Follow up with Globex Industries",
+    description: "Send product information and pricing to Emily Watson",
+    status: "todo",
+    priority: "high",
+    assignee: "Alex Johnson",
+    dueDate: "2024-02-03",
+    createdAt: "2024-01-26T15:00:00Z",
+    updatedAt: "2024-01-30T10:00:00Z",
+    tags: ["follow-up", "sales"],
+  },
+  {
+    id: "t5",
+    title: "Update CRM integration docs",
+    description: "Document the new API endpoints for CRM integration",
+    status: "done",
+    priority: "medium",
+    assignee: "Chris Davis",
+    createdAt: "2024-01-20T08:00:00Z",
+    updatedAt: "2024-01-28T16:00:00Z",
+    tags: ["documentation", "technical"],
+  },
+  {
+    id: "t6",
+    title: "Send contract to Innovate Co",
+    description: "Finalize and send renewal contract to James Park",
+    status: "done",
+    priority: "high",
+    assignee: "Sarah Miller",
+    createdAt: "2024-01-18T14:00:00Z",
+    updatedAt: "2024-01-22T11:00:00Z",
+    tags: ["contract", "renewal"],
+  },
+  {
+    id: "t7",
+    title: "Technical assessment for BigCorp",
+    description: "Evaluate custom development requirements for Amanda Foster",
+    status: "in_progress",
+    priority: "high",
+    assignee: "Chris Davis",
+    dueDate: "2024-02-08",
+    createdAt: "2024-01-21T09:00:00Z",
+    updatedAt: "2024-02-02T10:00:00Z",
+    tags: ["technical", "assessment"],
+  },
+  {
+    id: "t8",
+    title: "Update pricing documentation",
+    description: "Review and update public pricing pages",
+    status: "backlog",
+    priority: "low",
+    createdAt: "2024-01-15T10:00:00Z",
+    updatedAt: "2024-01-15T10:00:00Z",
+    tags: ["documentation", "pricing"],
+  },
+  {
+    id: "t9",
+    title: "Onboard CloudTech Solutions",
+    description: "Set up account and schedule kickoff call with Robert Martinez",
+    status: "todo",
+    priority: "medium",
+    assignee: "Alex Johnson",
+    dueDate: "2024-02-10",
+    createdAt: "2024-01-26T11:00:00Z",
+    updatedAt: "2024-01-26T11:00:00Z",
+    tags: ["onboarding"],
+  },
+  {
+    id: "t10",
+    title: "Review support ticket escalations",
+    description: "Check priority support tickets from this week",
+    status: "todo",
+    priority: "urgent",
+    assignee: "Chris Davis",
+    dueDate: "2024-02-04",
+    createdAt: "2024-02-03T08:00:00Z",
+    updatedAt: "2024-02-03T08:00:00Z",
+    tags: ["support", "urgent"],
+  },
+]
+
+export function getTaskById(id: string): Task | undefined {
+  return tasks.find((t) => t.id === id)
+}
+
+export function getTasksByStatus(status: Task["status"]): Task[] {
+  return tasks.filter((t) => t.status === status)
+}
+
+export function getTasksByAssignee(assignee: string): Task[] {
+  return tasks.filter((t) => t.assignee === assignee)
+}
