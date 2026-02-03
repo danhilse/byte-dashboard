@@ -1,0 +1,106 @@
+.
+├── -I
+├── -L
+├── 4
+└── frontend
+    ├── app
+    │   ├── (dashboard)
+    │   │   ├── applications
+    │   │   │   ├── [id]
+    │   │   │   │   └── page.tsx
+    │   │   │   └── page.tsx
+    │   │   ├── dashboard
+    │   │   │   └── page.tsx
+    │   │   ├── layout.tsx
+    │   │   ├── page.tsx
+    │   │   ├── people
+    │   │   │   ├── [id]
+    │   │   │   │   └── page.tsx
+    │   │   │   └── page.tsx
+    │   │   ├── settings
+    │   │   │   ├── organization
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── page.tsx
+    │   │   │   ├── profile
+    │   │   │   │   └── page.tsx
+    │   │   │   └── team
+    │   │   │       └── page.tsx
+    │   │   └── tasks
+    │   │       ├── page.tsx
+    │   │       └── tasks-content.tsx
+    │   ├── favicon.ico
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   └── page.tsx
+    ├── components
+    │   ├── dashboard
+    │   │   ├── recent-activity.tsx
+    │   │   └── stat-card.tsx
+    │   ├── data-table
+    │   │   ├── columns
+    │   │   │   ├── application-columns.tsx
+    │   │   │   ├── contact-columns.tsx
+    │   │   │   └── task-columns.tsx
+    │   │   ├── data-table-pagination.tsx
+    │   │   ├── data-table-toolbar.tsx
+    │   │   └── data-table.tsx
+    │   ├── detail
+    │   │   ├── activity-feed.tsx
+    │   │   ├── detail-header.tsx
+    │   │   └── notes-section.tsx
+    │   ├── kanban
+    │   │   ├── kanban-board.tsx
+    │   │   ├── kanban-card.tsx
+    │   │   └── kanban-column.tsx
+    │   ├── layout
+    │   │   ├── app-sidebar.tsx
+    │   │   └── page-header.tsx
+    │   ├── theme-provider.tsx
+    │   ├── theme-toggle.tsx
+    │   └── ui
+    │       ├── avatar.tsx
+    │       ├── badge.tsx
+    │       ├── breadcrumb.tsx
+    │       ├── button.tsx
+    │       ├── card.tsx
+    │       ├── checkbox.tsx
+    │       ├── command.tsx
+    │       ├── dialog.tsx
+    │       ├── dropdown-menu.tsx
+    │       ├── input.tsx
+    │       ├── label.tsx
+    │       ├── popover.tsx
+    │       ├── select.tsx
+    │       ├── separator.tsx
+    │       ├── sheet.tsx
+    │       ├── sidebar.tsx
+    │       ├── skeleton.tsx
+    │       ├── switch.tsx
+    │       ├── table.tsx
+    │       ├── tabs.tsx
+    │       ├── textarea.tsx
+    │       └── tooltip.tsx
+    ├── components.json
+    ├── eslint.config.mjs
+    ├── hooks
+    │   └── use-mobile.ts
+    ├── lib
+    │   ├── data
+    │   │   ├── activity.ts
+    │   │   ├── applications.ts
+    │   │   ├── contacts.ts
+    │   │   └── tasks.ts
+    │   └── utils.ts
+    ├── next-env.d.ts
+    ├── next.config.ts
+    ├── package.json
+    ├── pnpm-lock.yaml
+    ├── pnpm-workspace.yaml
+    ├── postcss.config.mjs
+    ├── README.md
+    ├── tsconfig.json
+    ├── tsconfig.tsbuildinfo
+    └── types
+        └── index.ts
+
+26 directories, 78 files

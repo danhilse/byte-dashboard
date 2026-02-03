@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronUp,
 } from "lucide-react"
+import { useUser, useClerk } from "@clerk/nextjs"
 
 import {
   Sidebar,
@@ -32,7 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navItems = [
   {
@@ -59,6 +60,15 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { user } = useUser()
+  const { signOut } = useClerk()
+
+  const userInitials = user?.firstName && user?.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`
+    : user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ?? "U"
+
+  const userName = user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? "User"
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? ""
 
   return (
     <Sidebar collapsible="icon">
@@ -134,11 +144,12 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="size-8">
-                    <AvatarFallback className="bg-primary/10 text-primary">AJ</AvatarFallback>
+                    <AvatarImage src={user?.imageUrl} alt={userName} />
+                    <AvatarFallback className="bg-primary/10 text-primary">{userInitials}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Alex Johnson</span>
-                    <span className="truncate text-xs text-muted-foreground">alex@byte.com</span>
+                    <span className="truncate font-semibold">{userName}</span>
+                    <span className="truncate text-xs text-muted-foreground">{userEmail}</span>
                   </div>
                   <ChevronUp className="ml-auto size-4" />
                 </SidebarMenuButton>
@@ -156,7 +167,7 @@ export function AppSidebar() {
                   <Link href="/settings/team">Team</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}>
                   <LogOut className="mr-2 size-4" />
                   Sign out
                 </DropdownMenuItem>
