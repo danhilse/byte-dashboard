@@ -8,6 +8,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 interface BreadcrumbItem {
   label: string
@@ -43,7 +44,10 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
           })}
         </BreadcrumbList>
       </Breadcrumb>
-      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+      <div className="ml-auto flex items-center gap-2">
+        {actions}
+        <ThemeToggle />
+      </div>
     </header>
   )
 }
