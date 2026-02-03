@@ -32,7 +32,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
             const colorClass = activityColors[activity.type]
 
             return (
-              <div key={activity.id} className="flex items-start gap-4">
+              <div key={activity.id} className="flex items-start gap-4 activity-item-optimized">
                 <Avatar className="size-9">
                   <AvatarFallback className="text-xs">
                     {getInitials(activity.userName)}

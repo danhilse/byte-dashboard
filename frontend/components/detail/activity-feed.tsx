@@ -41,7 +41,7 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
             const isLast = index === activities.length - 1
 
             return (
-              <div key={activity.id} className="flex gap-4">
+              <div key={activity.id} className="flex gap-4 activity-item-optimized">
                 <div className="relative flex flex-col items-center">
                   <div className="flex size-8 items-center justify-center rounded-full bg-muted">
                     <Icon className="size-4" />

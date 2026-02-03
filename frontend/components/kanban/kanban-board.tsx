@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -45,54 +45,64 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
     })
   )
 
-  const getTasksByStatus = (status: TaskStatus) => {
-    return tasks.filter((task) => task.status === status)
-  }
+  // Memoize tasks grouped by status - computed once per tasks change instead of 4x per render
+  const tasksByStatus = useMemo(() => {
+    return columns.reduce(
+      (acc, col) => {
+        acc[col.id] = tasks.filter((task) => task.status === col.id)
+        return acc
+      },
+      {} as Record<TaskStatus, Task[]>
+    )
+  }, [tasks])
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event
-    const task = tasks.find((t) => t.id === active.id)
-    if (task) {
-      setActiveTask(task)
-    }
-  }
+    setTasks((currentTasks) => {
+      const task = currentTasks.find((t) => t.id === active.id)
+      if (task) {
+        setActiveTask(task)
+      }
+      return currentTasks
+    })
+  }, [])
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
 
     const activeId = active.id as string
     const overId = over.id as string
 
-    const activeTask = tasks.find((t) => t.id === activeId)
-    if (!activeTask) return
-
     // Check if we're over a column
     const isOverColumn = columns.some((col) => col.id === overId)
-    if (isOverColumn) {
-      const newStatus = overId as TaskStatus
-      if (activeTask.status !== newStatus) {
-        setTasks((prev) =>
-          prev.map((t) =>
+
+    setTasks((prev) => {
+      const activeTask = prev.find((t) => t.id === activeId)
+      if (!activeTask) return prev
+
+      if (isOverColumn) {
+        const newStatus = overId as TaskStatus
+        if (activeTask.status !== newStatus) {
+          return prev.map((t) =>
             t.id === activeId ? { ...t, status: newStatus } : t
           )
-        )
+        }
+        return prev
       }
-      return
-    }
 
-    // Check if we're over another task
-    const overTask = tasks.find((t) => t.id === overId)
-    if (overTask && activeTask.status !== overTask.status) {
-      setTasks((prev) =>
-        prev.map((t) =>
+      // Check if we're over another task
+      const overTask = prev.find((t) => t.id === overId)
+      if (overTask && activeTask.status !== overTask.status) {
+        return prev.map((t) =>
           t.id === activeId ? { ...t, status: overTask.status } : t
         )
-      )
-    }
-  }
+      }
+      return prev
+    })
+  }, [])
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
     setActiveTask(null)
 
@@ -103,24 +113,27 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
 
     if (activeId === overId) return
 
-    const activeTask = tasks.find((t) => t.id === activeId)
-    const overTask = tasks.find((t) => t.id === overId)
+    setTasks((prev) => {
+      const activeTask = prev.find((t) => t.id === activeId)
+      const overTask = prev.find((t) => t.id === overId)
 
-    if (!activeTask) return
+      if (!activeTask) return prev
 
-    // If dropping on a task in the same column, reorder
-    if (overTask && activeTask.status === overTask.status) {
-      const columnTasks = getTasksByStatus(activeTask.status)
-      const oldIndex = columnTasks.findIndex((t) => t.id === activeId)
-      const newIndex = columnTasks.findIndex((t) => t.id === overId)
+      // If dropping on a task in the same column, reorder
+      if (overTask && activeTask.status === overTask.status) {
+        const columnTasks = prev.filter((t) => t.status === activeTask.status)
+        const oldIndex = columnTasks.findIndex((t) => t.id === activeId)
+        const newIndex = columnTasks.findIndex((t) => t.id === overId)
 
-      if (oldIndex !== newIndex) {
-        const newColumnTasks = arrayMove(columnTasks, oldIndex, newIndex)
-        const otherTasks = tasks.filter((t) => t.status !== activeTask.status)
-        setTasks([...otherTasks, ...newColumnTasks])
+        if (oldIndex !== newIndex) {
+          const newColumnTasks = arrayMove(columnTasks, oldIndex, newIndex)
+          const otherTasks = prev.filter((t) => t.status !== activeTask.status)
+          return [...otherTasks, ...newColumnTasks]
+        }
       }
-    }
-  }
+      return prev
+    })
+  }, [])
 
   return (
     <DndContext
@@ -136,7 +149,7 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
             key={column.id}
             id={column.id}
             title={column.title}
-            tasks={getTasksByStatus(column.id)}
+            tasks={tasksByStatus[column.id]}
           />
         ))}
       </div>

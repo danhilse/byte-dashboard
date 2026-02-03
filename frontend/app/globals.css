@@ -195,3 +195,35 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Performance: content-visibility for off-screen optimization */
+@layer utilities {
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 100px;
+  }
+
+  /* Kanban card optimization - cards below the fold render lazily */
+  .kanban-card-optimized:nth-child(n + 8) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
+
+  /* Grid card optimization for large lists */
+  .grid-card-optimized:nth-child(n + 12) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 160px;
+  }
+
+  /* Activity feed optimization */
+  .activity-item-optimized:nth-child(n + 6) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 60px;
+  }
+
+  /* Data table row optimization */
+  .table-row-optimized:nth-child(n + 20) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 52px;
+  }
+}

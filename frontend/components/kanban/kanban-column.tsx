@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { useDroppable } from "@dnd-kit/core"
 import {
   SortableContext,
@@ -24,7 +25,7 @@ const columnColors: Record<TaskStatus, string> = {
   done: "border-t-green-500",
 }
 
-export function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
+export const KanbanColumn = memo(function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
   return (
@@ -46,7 +47,7 @@ export function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <KanbanCard key={task.id} task={task} />
+            <KanbanCard key={task.id} task={task} className="kanban-card-optimized" />
           ))}
         </SortableContext>
         {tasks.length === 0 && (
@@ -57,4 +58,4 @@ export function KanbanColumn({ id, title, tasks }: KanbanColumnProps) {
       </CardContent>
     </Card>
   )
-}
+})

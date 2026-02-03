@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { trendColors } from "@/lib/design-tokens"
 import { type LucideIcon } from "lucide-react"
@@ -13,7 +14,7 @@ interface StatCardProps {
   }
 }
 
-export function StatCard({ title, value, description, icon: Icon, trend }: StatCardProps) {
+export const StatCard = memo(function StatCard({ title, value, description, icon: Icon, trend }: StatCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -36,4 +37,4 @@ export function StatCard({ title, value, description, icon: Icon, trend }: StatC
       </CardContent>
     </Card>
   )
-}
+})

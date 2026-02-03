@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, Calendar, User } from "lucide-react"
@@ -8,13 +9,15 @@ import { format } from "date-fns"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { priorityColors } from "@/lib/design-tokens"
+import { cn } from "@/lib/utils"
 import type { Task } from "@/types"
 
 interface KanbanCardProps {
   task: Task
+  className?: string
 }
 
-export function KanbanCard({ task }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({ task, className }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -34,7 +37,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
     <Card
       ref={setNodeRef}
       style={style}
-      className="cursor-grab active:cursor-grabbing"
+      className={cn("cursor-grab active:cursor-grabbing", className)}
     >
       <CardHeader className="p-3 pb-0">
         <div className="flex items-start gap-2">
@@ -88,4 +91,4 @@ export function KanbanCard({ task }: KanbanCardProps) {
       </CardContent>
     </Card>
   )
-}
+})
