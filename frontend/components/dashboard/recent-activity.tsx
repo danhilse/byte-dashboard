@@ -2,6 +2,8 @@ import { formatDistanceToNow } from "date-fns"
 import { UserPlus, FileText, CheckCircle2, MessageSquare, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { activityColors } from "@/lib/design-tokens"
+import { getInitials } from "@/lib/utils"
 import type { Activity } from "@/types"
 
 const activityIcons = {
@@ -10,14 +12,6 @@ const activityIcons = {
   task_completed: CheckCircle2,
   note_added: MessageSquare,
   status_changed: RefreshCw,
-}
-
-const activityColors = {
-  contact_created: "text-blue-600 dark:text-blue-400",
-  application_submitted: "text-purple-600 dark:text-purple-400",
-  task_completed: "text-green-600 dark:text-green-400",
-  note_added: "text-yellow-600 dark:text-yellow-400",
-  status_changed: "text-orange-600 dark:text-orange-400",
 }
 
 interface RecentActivityProps {
@@ -36,16 +30,13 @@ export function RecentActivity({ activities }: RecentActivityProps) {
           {activities.map((activity) => {
             const Icon = activityIcons[activity.type]
             const colorClass = activityColors[activity.type]
-            const initials = activity.userName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
 
             return (
               <div key={activity.id} className="flex items-start gap-4">
                 <Avatar className="size-9">
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                  <AvatarFallback className="text-xs">
+                    {getInitials(activity.userName)}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 space-y-1">
                   <p className="text-sm">

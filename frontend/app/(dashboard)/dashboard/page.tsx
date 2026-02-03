@@ -1,8 +1,12 @@
 import { Users, FileText, CheckSquare, TrendingUp } from "lucide-react"
+import Link from "next/link"
 import { PageHeader } from "@/components/layout/page-header"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { dashboardStats, getRecentActivities } from "@/lib/data/activity"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { UserPlus, FileUp, ListTodo } from "lucide-react"
 
 export default function DashboardPage() {
   const recentActivities = getRecentActivities(6)
@@ -53,11 +57,6 @@ export default function DashboardPage() {
   )
 }
 
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Plus, UserPlus, FileUp, ListTodo } from "lucide-react"
-
 function QuickActions() {
   return (
     <Card>
@@ -73,15 +72,15 @@ function QuickActions() {
           </Link>
         </Button>
         <Button variant="outline" className="justify-start" asChild>
-          <Link href="/applications">
+          <Link href="/my-work">
             <FileUp className="mr-2 size-4" />
-            Create Application
+            View My Work
           </Link>
         </Button>
         <Button variant="outline" className="justify-start" asChild>
-          <Link href="/tasks">
+          <Link href="/calendar">
             <ListTodo className="mr-2 size-4" />
-            View Tasks Board
+            Check Calendar
           </Link>
         </Button>
       </CardContent>

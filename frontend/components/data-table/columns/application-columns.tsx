@@ -15,30 +15,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common"
+import { formatCurrency } from "@/lib/utils"
+import { applicationStatusOptions } from "@/lib/status-config"
 import type { Application } from "@/types"
 
-const statusVariants: Record<Application["status"], "default" | "secondary" | "outline" | "destructive"> = {
-  draft: "outline",
-  submitted: "secondary",
-  under_review: "default",
-  approved: "default",
-  rejected: "destructive",
-}
-
-const statusLabels: Record<Application["status"], string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  under_review: "Under Review",
-  approved: "Approved",
-  rejected: "Rejected",
-}
-
-const priorityVariants: Record<Application["priority"], "default" | "secondary" | "outline" | "destructive"> = {
-  low: "outline",
-  medium: "secondary",
-  high: "destructive",
-}
+export { applicationStatusOptions }
 
 export const applicationColumns: ColumnDef<Application>[] = [
   {
@@ -86,11 +68,7 @@ export const applicationColumns: ColumnDef<Application>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as Application["status"]
-      return (
-        <Badge variant={statusVariants[status]}>
-          {statusLabels[status]}
-        </Badge>
-      )
+      return <ApplicationStatusBadge status={status} />
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -101,11 +79,7 @@ export const applicationColumns: ColumnDef<Application>[] = [
     header: "Priority",
     cell: ({ row }) => {
       const priority = row.getValue("priority") as Application["priority"]
-      return (
-        <Badge variant={priorityVariants[priority]}>
-          {priority.charAt(0).toUpperCase() + priority.slice(1)}
-        </Badge>
-      )
+      return <ApplicationPriorityBadge priority={priority} />
     },
   },
   {
@@ -123,12 +97,7 @@ export const applicationColumns: ColumnDef<Application>[] = [
     },
     cell: ({ row }) => {
       const value = row.getValue("value") as number
-      const formatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-      }).format(value)
-      return <span className="font-medium">{formatted}</span>
+      return <span className="font-medium">{formatCurrency(value)}</span>
     },
   },
   {
@@ -167,10 +136,3 @@ export const applicationColumns: ColumnDef<Application>[] = [
   },
 ]
 
-export const applicationStatusOptions = [
-  { label: "Draft", value: "draft" },
-  { label: "Submitted", value: "submitted" },
-  { label: "Under Review", value: "under_review" },
-  { label: "Approved", value: "approved" },
-  { label: "Rejected", value: "rejected" },
-]

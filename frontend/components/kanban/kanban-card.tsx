@@ -7,17 +7,11 @@ import { format } from "date-fns"
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { priorityColors } from "@/lib/design-tokens"
 import type { Task } from "@/types"
 
 interface KanbanCardProps {
   task: Task
-}
-
-const priorityColors: Record<Task["priority"], string> = {
-  low: "bg-slate-500",
-  medium: "bg-blue-500",
-  high: "bg-orange-500",
-  urgent: "bg-red-500",
 }
 
 export function KanbanCard({ task }: KanbanCardProps) {
@@ -54,7 +48,7 @@ export function KanbanCard({ task }: KanbanCardProps) {
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-medium leading-tight">{task.title}</p>
-              <div className={`size-2 rounded-full ${priorityColors[task.priority]}`} />
+              <div className={`size-2 rounded-full ${priorityColors.background[task.priority]}`} />
             </div>
           </div>
         </div>

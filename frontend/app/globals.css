@@ -44,6 +44,23 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* Semantic color mappings */
+  --color-priority-low: var(--priority-low);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-high: var(--priority-high);
+  --color-priority-urgent: var(--priority-urgent);
+  --color-status-info: var(--status-info);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-activity-contact: var(--activity-contact);
+  --color-activity-application: var(--activity-application);
+  --color-activity-task: var(--activity-task);
+  --color-activity-note: var(--activity-note);
+  --color-activity-status: var(--activity-status);
+  --color-trend-positive: var(--trend-positive);
+  --color-trend-negative: var(--trend-negative);
 }
 
 :root {
@@ -79,6 +96,29 @@
   --sidebar-ring: oklch(0.708 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
+  /* Semantic: Priority levels */
+  --priority-low: oklch(0.55 0.03 264);
+  --priority-medium: oklch(0.55 0.2 250);
+  --priority-high: oklch(0.65 0.18 50);
+  --priority-urgent: oklch(0.55 0.22 25);
+
+  /* Semantic: Status indicators */
+  --status-info: oklch(0.55 0.2 250);
+  --status-success: oklch(0.55 0.17 145);
+  --status-warning: oklch(0.75 0.15 85);
+  --status-error: oklch(0.55 0.22 25);
+
+  /* Semantic: Activity types */
+  --activity-contact: oklch(0.55 0.2 250);
+  --activity-application: oklch(0.55 0.2 300);
+  --activity-task: oklch(0.55 0.17 145);
+  --activity-note: oklch(0.75 0.15 85);
+  --activity-status: oklch(0.65 0.18 50);
+
+  /* Semantic: Trend indicators */
+  --trend-positive: oklch(0.55 0.17 145);
+  --trend-negative: oklch(0.55 0.22 25);
 }
 
 .dark {
@@ -113,6 +153,29 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Semantic: Priority levels */
+  --priority-low: oklch(0.65 0.03 264);
+  --priority-medium: oklch(0.65 0.2 250);
+  --priority-high: oklch(0.75 0.18 50);
+  --priority-urgent: oklch(0.65 0.22 25);
+
+  /* Semantic: Status indicators */
+  --status-info: oklch(0.65 0.2 250);
+  --status-success: oklch(0.65 0.17 145);
+  --status-warning: oklch(0.8 0.15 85);
+  --status-error: oklch(0.65 0.22 25);
+
+  /* Semantic: Activity types */
+  --activity-contact: oklch(0.65 0.2 250);
+  --activity-application: oklch(0.65 0.2 300);
+  --activity-task: oklch(0.65 0.17 145);
+  --activity-note: oklch(0.8 0.15 85);
+  --activity-status: oklch(0.75 0.18 50);
+
+  /* Semantic: Trend indicators */
+  --trend-positive: oklch(0.65 0.17 145);
+  --trend-negative: oklch(0.65 0.22 25);
 }
 
 @layer base {

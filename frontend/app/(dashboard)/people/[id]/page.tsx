@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
 import { ActivityFeed } from "@/components/detail/activity-feed"
 import { NotesSection } from "@/components/detail/notes-section"
+import { InfoField } from "@/components/common"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,15 +15,12 @@ import { Badge } from "@/components/ui/badge"
 import { getContactById } from "@/lib/data/contacts"
 import { getApplicationsByContact } from "@/lib/data/applications"
 import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
+import { contactStatusConfig } from "@/lib/status-config"
+import { getInitials, formatCurrency } from "@/lib/utils"
+import type { ContactStatus } from "@/types"
 
 interface ContactDetailPageProps {
   params: Promise<{ id: string }>
-}
-
-const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
-  active: "default",
-  inactive: "secondary",
-  lead: "outline",
 }
 
 export default async function ContactDetailPage({ params }: ContactDetailPageProps) {
@@ -36,24 +34,25 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
   const applications = getApplicationsByContact(id)
   const activities = getActivitiesByEntity("contact", id)
   const notes = getNotesByEntity("contact", id)
-  const initials = `${contact.firstName[0]}${contact.lastName[0]}`
+  const fullName = `${contact.firstName} ${contact.lastName}`
+  const statusConfig = contactStatusConfig[contact.status as ContactStatus]
 
   return (
     <>
       <PageHeader
         breadcrumbs={[
           { label: "People", href: "/people" },
-          { label: `${contact.firstName} ${contact.lastName}` },
+          { label: fullName },
         ]}
       />
       <div className="flex flex-1 flex-col gap-6 p-4">
         <DetailHeader
-          title={`${contact.firstName} ${contact.lastName}`}
+          title={fullName}
           subtitle={`${contact.role} at ${contact.company}`}
-          avatarText={initials}
+          avatarText={getInitials(fullName)}
           badge={{
-            label: contact.status.charAt(0).toUpperCase() + contact.status.slice(1),
-            variant: statusVariants[contact.status],
+            label: statusConfig.label,
+            variant: statusConfig.variant,
           }}
           actions={
             <Button>
@@ -77,45 +76,20 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
                   <CardTitle>Contact Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Mail className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Email</p>
-                      <a href={`mailto:${contact.email}`} className="text-sm text-muted-foreground hover:underline">
-                        {contact.email}
-                      </a>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Phone className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Phone</p>
-                      <p className="text-sm text-muted-foreground">{contact.phone}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Building className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Company</p>
-                      <p className="text-sm text-muted-foreground">{contact.company}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Role</p>
-                      <p className="text-sm text-muted-foreground">{contact.role}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Added</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(contact.createdAt), "MMMM d, yyyy")}
-                      </p>
-                    </div>
-                  </div>
+                  <InfoField
+                    icon={Mail}
+                    label="Email"
+                    value={contact.email}
+                    href={`mailto:${contact.email}`}
+                  />
+                  <InfoField icon={Phone} label="Phone" value={contact.phone} />
+                  <InfoField icon={Building} label="Company" value={contact.company} />
+                  <InfoField icon={Briefcase} label="Role" value={contact.role} />
+                  <InfoField
+                    icon={Calendar}
+                    label="Added"
+                    value={format(new Date(contact.createdAt), "MMMM d, yyyy")}
+                  />
                 </CardContent>
               </Card>
 
@@ -141,11 +115,7 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
                             </Badge>
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {new Intl.NumberFormat("en-US", {
-                              style: "currency",
-                              currency: "USD",
-                              minimumFractionDigits: 0,
-                            }).format(app.value)}
+                            {formatCurrency(app.value)}
                           </p>
                         </Link>
                       ))}

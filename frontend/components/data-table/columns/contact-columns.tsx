@@ -14,15 +14,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ContactStatusBadge } from "@/components/common"
+import { getInitials } from "@/lib/utils"
+import { contactStatusOptions } from "@/lib/status-config"
 import type { Contact } from "@/types"
 
-const statusVariants: Record<Contact["status"], "default" | "secondary" | "outline"> = {
-  active: "default",
-  inactive: "secondary",
-  lead: "outline",
-}
+export { contactStatusOptions }
 
 export const contactColumns: ColumnDef<Contact>[] = [
   {
@@ -52,11 +50,12 @@ export const contactColumns: ColumnDef<Contact>[] = [
     header: "Name",
     cell: ({ row }) => {
       const contact = row.original
-      const initials = `${contact.firstName[0]}${contact.lastName[0]}`
       return (
         <div className="flex items-center gap-3">
           <Avatar className="size-8">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            <AvatarFallback className="text-xs">
+              {getInitials(`${contact.firstName} ${contact.lastName}`)}
+            </AvatarFallback>
           </Avatar>
           <div>
             <Link
@@ -99,11 +98,7 @@ export const contactColumns: ColumnDef<Contact>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as Contact["status"]
-      return (
-        <Badge variant={statusVariants[status]}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </Badge>
-      )
+      return <ContactStatusBadge status={status} />
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -145,8 +140,3 @@ export const contactColumns: ColumnDef<Contact>[] = [
   },
 ]
 
-export const contactStatusOptions = [
-  { label: "Active", value: "active" },
-  { label: "Inactive", value: "inactive" },
-  { label: "Lead", value: "lead" },
-]

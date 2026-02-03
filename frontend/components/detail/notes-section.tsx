@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus } from "lucide-react"
+import { getInitials } from "@/lib/utils"
 import type { Note } from "@/types"
 import { useState } from "react"
 
@@ -40,32 +41,26 @@ export function NotesSection({ notes }: NotesSectionProps) {
         {notes.length === 0 && !isAdding ? (
           <p className="text-sm text-muted-foreground">No notes yet.</p>
         ) : (
-          notes.map((note) => {
-            const initials = note.userName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-
-            return (
-              <div key={note.id} className="flex gap-3 rounded-lg border p-3">
-                <Avatar className="size-8">
-                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{note.userName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
-                    {note.content}
-                  </p>
+          notes.map((note) => (
+            <div key={note.id} className="flex gap-3 rounded-lg border p-3">
+              <Avatar className="size-8">
+                <AvatarFallback className="text-xs">
+                  {getInitials(note.userName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{note.userName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(note.createdAt), { addSuffix: true })}
+                  </span>
                 </div>
+                <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                  {note.content}
+                </p>
               </div>
-            )
-          })
+            </div>
+          ))
         )}
       </CardContent>
     </Card>

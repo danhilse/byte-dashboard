@@ -4,9 +4,13 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
+  Briefcase,
+  Calendar,
   Users,
-  FileText,
-  CheckSquare,
+  HelpCircle,
+  GitBranch,
+  Workflow,
+  FileEdit,
   Settings,
   LogOut,
   ChevronUp,
@@ -35,11 +39,28 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-const navItems = [
+// TODO: Replace with actual admin check from your auth system
+function useIsAdmin() {
+  // Placeholder - implement based on your role system
+  // e.g., check user metadata, organization role, etc.
+  return true
+}
+
+const primaryNavItems = [
   {
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "My Work",
+    href: "/my-work",
+    icon: Briefcase,
+  },
+  {
+    title: "Calendar",
+    href: "/calendar",
+    icon: Calendar,
   },
   {
     title: "People",
@@ -47,14 +68,32 @@ const navItems = [
     icon: Users,
   },
   {
-    title: "Applications",
-    href: "/applications",
-    icon: FileText,
+    title: "Support",
+    href: "/support",
+    icon: HelpCircle,
+  },
+]
+
+const adminNavItems = [
+  {
+    title: "Workflow Blueprints",
+    href: "/workflow-blueprints",
+    icon: GitBranch,
   },
   {
-    title: "Tasks",
-    href: "/tasks",
-    icon: CheckSquare,
+    title: "Workflow Builder",
+    href: "/workflow-builder",
+    icon: Workflow,
+  },
+  {
+    title: "Form Builder",
+    href: "/admin/forms",
+    icon: FileEdit,
+  },
+  {
+    title: "Settings",
+    href: "/settings",
+    icon: Settings,
   },
 ]
 
@@ -62,6 +101,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { user } = useUser()
   const { signOut } = useClerk()
+  const isAdmin = useIsAdmin()
 
   const userInitials = user?.firstName && user?.lastName
     ? `${user.firstName[0]}${user.lastName[0]}`
@@ -69,6 +109,10 @@ export function AppSidebar() {
 
   const userName = user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? "User"
   const userEmail = user?.emailAddresses?.[0]?.emailAddress ?? ""
+
+  const isActiveRoute = (href: string) => {
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -92,14 +136,14 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Primary</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {primaryNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+                    isActive={isActiveRoute(item.href)}
                     tooltip={item.title}
                   >
                     <Link href={item.href}>
@@ -113,25 +157,29 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Settings</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith("/settings")}
-                  tooltip="Settings"
-                >
-                  <Link href="/settings">
-                    <Settings />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminNavItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActiveRoute(item.href)}
+                      tooltip={item.title}
+                    >
+                      <Link href={item.href}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
@@ -161,10 +209,10 @@ export function AppSidebar() {
                 sideOffset={4}
               >
                 <DropdownMenuItem asChild>
-                  <Link href="/settings/profile">Profile Settings</Link>
+                  <Link href="/settings/general">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings/team">Team</Link>
+                  <Link href="/settings/notifications">Notifications</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}>

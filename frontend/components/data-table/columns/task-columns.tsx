@@ -14,29 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common"
+import { taskStatusOptions } from "@/lib/status-config"
 import type { Task } from "@/types"
 
-const statusVariants: Record<Task["status"], "default" | "secondary" | "outline"> = {
-  backlog: "outline",
-  todo: "secondary",
-  in_progress: "default",
-  done: "default",
-}
-
-const statusLabels: Record<Task["status"], string> = {
-  backlog: "Backlog",
-  todo: "To Do",
-  in_progress: "In Progress",
-  done: "Done",
-}
-
-const priorityVariants: Record<Task["priority"], "default" | "secondary" | "outline" | "destructive"> = {
-  low: "outline",
-  medium: "secondary",
-  high: "default",
-  urgent: "destructive",
-}
+export { taskStatusOptions }
 
 export const taskColumns: ColumnDef<Task>[] = [
   {
@@ -83,11 +65,7 @@ export const taskColumns: ColumnDef<Task>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as Task["status"]
-      return (
-        <Badge variant={statusVariants[status]}>
-          {statusLabels[status]}
-        </Badge>
-      )
+      return <TaskStatusBadge status={status} />
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -108,11 +86,7 @@ export const taskColumns: ColumnDef<Task>[] = [
     },
     cell: ({ row }) => {
       const priority = row.getValue("priority") as Task["priority"]
-      return (
-        <Badge variant={priorityVariants[priority]}>
-          {priority.charAt(0).toUpperCase() + priority.slice(1)}
-        </Badge>
-      )
+      return <TaskPriorityBadge priority={priority} />
     },
   },
   {
@@ -165,9 +139,3 @@ export const taskColumns: ColumnDef<Task>[] = [
   },
 ]
 
-export const taskStatusOptions = [
-  { label: "Backlog", value: "backlog" },
-  { label: "To Do", value: "todo" },
-  { label: "In Progress", value: "in_progress" },
-  { label: "Done", value: "done" },
-]

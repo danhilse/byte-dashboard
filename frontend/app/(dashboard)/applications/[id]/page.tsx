@@ -7,38 +7,19 @@ import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
 import { ActivityFeed } from "@/components/detail/activity-feed"
 import { NotesSection } from "@/components/detail/notes-section"
+import { InfoField, ApplicationPriorityBadge } from "@/components/common"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { getApplicationById } from "@/lib/data/applications"
 import { getContactById } from "@/lib/data/contacts"
 import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
+import { applicationStatusConfig } from "@/lib/status-config"
+import { formatCurrency } from "@/lib/utils"
+import type { ApplicationStatus } from "@/types"
 
 interface ApplicationDetailPageProps {
   params: Promise<{ id: string }>
-}
-
-const statusVariants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  draft: "outline",
-  submitted: "secondary",
-  under_review: "default",
-  approved: "default",
-  rejected: "destructive",
-}
-
-const statusLabels: Record<string, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  under_review: "Under Review",
-  approved: "Approved",
-  rejected: "Rejected",
-}
-
-const priorityVariants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  low: "outline",
-  medium: "secondary",
-  high: "destructive",
 }
 
 export default async function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
@@ -52,6 +33,7 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
   const contact = getContactById(application.contactId)
   const activities = getActivitiesByEntity("application", id)
   const notes = getNotesByEntity("application", id)
+  const statusConfig = applicationStatusConfig[application.status as ApplicationStatus]
 
   return (
     <>
@@ -66,8 +48,8 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
           title={application.title}
           subtitle={`Contact: ${application.contactName}`}
           badge={{
-            label: statusLabels[application.status],
-            variant: statusVariants[application.status],
+            label: statusConfig.label,
+            variant: statusConfig.variant,
           }}
           actions={
             <Button>
@@ -91,46 +73,28 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
                   <CardTitle>Application Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <DollarSign className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Value</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          minimumFractionDigits: 0,
-                        }).format(application.value)}
-                      </p>
-                    </div>
-                  </div>
+                  <InfoField
+                    icon={DollarSign}
+                    label="Value"
+                    value={formatCurrency(application.value)}
+                  />
                   <div className="flex items-center gap-3">
                     <AlertCircle className="size-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium">Priority</p>
-                      <Badge variant={priorityVariants[application.priority]}>
-                        {application.priority.charAt(0).toUpperCase() + application.priority.slice(1)}
-                      </Badge>
+                      <ApplicationPriorityBadge priority={application.priority} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Submitted</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(application.submittedAt), "MMMM d, yyyy")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Last Updated</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(application.updatedAt), "MMMM d, yyyy")}
-                      </p>
-                    </div>
-                  </div>
+                  <InfoField
+                    icon={Calendar}
+                    label="Submitted"
+                    value={format(new Date(application.submittedAt), "MMMM d, yyyy")}
+                  />
+                  <InfoField
+                    icon={Calendar}
+                    label="Last Updated"
+                    value={format(new Date(application.updatedAt), "MMMM d, yyyy")}
+                  />
                   {application.notes && (
                     <div className="pt-2 border-t">
                       <p className="text-sm font-medium mb-1">Internal Notes</p>

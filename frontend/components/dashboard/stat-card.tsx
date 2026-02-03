@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { trendColors } from "@/lib/design-tokens"
 import { type LucideIcon } from "lucide-react"
 
 interface StatCardProps {
@@ -24,7 +25,7 @@ export function StatCard({ title, value, description, icon: Icon, trend }: StatC
         {(description || trend) && (
           <p className="text-xs text-muted-foreground">
             {trend && (
-              <span className={trend.isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+              <span className={trend.isPositive ? trendColors.positive : trendColors.negative}>
                 {trend.isPositive ? "+" : ""}{trend.value}%
               </span>
             )}
