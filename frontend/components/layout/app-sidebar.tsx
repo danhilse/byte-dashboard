@@ -77,12 +77,12 @@ const primaryNavItems = [
 const adminNavItems = [
   {
     title: "Workflow Blueprints",
-    href: "/workflow-blueprints",
+    href: "/admin/workflow-blueprints",
     icon: GitBranch,
   },
   {
     title: "Workflow Builder",
-    href: "/workflow-builder",
+    href: "/admin/workflow-builder",
     icon: Workflow,
   },
   {
@@ -92,7 +92,7 @@ const adminNavItems = [
   },
   {
     title: "Settings",
-    href: "/settings",
+    href: "/admin/settings",
     icon: Settings,
   },
 ]
@@ -209,10 +209,10 @@ export function AppSidebar() {
                 sideOffset={4}
               >
                 <DropdownMenuItem asChild>
-                  <Link href="/settings/general">Settings</Link>
+                  <Link href="/admin/settings/general">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings/notifications">Notifications</Link>
+                  <Link href="/admin/settings/notifications">Notifications</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => signOut({ redirectUrl: "/" })}>

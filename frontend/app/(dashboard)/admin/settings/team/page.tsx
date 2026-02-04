@@ -1,14 +1,20 @@
+"use client"
+
+import { Bell, MoreHorizontal, Plus } from "lucide-react"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, Plus } from "lucide-react"
 
 const teamMembers = [
   {
@@ -40,9 +46,10 @@ const roleVariants: Record<string, "default" | "secondary" | "outline"> = {
   Viewer: "outline",
 }
 
-export default function UsersSettingsPage() {
+export default function TeamSettingsPage() {
   return (
     <div className="grid gap-6">
+      {/* Users & Roles */}
       <div className="flex justify-end">
         <Button>
           <Plus className="mr-2 size-4" />
@@ -104,6 +111,70 @@ export default function UsersSettingsPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">No pending invitations.</p>
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="size-5" />
+            Notification Preferences
+          </CardTitle>
+          <CardDescription>
+            Choose how and when you want to be notified.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Email Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive email updates about your account activity.
+              </p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Push Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive push notifications in your browser.
+              </p>
+            </div>
+            <Switch />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Weekly Digest</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive a weekly summary of activity.
+              </p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Task Reminders</Label>
+              <p className="text-sm text-muted-foreground">
+                Get notified about upcoming task deadlines.
+              </p>
+            </div>
+            <Switch defaultChecked />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Application Updates</Label>
+              <p className="text-sm text-muted-foreground">
+                Get notified when application statuses change.
+              </p>
+            </div>
+            <Switch defaultChecked />
+          </div>
         </CardContent>
       </Card>
     </div>

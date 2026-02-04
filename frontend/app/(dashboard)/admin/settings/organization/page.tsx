@@ -1,5 +1,9 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useTheme } from "next-themes"
+import { Moon, Sun, Monitor, Palette } from "lucide-react"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,9 +11,17 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-export default function GeneralSettingsPage() {
+export default function OrganizationSettingsPage() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <div className="grid gap-6">
+      {/* General Settings */}
       <Card>
         <CardHeader>
           <CardTitle>Organization Details</CardTitle>
@@ -78,6 +90,63 @@ export default function GeneralSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Customizations */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="size-5" />
+            Appearance
+          </CardTitle>
+          <CardDescription>
+            Customize how the application looks.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Label>Theme</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={mounted && theme === "light" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("light")}
+              >
+                <Sun className="mr-2 size-4" />
+                Light
+              </Button>
+              <Button
+                variant={mounted && theme === "dark" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("dark")}
+              >
+                <Moon className="mr-2 size-4" />
+                Dark
+              </Button>
+              <Button
+                variant={mounted && theme === "system" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("system")}
+              >
+                <Monitor className="mr-2 size-4" />
+                System
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Branding</CardTitle>
+          <CardDescription>
+            Customize your organization's branding elements.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex min-h-[150px] items-center justify-center text-muted-foreground">
+          Custom branding options coming soon.
+        </CardContent>
+      </Card>
+
+      {/* Danger Zone */}
       <Card className="border-destructive">
         <CardHeader>
           <CardTitle className="text-destructive">Danger Zone</CardTitle>

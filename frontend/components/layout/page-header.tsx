@@ -42,7 +42,7 @@ interface PageHeaderProps {
 const quickAddItems = [
   { label: "Person", icon: User, href: "/people" },
   { label: "Task", icon: CheckSquare, href: "/my-work?tab=tasks" },
-  { label: "Workflow", icon: Workflow, href: "/workflow-builder" },
+  { label: "Workflow", icon: Workflow, href: "/admin/workflow-builder" },
   { label: "Support Ticket", icon: Headphones, href: "/support" },
   { label: "Application", icon: FileText, href: "/my-work?tab=applications" },
 ]

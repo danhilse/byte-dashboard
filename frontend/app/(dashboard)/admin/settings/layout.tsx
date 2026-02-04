@@ -3,67 +3,35 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Settings,
-  Bell,
+  Building2,
   Users,
-  Briefcase,
-  Puzzle,
-  Shield,
-  CreditCard,
-  Palette,
-  Lock
+  Database,
+  UserCircle,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-
-// TODO: Replace with actual owner check from your auth system
-function useIsOwner() {
-  return true
-}
 
 const settingsTabs = [
   {
-    title: "General",
-    href: "/settings/general",
-    icon: Settings,
+    title: "Organization",
+    href: "/admin/settings/organization",
+    icon: Building2,
   },
   {
-    title: "Notifications",
-    href: "/settings/notifications",
-    icon: Bell,
-  },
-  {
-    title: "Users & Roles",
-    href: "/settings/users",
+    title: "Team",
+    href: "/admin/settings/team",
     icon: Users,
   },
   {
-    title: "CRM",
-    href: "/settings/crm",
-    icon: Briefcase,
+    title: "Data",
+    href: "/admin/settings/data",
+    icon: Database,
   },
   {
-    title: "Integrations",
-    href: "/settings/integrations",
-    icon: Puzzle,
-  },
-  {
-    title: "Security",
-    href: "/settings/security",
-    icon: Shield,
-  },
-  {
-    title: "Billing",
-    href: "/settings/billing",
-    icon: CreditCard,
-    ownerOnly: true,
-  },
-  {
-    title: "Customizations",
-    href: "/settings/customizations",
-    icon: Palette,
+    title: "Account",
+    href: "/admin/settings/account",
+    icon: UserCircle,
   },
 ]
 
@@ -73,9 +41,6 @@ export default function SettingsLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const isOwner = useIsOwner()
-
-  const visibleTabs = settingsTabs.filter(tab => !tab.ownerOnly || isOwner)
 
   // Get current tab for breadcrumb
   const currentTab = settingsTabs.find(tab => pathname === tab.href)
@@ -85,7 +50,7 @@ export default function SettingsLayout({
       <PageHeader
         breadcrumbs={
           currentTab
-            ? [{ label: "Settings", href: "/settings" }, { label: currentTab.title }]
+            ? [{ label: "Settings", href: "/admin/settings" }, { label: currentTab.title }]
             : [{ label: "Settings" }]
         }
       />
@@ -98,7 +63,7 @@ export default function SettingsLayout({
         </div>
 
         <div className="flex gap-1 overflow-x-auto border-b">
-          {visibleTabs.map((tab) => {
+          {settingsTabs.map((tab) => {
             const isActive = pathname === tab.href
             return (
               <Link
@@ -113,11 +78,6 @@ export default function SettingsLayout({
               >
                 <tab.icon className="size-4" />
                 {tab.title}
-                {tab.ownerOnly && (
-                  <Badge variant="secondary" className="gap-1 text-xs py-0 px-1.5">
-                    <Lock className="size-3" />
-                  </Badge>
-                )}
                 {isActive && (
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
                 )}
