@@ -41,10 +41,10 @@ interface PageHeaderProps {
 
 const quickAddItems = [
   { label: "Person", icon: User, href: "/people" },
-  { label: "Task", icon: CheckSquare, href: "/my-work?tab=tasks" },
+  { label: "Task", icon: CheckSquare, href: "/my-work" },
+  { label: "Application", icon: FileText, href: "/applications" },
   { label: "Workflow", icon: Workflow, href: "/admin/workflow-builder" },
   { label: "Support Ticket", icon: Headphones, href: "/support" },
-  { label: "Application", icon: FileText, href: "/my-work?tab=applications" },
 ]
 
 export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {

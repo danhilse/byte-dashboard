@@ -12,6 +12,9 @@ export const tasks: Task[] = [
     createdAt: "2024-01-29T10:00:00Z",
     updatedAt: "2024-02-01T14:00:00Z",
     tags: ["legal", "enterprise"],
+    source: "workflow",
+    workflowId: "w1",
+    applicationId: "a1",
   },
   {
     id: "t2",
@@ -24,6 +27,9 @@ export const tasks: Task[] = [
     createdAt: "2024-02-01T09:00:00Z",
     updatedAt: "2024-02-01T09:00:00Z",
     tags: ["demo", "sales"],
+    source: "workflow",
+    workflowId: "w2",
+    applicationId: "a2",
   },
   {
     id: "t3",
@@ -34,6 +40,7 @@ export const tasks: Task[] = [
     createdAt: "2024-01-25T11:00:00Z",
     updatedAt: "2024-01-25T11:00:00Z",
     tags: ["reporting"],
+    source: "manual",
   },
   {
     id: "t4",
@@ -46,6 +53,7 @@ export const tasks: Task[] = [
     createdAt: "2024-01-26T15:00:00Z",
     updatedAt: "2024-01-30T10:00:00Z",
     tags: ["follow-up", "sales"],
+    source: "manual",
   },
   {
     id: "t5",
@@ -57,6 +65,7 @@ export const tasks: Task[] = [
     createdAt: "2024-01-20T08:00:00Z",
     updatedAt: "2024-01-28T16:00:00Z",
     tags: ["documentation", "technical"],
+    source: "manual",
   },
   {
     id: "t6",
@@ -68,6 +77,9 @@ export const tasks: Task[] = [
     createdAt: "2024-01-18T14:00:00Z",
     updatedAt: "2024-01-22T11:00:00Z",
     tags: ["contract", "renewal"],
+    source: "workflow",
+    workflowId: "w1",
+    applicationId: "a4",
   },
   {
     id: "t7",
@@ -80,6 +92,9 @@ export const tasks: Task[] = [
     createdAt: "2024-01-21T09:00:00Z",
     updatedAt: "2024-02-02T10:00:00Z",
     tags: ["technical", "assessment"],
+    source: "workflow",
+    workflowId: "w1",
+    applicationId: "a5",
   },
   {
     id: "t8",
@@ -90,6 +105,7 @@ export const tasks: Task[] = [
     createdAt: "2024-01-15T10:00:00Z",
     updatedAt: "2024-01-15T10:00:00Z",
     tags: ["documentation", "pricing"],
+    source: "manual",
   },
   {
     id: "t9",
@@ -102,6 +118,9 @@ export const tasks: Task[] = [
     createdAt: "2024-01-26T11:00:00Z",
     updatedAt: "2024-01-26T11:00:00Z",
     tags: ["onboarding"],
+    source: "workflow",
+    workflowId: "w2",
+    applicationId: "a7",
   },
   {
     id: "t10",
@@ -114,6 +133,7 @@ export const tasks: Task[] = [
     createdAt: "2024-02-03T08:00:00Z",
     updatedAt: "2024-02-03T08:00:00Z",
     tags: ["support", "urgent"],
+    source: "manual",
   },
 ]
 

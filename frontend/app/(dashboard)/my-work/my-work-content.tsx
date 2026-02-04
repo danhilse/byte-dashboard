@@ -2,19 +2,18 @@
 
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useCallback } from "react"
+import { useCallback, useState, useMemo } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
-import { applicationColumns, applicationStatusOptions } from "@/components/data-table/columns/application-columns"
-import { tasks } from "@/lib/data/tasks"
-import { applications } from "@/lib/data/applications"
+import { tasks as initialTasks } from "@/lib/data/tasks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { TaskCreateDialog, TaskDetailDialog, TaskStatusFilters } from "@/components/tasks"
+import type { Task, TaskStatus } from "@/types"
 
 const KanbanBoard = dynamic(
   () => import("@/components/kanban/kanban-board").then((m) => m.KanbanBoard),
@@ -31,24 +30,58 @@ const KanbanBoard = dynamic(
 )
 
 type ViewType = "table" | "kanban" | "grid"
-type TabType = "tasks" | "applications"
 
 export function MyWorkContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const tab = (searchParams.get("tab") as TabType) || "tasks"
   const view = (searchParams.get("view") as ViewType) || "kanban"
+  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([])
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
 
-  const updateParams = useCallback(
-    (updates: { tab?: string; view?: string }) => {
+  const filteredTasks = useMemo(() => {
+    if (selectedStatuses.length === 0) return tasks
+    return tasks.filter((task) => selectedStatuses.includes(task.status))
+  }, [tasks, selectedStatuses])
+
+  const updateView = useCallback(
+    (newView: string) => {
       const params = new URLSearchParams(searchParams.toString())
-      if (updates.tab) params.set("tab", updates.tab)
-      if (updates.view) params.set("view", updates.view)
+      params.set("view", newView)
       router.push(`/my-work?${params.toString()}`)
     },
     [searchParams, router]
   )
+
+  const handleCreateTask = (taskData: Omit<Task, "id" | "createdAt" | "updatedAt">) => {
+    const newTask: Task = {
+      ...taskData,
+      id: `t${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setTasks((prev) => [newTask, ...prev])
+  }
+
+  const handleUpdateTask = (updatedTask: Task) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === updatedTask.id ? { ...updatedTask, updatedAt: new Date().toISOString() } : t
+      )
+    )
+    setSelectedTask(updatedTask)
+  }
+
+  const handleDeleteTask = (taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+  }
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task)
+    setDetailOpen(true)
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -56,86 +89,92 @@ export function MyWorkContent() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Work</h1>
           <p className="text-muted-foreground">
-            Manage your tasks and applications in one place.
+            Manage your tasks and track your progress.
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
-          <Button
-            variant={view === "table" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => updateParams({ view: "table" })}
-          >
-            <List className="mr-2 size-4" />
-            Table
-          </Button>
-          <Button
-            variant={view === "kanban" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => updateParams({ view: "kanban" })}
-          >
-            <LayoutGrid className="mr-2 size-4" />
-            Kanban
-          </Button>
-          <Button
-            variant={view === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => updateParams({ view: "grid" })}
-          >
-            <Grid3X3 className="mr-2 size-4" />
-            Grid
-          </Button>
+        <div className="flex items-center gap-3">
+          <TaskCreateDialog onCreateTask={handleCreateTask} />
+          <div className="flex items-center gap-1 rounded-lg border p-1">
+            <Button
+              variant={view === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => updateView("table")}
+            >
+              <List className="mr-2 size-4" />
+              Table
+            </Button>
+            <Button
+              variant={view === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => updateView("kanban")}
+            >
+              <LayoutGrid className="mr-2 size-4" />
+              Kanban
+            </Button>
+            <Button
+              variant={view === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => updateView("grid")}
+            >
+              <Grid3X3 className="mr-2 size-4" />
+              Grid
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(value) => updateParams({ tab: value })}>
-        <TabsList>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="applications">Applications</TabsTrigger>
-        </TabsList>
+      <TaskStatusFilters
+        selectedStatuses={selectedStatuses}
+        onStatusChange={setSelectedStatuses}
+      />
 
-        <TabsContent value="tasks" className="mt-4">
-          {view === "table" && (
-            <DataTable
-              columns={taskColumns}
-              data={tasks}
-              searchKey="title"
-              searchPlaceholder="Search tasks..."
-              filterColumn="status"
-              filterOptions={taskStatusOptions}
-            />
-          )}
-          {view === "kanban" && <KanbanBoard initialTasks={tasks} />}
-          {view === "grid" && <TasksGridView />}
-        </TabsContent>
+      <div className="flex-1">
+        {view === "table" && (
+          <DataTable
+            columns={taskColumns}
+            data={filteredTasks}
+            searchKey="title"
+            searchPlaceholder="Search tasks..."
+            filterColumn="status"
+            filterOptions={taskStatusOptions}
+            onRowClick={(row) => handleTaskClick(row.original)}
+          />
+        )}
+        {view === "kanban" && <KanbanBoard initialTasks={filteredTasks} />}
+        {view === "grid" && (
+          <TasksGridView tasks={filteredTasks} onTaskClick={handleTaskClick} />
+        )}
+      </div>
 
-        <TabsContent value="applications" className="mt-4">
-          {view === "table" && (
-            <DataTable
-              columns={applicationColumns}
-              data={applications}
-              searchKey="title"
-              searchPlaceholder="Search applications..."
-              filterColumn="status"
-              filterOptions={applicationStatusOptions}
-            />
-          )}
-          {view === "kanban" && <ApplicationsKanbanView />}
-          {view === "grid" && <ApplicationsGridView />}
-        </TabsContent>
-      </Tabs>
+      <TaskDetailDialog
+        task={selectedTask}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onUpdateTask={handleUpdateTask}
+        onDeleteTask={handleDeleteTask}
+      />
     </div>
   )
 }
 
-function TasksGridView() {
+interface TasksGridViewProps {
+  tasks: Task[]
+  onTaskClick: (task: Task) => void
+}
+
+function TasksGridView({ tasks, onTaskClick }: TasksGridViewProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {tasks.map((task) => (
-        <Card key={task.id} className="hover:bg-muted/50 transition-colors grid-card-optimized">
+        <Card
+          key={task.id}
+          className="hover:bg-muted/50 transition-colors cursor-pointer grid-card-optimized"
+          onClick={() => onTaskClick(task)}
+        >
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between">
               <CardTitle className="text-base line-clamp-2">{task.title}</CardTitle>
-              <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "secondary"}>
+              <Badge variant={task.priority === "high" || task.priority === "urgent" ? "destructive" : task.priority === "medium" ? "default" : "secondary"}>
                 {task.priority}
               </Badge>
             </div>
@@ -149,37 +188,6 @@ function TasksGridView() {
           </CardContent>
         </Card>
       ))}
-    </div>
-  )
-}
-
-function ApplicationsGridView() {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {applications.map((app) => (
-        <Card key={app.id} className="hover:bg-muted/50 transition-colors grid-card-optimized">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base line-clamp-2">{app.title}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="line-clamp-2">{app.notes || "No notes"}</CardDescription>
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline">{app.status}</Badge>
-              <span>{app.contactName}</span>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function ApplicationsKanbanView() {
-  return (
-    <div className="rounded-lg border bg-muted/50 p-8 text-center">
-      <p className="text-muted-foreground">
-        Kanban view for applications coming soon. Switch to Table or Grid view.
-      </p>
     </div>
   )
 }

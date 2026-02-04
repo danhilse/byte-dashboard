@@ -1,39 +1,65 @@
 .
+├── -d
 ├── -I
 ├── -L
 ├── 3
 ├── 4
 └── frontend
+    ├── --dirsfirst
+    ├── -I
+    ├── -L
+    ├── 3
     ├── app
     │   ├── (dashboard)
+    │   │   ├── admin
+    │   │   │   ├── forms
+    │   │   │   │   └── page.tsx
+    │   │   │   ├── settings
+    │   │   │   │   ├── account
+    │   │   │   │   │   └── page.tsx
+    │   │   │   │   ├── data
+    │   │   │   │   │   └── page.tsx
+    │   │   │   │   ├── layout.tsx
+    │   │   │   │   ├── organization
+    │   │   │   │   │   └── page.tsx
+    │   │   │   │   ├── page.tsx
+    │   │   │   │   └── team
+    │   │   │   │       └── page.tsx
+    │   │   │   ├── workflow-blueprints
+    │   │   │   │   └── page.tsx
+    │   │   │   └── workflow-builder
+    │   │   │       └── page.tsx
     │   │   ├── applications
     │   │   │   ├── [id]
     │   │   │   │   └── page.tsx
     │   │   │   └── page.tsx
+    │   │   ├── calendar
+    │   │   │   └── page.tsx
     │   │   ├── dashboard
     │   │   │   └── page.tsx
     │   │   ├── layout.tsx
+    │   │   ├── my-work
+    │   │   │   ├── my-work-content.tsx
+    │   │   │   └── page.tsx
     │   │   ├── page.tsx
     │   │   ├── people
     │   │   │   ├── [id]
     │   │   │   │   └── page.tsx
     │   │   │   └── page.tsx
-    │   │   ├── settings
-    │   │   │   ├── organization
-    │   │   │   │   └── page.tsx
-    │   │   │   ├── page.tsx
-    │   │   │   ├── profile
-    │   │   │   │   └── page.tsx
-    │   │   │   └── team
-    │   │   │       └── page.tsx
+    │   │   ├── support
+    │   │   │   └── page.tsx
     │   │   └── tasks
-    │   │       ├── page.tsx
-    │   │       └── tasks-content.tsx
+    │   │       └── page.tsx
     │   ├── favicon.ico
     │   ├── globals.css
     │   ├── layout.tsx
     │   └── page.tsx
     ├── components
+    │   ├── common
+    │   │   ├── empty-state.tsx
+    │   │   ├── index.ts
+    │   │   ├── info-field.tsx
+    │   │   └── status-badge.tsx
     │   ├── dashboard
     │   │   ├── recent-activity.tsx
     │   │   └── stat-card.tsx
@@ -84,6 +110,8 @@
     ├── components.json
     ├── eslint.config.mjs
     ├── hooks
+    │   ├── index.ts
+    │   ├── use-data.ts
     │   └── use-mobile.ts
     ├── lib
     │   ├── data
@@ -92,7 +120,9 @@
     │   │   ├── contacts.ts
     │   │   └── tasks.ts
     │   ├── design-tokens.ts
+    │   ├── status-config.ts
     │   └── utils.ts
+    ├── middleware.ts
     ├── next-env.d.ts
     ├── next.config.ts
     ├── package-lock.json
@@ -100,11 +130,10 @@
     ├── pnpm-lock.yaml
     ├── pnpm-workspace.yaml
     ├── postcss.config.mjs
-    ├── proxy.ts
     ├── README.md
     ├── tsconfig.json
     ├── tsconfig.tsbuildinfo
     └── types
         └── index.ts
 
-26 directories, 82 files
+35 directories, 102 files

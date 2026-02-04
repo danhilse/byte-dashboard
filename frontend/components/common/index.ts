@@ -7,3 +7,4 @@ export {
   TaskPriorityBadge,
   ApplicationPriorityBadge,
 } from "./status-badge"
+export { ViewToggle, type ViewOption } from "./view-toggle"

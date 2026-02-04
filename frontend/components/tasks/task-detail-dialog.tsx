@@ -1,0 +1,307 @@
+"use client"
+
+import { useState } from "react"
+import { format } from "date-fns"
+import { Calendar, User, Tag, Trash2, Workflow } from "lucide-react"
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common"
+import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
+import type { Task, TaskStatus, TaskPriority } from "@/types"
+
+interface TaskDetailDialogProps {
+  task: Task | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onUpdateTask?: (task: Task) => void
+  onDeleteTask?: (taskId: string) => void
+}
+
+export function TaskDetailDialog({
+  task,
+  open,
+  onOpenChange,
+  onUpdateTask,
+  onDeleteTask,
+}: TaskDetailDialogProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTask, setEditedTask] = useState<Task | null>(null)
+
+  const handleEdit = () => {
+    setEditedTask(task)
+    setIsEditing(true)
+  }
+
+  const handleSave = () => {
+    if (editedTask) {
+      onUpdateTask?.(editedTask)
+      setIsEditing(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setEditedTask(null)
+    setIsEditing(false)
+  }
+
+  const handleDelete = () => {
+    if (task) {
+      onDeleteTask?.(task.id)
+      onOpenChange(false)
+    }
+  }
+
+  const handleStatusChange = (status: TaskStatus) => {
+    if (task) {
+      onUpdateTask?.({ ...task, status })
+    }
+  }
+
+  if (!task) return null
+
+  const displayTask = isEditing && editedTask ? editedTask : task
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[550px]">
+        <DialogHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              {isEditing ? (
+                <Input
+                  value={editedTask?.title ?? ""}
+                  onChange={(e) =>
+                    setEditedTask((prev) => (prev ? { ...prev, title: e.target.value } : null))
+                  }
+                  className="text-lg font-semibold"
+                />
+              ) : (
+                <DialogTitle className="text-lg">{displayTask.title}</DialogTitle>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <TaskPriorityBadge priority={displayTask.priority} />
+              {displayTask.source === "workflow" && (
+                <Badge variant="outline" className="gap-1">
+                  <Workflow className="size-3" />
+                  Workflow
+                </Badge>
+              )}
+            </div>
+          </div>
+          <DialogDescription className="sr-only">
+            Task details and actions
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="grid gap-2">
+            <Label className="text-muted-foreground text-xs uppercase">Status</Label>
+            {isEditing ? (
+              <Select
+                value={editedTask?.status}
+                onValueChange={(v) =>
+                  setEditedTask((prev) => (prev ? { ...prev, status: v as TaskStatus } : null))
+                }
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(taskStatusConfig).map(([value, config]) => (
+                    <SelectItem key={value} value={value}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex items-center gap-2">
+                <TaskStatusBadge status={displayTask.status} />
+                <div className="flex gap-1">
+                  {(["backlog", "todo", "in_progress", "done"] as TaskStatus[])
+                    .filter((s) => s !== displayTask.status)
+                    .map((status) => (
+                      <Button
+                        key={status}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => handleStatusChange(status)}
+                      >
+                        Move to {taskStatusConfig[status].label}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label className="text-muted-foreground text-xs uppercase">Description</Label>
+            {isEditing ? (
+              <Textarea
+                value={editedTask?.description ?? ""}
+                onChange={(e) =>
+                  setEditedTask((prev) => (prev ? { ...prev, description: e.target.value } : null))
+                }
+                placeholder="Add a description..."
+                rows={3}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {displayTask.description || "No description provided."}
+              </p>
+            )}
+          </div>
+
+          {isEditing ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-priority">Priority</Label>
+                <Select
+                  value={editedTask?.priority}
+                  onValueChange={(v) =>
+                    setEditedTask((prev) => (prev ? { ...prev, priority: v as TaskPriority } : null))
+                  }
+                >
+                  <SelectTrigger id="edit-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(taskPriorityConfig).map(([value, config]) => (
+                      <SelectItem key={value} value={value}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-assignee">Assignee</Label>
+                <Input
+                  id="edit-assignee"
+                  value={editedTask?.assignee ?? ""}
+                  onChange={(e) =>
+                    setEditedTask((prev) =>
+                      prev ? { ...prev, assignee: e.target.value || undefined } : null
+                    )
+                  }
+                  placeholder="Assignee name"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-4 text-sm">
+              {displayTask.assignee && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <User className="size-4" />
+                  <span>{displayTask.assignee}</span>
+                </div>
+              )}
+              {displayTask.dueDate && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Calendar className="size-4" />
+                  <span>{format(new Date(displayTask.dueDate), "MMM d, yyyy")}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {displayTask.tags.length > 0 && (
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
+                <Tag className="size-3" />
+                Tags
+              </Label>
+              <div className="flex flex-wrap gap-1">
+                {displayTask.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-muted-foreground pt-2 border-t">
+            Created {format(new Date(displayTask.createdAt), "MMM d, yyyy")} &bull; Updated{" "}
+            {format(new Date(displayTask.updatedAt), "MMM d, yyyy")}
+          </div>
+        </div>
+
+        <DialogFooter className="flex-row justify-between sm:justify-between">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                <Trash2 className="mr-2 size-4" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete &quot;{task.title}&quot;? This action cannot be
+                  undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <div className="flex gap-2">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>Save Changes</Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={handleEdit}>
+                Edit Task
+              </Button>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

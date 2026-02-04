@@ -12,8 +12,9 @@ export const contactStatusConfig: Record<ContactStatus, { label: string; variant
 // Application status configuration
 export const applicationStatusConfig: Record<ApplicationStatus, { label: string; variant: BadgeVariant }> = {
   draft: { label: "Draft", variant: "outline" },
-  submitted: { label: "Submitted", variant: "secondary" },
-  under_review: { label: "Under Review", variant: "default" },
+  in_review: { label: "In Review", variant: "default" },
+  pending: { label: "Pending", variant: "secondary" },
+  on_hold: { label: "On Hold", variant: "secondary" },
   approved: { label: "Approved", variant: "default" },
   rejected: { label: "Rejected", variant: "destructive" },
 }

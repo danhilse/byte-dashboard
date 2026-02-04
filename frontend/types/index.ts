@@ -1,5 +1,13 @@
 export type ContactStatus = "active" | "inactive" | "lead"
 
+export interface ContactAddress {
+  line1: string
+  line2?: string
+  city: string
+  state: string
+  zip: string
+}
+
 export interface Contact {
   id: string
   firstName: string
@@ -12,25 +20,35 @@ export interface Contact {
   createdAt: string
   lastContactedAt: string
   avatarUrl?: string
+  tags?: string[]
+  address?: ContactAddress
+  applicationsCount?: number
 }
 
-export type ApplicationStatus = "draft" | "submitted" | "under_review" | "approved" | "rejected"
+export type ApplicationStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected"
 
 export interface Application {
   id: string
   title: string
   contactId: string
   contactName: string
+  contactAvatarUrl?: string
   status: ApplicationStatus
   submittedAt: string
   updatedAt: string
   value: number
   priority: "low" | "medium" | "high"
   notes?: string
+  workflowId?: string
+  workflowName?: string
+  progress?: number
+  taskCount?: number
+  completedTaskCount?: number
 }
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
+export type TaskSource = "manual" | "workflow"
 
 export interface Task {
   id: string
@@ -43,6 +61,9 @@ export interface Task {
   createdAt: string
   updatedAt: string
   tags: string[]
+  source: TaskSource
+  workflowId?: string
+  applicationId?: string
 }
 
 export interface Activity {

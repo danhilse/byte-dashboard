@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   ChevronUp,
+  FileText,
 } from "lucide-react"
 import { useUser, useClerk } from "@clerk/nextjs"
 
@@ -56,6 +57,11 @@ const primaryNavItems = [
     title: "My Work",
     href: "/my-work",
     icon: Briefcase,
+  },
+  {
+    title: "Applications",
+    href: "/applications",
+    icon: FileText,
   },
   {
     title: "Calendar",

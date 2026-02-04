@@ -12,6 +12,14 @@ export const contacts: Contact[] = [
     status: "active",
     createdAt: "2024-01-15T10:30:00Z",
     lastContactedAt: "2024-02-01T14:22:00Z",
+    tags: ["vip", "enterprise"],
+    address: {
+      line1: "123 Tech Blvd",
+      city: "San Francisco",
+      state: "CA",
+      zip: "94105",
+    },
+    applicationsCount: 3,
   },
   {
     id: "c2",
@@ -24,6 +32,14 @@ export const contacts: Contact[] = [
     status: "active",
     createdAt: "2024-01-20T09:15:00Z",
     lastContactedAt: "2024-01-28T11:45:00Z",
+    tags: ["startup"],
+    address: {
+      line1: "456 Innovation Way",
+      city: "Austin",
+      state: "TX",
+      zip: "78701",
+    },
+    applicationsCount: 1,
   },
   {
     id: "c3",
@@ -36,6 +52,13 @@ export const contacts: Contact[] = [
     status: "lead",
     createdAt: "2024-01-25T16:00:00Z",
     lastContactedAt: "2024-01-25T16:00:00Z",
+    address: {
+      line1: "789 Corporate Dr",
+      city: "Seattle",
+      state: "WA",
+      zip: "98101",
+    },
+    applicationsCount: 0,
   },
   {
     id: "c4",
@@ -48,6 +71,14 @@ export const contacts: Contact[] = [
     status: "active",
     createdAt: "2024-01-10T08:00:00Z",
     lastContactedAt: "2024-02-02T09:30:00Z",
+    tags: ["technical", "decision-maker"],
+    address: {
+      line1: "321 Startup Lane",
+      city: "New York",
+      state: "NY",
+      zip: "10001",
+    },
+    applicationsCount: 2,
   },
   {
     id: "c5",
@@ -60,6 +91,14 @@ export const contacts: Contact[] = [
     status: "inactive",
     createdAt: "2023-11-05T12:00:00Z",
     lastContactedAt: "2024-01-05T10:00:00Z",
+    tags: ["enterprise"],
+    address: {
+      line1: "555 Business Park",
+      city: "Chicago",
+      state: "IL",
+      zip: "60601",
+    },
+    applicationsCount: 1,
   },
   {
     id: "c6",
@@ -72,6 +111,8 @@ export const contacts: Contact[] = [
     status: "lead",
     createdAt: "2024-02-01T14:30:00Z",
     lastContactedAt: "2024-02-01T14:30:00Z",
+    tags: ["startup", "hot-lead"],
+    applicationsCount: 0,
   },
   {
     id: "c7",
@@ -84,6 +125,15 @@ export const contacts: Contact[] = [
     status: "active",
     createdAt: "2024-01-08T11:00:00Z",
     lastContactedAt: "2024-01-30T15:45:00Z",
+    tags: ["vip", "partnership"],
+    address: {
+      line1: "999 Tower Place",
+      line2: "Suite 500",
+      city: "Los Angeles",
+      state: "CA",
+      zip: "90001",
+    },
+    applicationsCount: 4,
   },
   {
     id: "c8",
@@ -96,6 +146,14 @@ export const contacts: Contact[] = [
     status: "active",
     createdAt: "2024-01-12T09:30:00Z",
     lastContactedAt: "2024-02-03T08:15:00Z",
+    tags: ["technical"],
+    address: {
+      line1: "777 Cloud Ave",
+      city: "Denver",
+      state: "CO",
+      zip: "80202",
+    },
+    applicationsCount: 2,
   },
 ]
 

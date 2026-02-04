@@ -7,6 +7,8 @@ import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Progress } from "@/components/ui/progress"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,10 +42,33 @@ export const applicationColumns: ColumnDef<Application>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="Select row"
+        onClick={(e) => e.stopPropagation()}
       />
     ),
     enableSorting: false,
     enableHiding: false,
+  },
+  {
+    accessorKey: "contactName",
+    header: "Contact",
+    cell: ({ row }) => {
+      const application = row.original
+      const initials = application.contactName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+
+      return (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarImage src={application.contactAvatarUrl} alt={application.contactName} />
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <span className="font-medium">{application.contactName}</span>
+        </div>
+      )
+    },
   },
   {
     accessorKey: "title",
@@ -52,13 +77,10 @@ export const applicationColumns: ColumnDef<Application>[] = [
       const application = row.original
       return (
         <div>
-          <Link
-            href={`/applications/${application.id}`}
-            className="font-medium hover:underline"
-          >
-            {application.title}
-          </Link>
-          <p className="text-xs text-muted-foreground">{application.contactName}</p>
+          <span className="font-medium">{application.title}</span>
+          {application.workflowName && (
+            <p className="text-xs text-muted-foreground">{application.workflowName}</p>
+          )}
         </div>
       )
     },
@@ -72,6 +94,24 @@ export const applicationColumns: ColumnDef<Application>[] = [
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
+    },
+  },
+  {
+    accessorKey: "progress",
+    header: "Progress",
+    cell: ({ row }) => {
+      const application = row.original
+      if (application.progress === undefined || !application.taskCount) {
+        return <span className="text-muted-foreground text-sm">-</span>
+      }
+      return (
+        <div className="w-[120px] space-y-1">
+          <Progress value={application.progress} className="h-1.5" />
+          <p className="text-xs text-muted-foreground">
+            {application.completedTaskCount ?? 0}/{application.taskCount} tasks
+          </p>
+        </div>
+      )
     },
   },
   {
@@ -116,7 +156,7 @@ export const applicationColumns: ColumnDef<Application>[] = [
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="size-8 p-0">
+            <Button variant="ghost" className="size-8 p-0" onClick={(e) => e.stopPropagation()}>
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="size-4" />
             </Button>
@@ -135,4 +175,3 @@ export const applicationColumns: ColumnDef<Application>[] = [
     },
   },
 ]
-
