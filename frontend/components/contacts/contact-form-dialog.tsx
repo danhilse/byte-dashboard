@@ -3,15 +3,7 @@
 import { useState, useEffect } from "react"
 import { Plus, Pencil } from "lucide-react"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { FormDialog } from "@/components/common/form-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,14 +31,9 @@ export function ContactFormDialog({
   contact,
   onSubmit,
   trigger,
-  open: controlledOpen,
-  onOpenChange: controlledOnOpenChange,
+  open,
+  onOpenChange,
 }: ContactFormDialogProps) {
-  const [internalOpen, setInternalOpen] = useState(false)
-  const isControlled = controlledOpen !== undefined
-  const open = isControlled ? controlledOpen : internalOpen
-  const onOpenChange = isControlled ? controlledOnOpenChange! : setInternalOpen
-
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
@@ -81,9 +68,23 @@ export function ContactFormDialog({
     }
   }, [mode, contact, open])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const resetForm = () => {
+    setFirstName("")
+    setLastName("")
+    setEmail("")
+    setPhone("")
+    setCompany("")
+    setRole("")
+    setStatus("lead")
+    setTags("")
+    setAddressLine1("")
+    setAddressLine2("")
+    setCity("")
+    setState("")
+    setZip("")
+  }
 
+  const handleSubmit = () => {
     const address = addressLine1 || city || state || zip
       ? {
           line1: addressLine1,
@@ -117,23 +118,6 @@ export function ContactFormDialog({
     }
 
     resetForm()
-    onOpenChange(false)
-  }
-
-  const resetForm = () => {
-    setFirstName("")
-    setLastName("")
-    setEmail("")
-    setPhone("")
-    setCompany("")
-    setRole("")
-    setStatus("lead")
-    setTags("")
-    setAddressLine1("")
-    setAddressLine2("")
-    setCity("")
-    setState("")
-    setZip("")
   }
 
   const defaultTrigger = mode === "create" ? (
@@ -149,163 +133,143 @@ export function ContactFormDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {trigger !== undefined ? (
-        trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>
-      ) : (
-        <DialogTrigger asChild>{defaultTrigger}</DialogTrigger>
-      )}
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>
-              {mode === "create" ? "Add New Contact" : "Edit Contact"}
-            </DialogTitle>
-            <DialogDescription>
-              {mode === "create"
-                ? "Add a new contact to your database."
-                : "Update the contact information."}
-            </DialogDescription>
-          </DialogHeader>
+    <FormDialog
+      title={mode === "create" ? "Add New Contact" : "Edit Contact"}
+      description={mode === "create" ? "Add a new contact to your database." : "Update the contact information."}
+      trigger={trigger !== undefined ? trigger : defaultTrigger}
+      open={open}
+      onOpenChange={onOpenChange}
+      onSubmit={handleSubmit}
+      onCancel={resetForm}
+      submitLabel={mode === "create" ? "Add Contact" : "Save Changes"}
+      submitDisabled={!firstName.trim() || !lastName.trim() || !email.trim()}
+      maxWidth="md"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="firstName">First Name</Label>
+          <Input
+            id="firstName"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="John"
+            required
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="lastName">Last Name</Label>
+          <Input
+            id="lastName"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Doe"
+            required
+          />
+        </div>
+      </div>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="John"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  required
-                />
-              </div>
-            </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="john@example.com"
+            required
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="phone">Phone</Label>
+          <Input
+            id="phone"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 (555) 123-4567"
+          />
+        </div>
+      </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="john@example.com"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
-                />
-              </div>
-            </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="company">Company</Label>
+          <Input
+            id="company"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="Acme Corp"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="role">Role</Label>
+          <Input
+            id="role"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="CEO"
+          />
+        </div>
+      </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Acme Corp"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Role</Label>
-                <Input
-                  id="role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  placeholder="CEO"
-                />
-              </div>
-            </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="status">Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as ContactStatus)}>
+            <SelectTrigger id="status" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(contactStatusConfig).map(([value, config]) => (
+                <SelectItem key={value} value={value}>
+                  {config.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="tags">Tags</Label>
+          <Input
+            id="tags"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="vip, enterprise"
+          />
+        </div>
+      </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as ContactStatus)}>
-                  <SelectTrigger id="status" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(contactStatusConfig).map(([value, config]) => (
-                      <SelectItem key={value} value={value}>
-                        {config.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="tags">Tags</Label>
-                <Input
-                  id="tags"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="vip, enterprise"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Address</Label>
-              <Input
-                value={addressLine1}
-                onChange={(e) => setAddressLine1(e.target.value)}
-                placeholder="Street address"
-              />
-              <Input
-                value={addressLine2}
-                onChange={(e) => setAddressLine2(e.target.value)}
-                placeholder="Apt, suite, etc. (optional)"
-              />
-              <div className="grid grid-cols-3 gap-2">
-                <Input
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="City"
-                />
-                <Input
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="State"
-                />
-                <Input
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
-                  placeholder="ZIP"
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!firstName.trim() || !lastName.trim() || !email.trim()}>
-              {mode === "create" ? "Add Contact" : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <div className="grid gap-2">
+        <Label>Address</Label>
+        <Input
+          value={addressLine1}
+          onChange={(e) => setAddressLine1(e.target.value)}
+          placeholder="Street address"
+        />
+        <Input
+          value={addressLine2}
+          onChange={(e) => setAddressLine2(e.target.value)}
+          placeholder="Apt, suite, etc. (optional)"
+        />
+        <div className="grid grid-cols-3 gap-2">
+          <Input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="City"
+          />
+          <Input
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            placeholder="State"
+          />
+          <Input
+            value={zip}
+            onChange={(e) => setZip(e.target.value)}
+            placeholder="ZIP"
+          />
+        </div>
+      </div>
+    </FormDialog>
   )
 }

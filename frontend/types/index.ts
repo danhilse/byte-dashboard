@@ -22,29 +22,33 @@ export interface Contact {
   avatarUrl?: string
   tags?: string[]
   address?: ContactAddress
-  applicationsCount?: number
+  workflowsCount?: number
 }
 
-export type ApplicationStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected"
+export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected"
 
-export interface Application {
+export interface Workflow {
   id: string
   title: string
   contactId: string
   contactName: string
   contactAvatarUrl?: string
-  status: ApplicationStatus
+  status: WorkflowStatus
   submittedAt: string
   updatedAt: string
   value: number
   priority: "low" | "medium" | "high"
   notes?: string
-  workflowId?: string
-  workflowName?: string
+  templateId?: string
+  templateName?: string
   progress?: number
   taskCount?: number
   completedTaskCount?: number
 }
+
+// Legacy type alias for backward compatibility during migration
+export type ApplicationStatus = WorkflowStatus
+export type Application = Workflow
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
@@ -63,13 +67,12 @@ export interface Task {
   tags: string[]
   source: TaskSource
   workflowId?: string
-  applicationId?: string
 }
 
 export interface Activity {
   id: string
-  type: "contact_created" | "application_submitted" | "task_completed" | "note_added" | "status_changed"
-  entityType: "contact" | "application" | "task"
+  type: "contact_created" | "workflow_submitted" | "task_completed" | "note_added" | "status_changed" | "asset_uploaded"
+  entityType: "contact" | "workflow" | "task"
   entityId: string
   entityName: string
   description: string
@@ -80,13 +83,33 @@ export interface Activity {
 
 export interface Note {
   id: string
-  entityType: "contact" | "application"
+  entityType: "contact" | "workflow" | "task"
   entityId: string
   content: string
   createdAt: string
   updatedAt: string
   userId: string
   userName: string
+}
+
+export interface Asset {
+  id: string
+  fileName: string
+  fileSize: number
+  fileType: string
+  mimeType: string
+  workflowId?: string
+  contactId?: string
+  taskId?: string
+  storageUrl: string
+  uploadedBy: string
+  uploadedByName: string
+  uploadedAt: string
+  metadata?: {
+    description?: string
+    tags?: string[]
+    category?: string
+  }
 }
 
 export interface User {
@@ -99,7 +122,7 @@ export interface User {
 
 export interface DashboardStats {
   totalContacts: number
-  activeApplications: number
+  activeWorkflows: number
   pendingTasks: number
   completedTasksThisWeek: number
 }

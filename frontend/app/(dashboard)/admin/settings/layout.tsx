@@ -3,35 +3,55 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Building2,
-  Users,
+  AlertTriangle,
+  CreditCard,
   Database,
-  UserCircle,
+  Paintbrush,
+  PlugZap,
+  Settings,
+  ShieldCheck,
+  Users,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 const settingsTabs = [
   {
-    title: "Organization",
-    href: "/admin/settings/organization",
-    icon: Building2,
+    title: "General",
+    href: "/admin/settings/general",
+    icon: Settings,
   },
   {
-    title: "Team",
-    href: "/admin/settings/team",
+    title: "Billing & Plans",
+    href: "/admin/settings/billing",
+    icon: CreditCard,
+  },
+  {
+    title: "Users & Permissions",
+    href: "/admin/settings/users",
     icon: Users,
   },
   {
-    title: "Data",
-    href: "/admin/settings/data",
+    title: "Integrations",
+    href: "/admin/settings/integrations",
+    icon: PlugZap,
+  },
+  {
+    title: "Audit Logs",
+    href: "/admin/settings/audit",
+    icon: ShieldCheck,
+  },
+  {
+    title: "CRM Settings",
+    href: "/admin/settings/crm",
     icon: Database,
   },
   {
-    title: "Account",
-    href: "/admin/settings/account",
-    icon: UserCircle,
+    title: "Customizations",
+    href: "/admin/settings/customizations",
+    icon: Paintbrush,
   },
 ]
 
@@ -58,8 +78,21 @@ export default function SettingsLayout({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">
-            Manage your organization settings and preferences.
+            Manage your workspace preferences, billing, and governance controls.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="size-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium text-primary">Onboarding trial in progress</p>
+              <p className="text-sm text-muted-foreground">
+                14 days left in your Pro trial. Unlock audit logging and integrations when you upgrade.
+              </p>
+            </div>
+          </div>
+          <Button className="shrink-0">Upgrade Plan</Button>
         </div>
 
         <div className="flex gap-1 overflow-x-auto border-b">

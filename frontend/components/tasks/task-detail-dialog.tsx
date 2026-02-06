@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { format } from "date-fns"
 import { Calendar, User, Tag, Trash2, Workflow } from "lucide-react"
 
@@ -37,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
+import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
 import type { Task, TaskStatus, TaskPriority } from "@/types"
 
 interface TaskDetailDialogProps {
@@ -54,42 +54,24 @@ export function TaskDetailDialog({
   onUpdateTask,
   onDeleteTask,
 }: TaskDetailDialogProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedTask, setEditedTask] = useState<Task | null>(null)
+  const {
+    isEditing,
+    editedItem: editedTask,
+    displayItem: displayTask,
+    handleEdit,
+    handleSave,
+    handleCancel,
+    handleDelete,
+    updateField,
+    handleQuickStatusUpdate,
+  } = useDetailDialogEdit({
+    item: task,
+    onUpdate: onUpdateTask,
+    onDelete: onDeleteTask,
+    onClose: () => onOpenChange(false),
+  })
 
-  const handleEdit = () => {
-    setEditedTask(task)
-    setIsEditing(true)
-  }
-
-  const handleSave = () => {
-    if (editedTask) {
-      onUpdateTask?.(editedTask)
-      setIsEditing(false)
-    }
-  }
-
-  const handleCancel = () => {
-    setEditedTask(null)
-    setIsEditing(false)
-  }
-
-  const handleDelete = () => {
-    if (task) {
-      onDeleteTask?.(task.id)
-      onOpenChange(false)
-    }
-  }
-
-  const handleStatusChange = (status: TaskStatus) => {
-    if (task) {
-      onUpdateTask?.({ ...task, status })
-    }
-  }
-
-  if (!task) return null
-
-  const displayTask = isEditing && editedTask ? editedTask : task
+  if (!task || !displayTask) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,9 +82,7 @@ export function TaskDetailDialog({
               {isEditing ? (
                 <Input
                   value={editedTask?.title ?? ""}
-                  onChange={(e) =>
-                    setEditedTask((prev) => (prev ? { ...prev, title: e.target.value } : null))
-                  }
+                  onChange={(e) => updateField("title", e.target.value)}
                   className="text-lg font-semibold"
                 />
               ) : (
@@ -130,9 +110,7 @@ export function TaskDetailDialog({
             {isEditing ? (
               <Select
                 value={editedTask?.status}
-                onValueChange={(v) =>
-                  setEditedTask((prev) => (prev ? { ...prev, status: v as TaskStatus } : null))
-                }
+                onValueChange={(v) => updateField("status", v as TaskStatus)}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
@@ -157,7 +135,7 @@ export function TaskDetailDialog({
                         variant="ghost"
                         size="sm"
                         className="h-6 px-2 text-xs"
-                        onClick={() => handleStatusChange(status)}
+                        onClick={() => handleQuickStatusUpdate(status)}
                       >
                         Move to {taskStatusConfig[status].label}
                       </Button>
@@ -172,9 +150,7 @@ export function TaskDetailDialog({
             {isEditing ? (
               <Textarea
                 value={editedTask?.description ?? ""}
-                onChange={(e) =>
-                  setEditedTask((prev) => (prev ? { ...prev, description: e.target.value } : null))
-                }
+                onChange={(e) => updateField("description", e.target.value)}
                 placeholder="Add a description..."
                 rows={3}
               />
@@ -191,9 +167,7 @@ export function TaskDetailDialog({
                 <Label htmlFor="edit-priority">Priority</Label>
                 <Select
                   value={editedTask?.priority}
-                  onValueChange={(v) =>
-                    setEditedTask((prev) => (prev ? { ...prev, priority: v as TaskPriority } : null))
-                  }
+                  onValueChange={(v) => updateField("priority", v as TaskPriority)}
                 >
                   <SelectTrigger id="edit-priority">
                     <SelectValue />
@@ -213,11 +187,7 @@ export function TaskDetailDialog({
                 <Input
                   id="edit-assignee"
                   value={editedTask?.assignee ?? ""}
-                  onChange={(e) =>
-                    setEditedTask((prev) =>
-                      prev ? { ...prev, assignee: e.target.value || undefined } : null
-                    )
-                  }
+                  onChange={(e) => updateField("assignee", e.target.value || undefined)}
                   placeholder="Assignee name"
                 />
               </div>

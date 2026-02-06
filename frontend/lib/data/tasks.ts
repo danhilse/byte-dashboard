@@ -13,8 +13,7 @@ export const tasks: Task[] = [
     updatedAt: "2024-02-01T14:00:00Z",
     tags: ["legal", "enterprise"],
     source: "workflow",
-    workflowId: "w1",
-    applicationId: "a1",
+    workflowId: "a1",
   },
   {
     id: "t2",
@@ -28,8 +27,7 @@ export const tasks: Task[] = [
     updatedAt: "2024-02-01T09:00:00Z",
     tags: ["demo", "sales"],
     source: "workflow",
-    workflowId: "w2",
-    applicationId: "a2",
+    workflowId: "a2",
   },
   {
     id: "t3",
@@ -78,8 +76,7 @@ export const tasks: Task[] = [
     updatedAt: "2024-01-22T11:00:00Z",
     tags: ["contract", "renewal"],
     source: "workflow",
-    workflowId: "w1",
-    applicationId: "a4",
+    workflowId: "a4",
   },
   {
     id: "t7",
@@ -93,8 +90,7 @@ export const tasks: Task[] = [
     updatedAt: "2024-02-02T10:00:00Z",
     tags: ["technical", "assessment"],
     source: "workflow",
-    workflowId: "w1",
-    applicationId: "a5",
+    workflowId: "a5",
   },
   {
     id: "t8",
@@ -119,8 +115,7 @@ export const tasks: Task[] = [
     updatedAt: "2024-01-26T11:00:00Z",
     tags: ["onboarding"],
     source: "workflow",
-    workflowId: "w2",
-    applicationId: "a7",
+    workflowId: "a7",
   },
   {
     id: "t10",

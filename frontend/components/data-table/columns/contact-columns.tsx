@@ -169,13 +169,13 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Applications
+            Workflows
             <ArrowUpDown className="ml-2 size-4" />
           </Button>
         )
       },
       cell: ({ row }) => {
-        const count = row.original.applicationsCount ?? 0
+        const count = row.original.workflowsCount ?? 0
         return <span className="text-center">{count}</span>
       },
       enableHiding: true,

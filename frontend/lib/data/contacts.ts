@@ -19,7 +19,7 @@ export const contacts: Contact[] = [
       state: "CA",
       zip: "94105",
     },
-    applicationsCount: 3,
+    workflowsCount: 3,
   },
   {
     id: "c2",
@@ -39,7 +39,7 @@ export const contacts: Contact[] = [
       state: "TX",
       zip: "78701",
     },
-    applicationsCount: 1,
+    workflowsCount: 1,
   },
   {
     id: "c3",
@@ -58,7 +58,7 @@ export const contacts: Contact[] = [
       state: "WA",
       zip: "98101",
     },
-    applicationsCount: 0,
+    workflowsCount: 0,
   },
   {
     id: "c4",
@@ -78,7 +78,7 @@ export const contacts: Contact[] = [
       state: "NY",
       zip: "10001",
     },
-    applicationsCount: 2,
+    workflowsCount: 2,
   },
   {
     id: "c5",
@@ -98,7 +98,7 @@ export const contacts: Contact[] = [
       state: "IL",
       zip: "60601",
     },
-    applicationsCount: 1,
+    workflowsCount: 1,
   },
   {
     id: "c6",
@@ -112,7 +112,7 @@ export const contacts: Contact[] = [
     createdAt: "2024-02-01T14:30:00Z",
     lastContactedAt: "2024-02-01T14:30:00Z",
     tags: ["startup", "hot-lead"],
-    applicationsCount: 0,
+    workflowsCount: 0,
   },
   {
     id: "c7",
@@ -133,7 +133,7 @@ export const contacts: Contact[] = [
       state: "CA",
       zip: "90001",
     },
-    applicationsCount: 4,
+    workflowsCount: 4,
   },
   {
     id: "c8",
@@ -153,7 +153,7 @@ export const contacts: Contact[] = [
       state: "CO",
       zip: "80202",
     },
-    applicationsCount: 2,
+    workflowsCount: 2,
   },
 ]
 

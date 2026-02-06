@@ -1,0 +1,45 @@
+  Why this is a UX mess:
+
+  You're right - separating Triggers from Steps makes no
+  sense. Here's what they built:
+
+  Workflow Blueprint
+  ├── Steps (sequential tasks)
+  │   ├── Step 1: Application Review
+  │   ├── Step 2: Background Check
+  │   └── Step 3: Interview
+  │
+  └── Triggers (separate list, not tied to steps)
+      ├── "Send email when task completes" (which task?
+  unclear)
+      ├── "Notify HR on status change"
+      └── "Reminder after 3 days"
+
+  What it SHOULD be:
+
+  Workflow Blueprint
+  ├── Step 1: Application Review
+  │   ├── Assignment: HR Manager
+  │   ├── On Complete: Send email to applicant
+  │   └── If overdue: Notify supervisor
+  │
+  ├── Step 2: Background Check
+  │   ├── Assignment: Investigator
+  │   ├── On Complete: Auto-advance if passed
+  │   └── On Complete: Reject if failed
+  │
+  └── Step 3: Interview
+      └── ...
+
+  The current design problems:
+  1. Triggers are workflow-level, not step-level (so you
+  can't say "when THIS step completes, do X")
+  2. There's a workflow_step_id field (line 31) but it's
+  nullable and clearly an afterthought
+  3. You have to mentally map triggers to steps yourself
+  4. The "visual builder" was probably built to solve
+  this... but doesn't actually work
+
+  TL;DR: Triggers should be configured ON each step, not as
+   a separate list. The current UX forces you to think
+  about two disconnected things that should be one.

@@ -1,47 +1,41 @@
-import { Workflow, Save, Play } from "lucide-react"
+import { GitBranch, Plus } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
-export default function WorkflowBuilderPage() {
+export default function WorkflowBlueprintsPage() {
   return (
     <>
-      <PageHeader breadcrumbs={[{ label: "Administration", href: "/settings" }, { label: "Workflow Builder" }]} />
+      <PageHeader breadcrumbs={[{ label: "Administration", href: "/settings" }, { label: "Workflow Blueprints" }]} />
       <div className="flex flex-1 flex-col gap-4 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Workflow Builder</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Workflow Blueprints</h1>
             <p className="text-muted-foreground">
-              Design and build automated workflows visually.
+              Manage and create reusable workflow templates.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline">
-              <Play className="mr-2 size-4" />
-              Test
-            </Button>
-            <Button>
-              <Save className="mr-2 size-4" />
-              Save Workflow
-            </Button>
-          </div>
+          <Button>
+            <Plus className="mr-2 size-4" />
+            New Blueprint
+          </Button>
         </div>
 
-        <Card className="flex-1">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Workflow className="size-5" />
-              Visual Workflow Editor
+              <GitBranch className="size-5" />
+              Blueprints Library
             </CardTitle>
             <CardDescription>
-              Drag and drop nodes to build your workflow logic.
+              Your saved workflow blueprints and templates.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex min-h-[500px] items-center justify-center">
+          <CardContent className="flex min-h-[300px] items-center justify-center">
             <div className="text-center text-muted-foreground">
-              <Workflow className="mx-auto mb-4 size-12 opacity-50" />
-              <p>Workflow builder canvas coming soon.</p>
-              <p className="text-sm">This will be a visual drag-and-drop workflow editor.</p>
+              <GitBranch className="mx-auto mb-4 size-12 opacity-50" />
+              <p>No blueprints created yet.</p>
+              <p className="text-sm">Create your first workflow blueprint to get started.</p>
             </div>
           </CardContent>
         </Card>

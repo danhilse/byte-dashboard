@@ -12,7 +12,9 @@ import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/
 import { tasks as initialTasks } from "@/lib/data/tasks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TaskCreateDialog, TaskDetailDialog, TaskStatusFilters } from "@/components/tasks"
+import { TaskCreateDialog, TaskDetailDialog } from "@/components/tasks"
+import { StatusFilter } from "@/components/common/status-filter"
+import { allTaskStatuses, taskStatusConfig } from "@/lib/status-config"
 import type { Task, TaskStatus } from "@/types"
 
 const KanbanBoard = dynamic(
@@ -123,7 +125,9 @@ export function MyWorkContent() {
         </div>
       </div>
 
-      <TaskStatusFilters
+      <StatusFilter
+        allStatuses={allTaskStatuses}
+        statusConfig={taskStatusConfig}
         selectedStatuses={selectedStatuses}
         onStatusChange={setSelectedStatuses}
       />

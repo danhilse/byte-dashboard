@@ -30,16 +30,17 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableColumnToggle } from "@/components/data-table/data-table-column-toggle"
 import { DataTableBulkActions } from "@/components/data-table/data-table-bulk-actions"
 import { ViewToggle, type ViewOption } from "@/components/common"
+import { StatusFilter } from "@/components/common/status-filter"
 import {
   ContactFormDialog,
   ContactDeleteDialog,
   ContactCard,
-  ContactStatusFilters,
   CSVImportDialog,
   ContactFiltersDialog,
   type ContactFilters,
 } from "@/components/contacts"
 import { createContactColumns, contactStatusOptions } from "@/components/data-table/columns/contact-columns"
+import { allContactStatuses, contactStatusConfig } from "@/lib/status-config"
 import { contacts as initialContacts } from "@/lib/data/contacts"
 import type { Contact, ContactStatus } from "@/types"
 
@@ -236,7 +237,9 @@ export function PeopleContent() {
       </div>
 
       {/* Status filters */}
-      <ContactStatusFilters
+      <StatusFilter
+        allStatuses={allContactStatuses}
+        statusConfig={contactStatusConfig}
         selectedStatuses={selectedStatuses}
         onStatusChange={setSelectedStatuses}
       />

@@ -3,8 +3,8 @@ import type { Activity, Note, DashboardStats } from "@/types"
 export const activities: Activity[] = [
   {
     id: "act1",
-    type: "application_submitted",
-    entityType: "application",
+    type: "workflow_submitted",
+    entityType: "workflow",
     entityId: "a6",
     entityName: "Trial Extension Request",
     description: "David Kim submitted a trial extension request",
@@ -26,7 +26,7 @@ export const activities: Activity[] = [
   {
     id: "act3",
     type: "status_changed",
-    entityType: "application",
+    entityType: "workflow",
     entityId: "a4",
     entityName: "Annual Subscription Renewal",
     description: "Application status changed to approved",
@@ -48,7 +48,7 @@ export const activities: Activity[] = [
   {
     id: "act5",
     type: "note_added",
-    entityType: "application",
+    entityType: "workflow",
     entityId: "a1",
     entityName: "Enterprise License Agreement",
     description: "Added note about legal review requirements",
@@ -70,7 +70,7 @@ export const activities: Activity[] = [
   {
     id: "act7",
     type: "status_changed",
-    entityType: "application",
+    entityType: "workflow",
     entityId: "a8",
     entityName: "Multi-year Contract Proposal",
     description: "Application status changed to rejected",
@@ -104,7 +104,7 @@ export const notes: Note[] = [
   },
   {
     id: "n2",
-    entityType: "application",
+    entityType: "workflow",
     entityId: "a1",
     content: "Legal team reviewing the custom SLA terms. Expected response by end of week.",
     createdAt: "2024-01-31T11:00:00Z",
@@ -124,7 +124,7 @@ export const notes: Note[] = [
   },
   {
     id: "n4",
-    entityType: "application",
+    entityType: "workflow",
     entityId: "a5",
     content: "Technical requirements document received. Chris is reviewing for feasibility.",
     createdAt: "2024-01-29T14:00:00Z",
@@ -136,7 +136,7 @@ export const notes: Note[] = [
 
 export const dashboardStats: DashboardStats = {
   totalContacts: 8,
-  activeApplications: 5,
+  activeWorkflows: 5,
   pendingTasks: 4,
   completedTasksThisWeek: 2,
 }

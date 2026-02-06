@@ -62,8 +62,8 @@ async function DashboardStats() {
         trend={{ value: 12, isPositive: true }}
       />
       <StatCard
-        title="Active Applications"
-        value={stats.activeApplications}
+        title="Active Workflows"
+        value={stats.activeWorkflows}
         description="in pipeline"
         icon={FileText}
         trend={{ value: 8, isPositive: true }}

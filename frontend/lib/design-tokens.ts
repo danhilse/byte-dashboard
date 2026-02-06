@@ -28,10 +28,11 @@ export const priorityColors = {
 // Activity type colors (for activity feed icons)
 export const activityColors = {
   contact_created: "text-activity-contact",
-  application_submitted: "text-activity-application",
+  workflow_submitted: "text-activity-application",
   task_completed: "text-activity-task",
   note_added: "text-activity-note",
   status_changed: "text-activity-status",
+  asset_uploaded: "text-activity-application",
 } as const satisfies Record<Activity["type"], string>
 
 // Trend indicator colors (for stats showing increase/decrease)

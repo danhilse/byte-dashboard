@@ -5,10 +5,11 @@ import type { Activity } from "@/types"
 
 const activityIcons = {
   contact_created: UserPlus,
-  application_submitted: FileText,
+  workflow_submitted: FileText,
   task_completed: CheckCircle2,
   note_added: MessageSquare,
   status_changed: RefreshCw,
+  asset_uploaded: FileText,
 }
 
 interface ActivityFeedProps {
