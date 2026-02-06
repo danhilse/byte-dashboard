@@ -16,7 +16,8 @@ import {
   ChevronUp,
   FileText,
 } from "lucide-react"
-import { useUser, useClerk } from "@clerk/nextjs"
+import { useUser, useClerk, useOrganization } from "@clerk/nextjs"
+import { useIsAdmin } from "@/hooks/use-org-role"
 
 import {
   Sidebar,
@@ -40,12 +41,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-// TODO: Replace with actual admin check from your auth system
-function useIsAdmin() {
-  // Placeholder - implement based on your role system
-  // e.g., check user metadata, organization role, etc.
-  return true
-}
 
 const primaryNavItems = [
   {
