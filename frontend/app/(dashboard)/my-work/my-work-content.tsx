@@ -12,7 +12,8 @@ import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/
 import { tasks as initialTasks } from "@/lib/data/tasks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TaskCreateDialog, TaskDetailDialog } from "@/components/tasks"
+import { TaskCreateDialog } from "@/components/tasks/task-create-dialog"
+import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
 import { StatusFilter } from "@/components/common/status-filter"
 import { allTaskStatuses, taskStatusConfig } from "@/lib/status-config"
 import type { Task, TaskStatus } from "@/types"
@@ -166,6 +167,12 @@ interface TasksGridViewProps {
   onTaskClick: (task: Task) => void
 }
 
+function getPriorityVariant(priority: Task["priority"]) {
+  if (priority === "high" || priority === "urgent") return "destructive"
+  if (priority === "medium") return "default"
+  return "secondary"
+}
+
 function TasksGridView({ tasks, onTaskClick }: TasksGridViewProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -178,7 +185,7 @@ function TasksGridView({ tasks, onTaskClick }: TasksGridViewProps) {
           <CardHeader className="pb-2">
             <div className="flex items-start justify-between">
               <CardTitle className="text-base line-clamp-2">{task.title}</CardTitle>
-              <Badge variant={task.priority === "high" || task.priority === "urgent" ? "destructive" : task.priority === "medium" ? "default" : "secondary"}>
+              <Badge variant={getPriorityVariant(task.priority)}>
                 {task.priority}
               </Badge>
             </div>

@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ContactStatusBadge } from "@/components/common"
+import { ContactStatusBadge } from "@/components/common/status-badge"
 import { getInitials } from "@/lib/utils"
 import type { Contact } from "@/types"
 

@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common"
+import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common/status-badge"
 import { formatCurrency } from "@/lib/utils"
 import { workflowStatusOptions } from "@/lib/status-config"
 import type { Workflow } from "@/types"

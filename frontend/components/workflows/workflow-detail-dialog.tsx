@@ -38,7 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common"
+import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common/status-badge"
 import { AssetList, AssetUploader, AssetPreviewModal } from "@/components/assets"
 import { workflowStatusConfig, workflowPriorityConfig } from "@/lib/status-config"
 import { getAssetsByWorkflow } from "@/lib/data/assets"

@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common"
+import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
 import type { Task, TaskStatus, TaskPriority } from "@/types"

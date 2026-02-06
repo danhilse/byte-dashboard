@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ContactStatusBadge } from "@/components/common"
+import { ContactStatusBadge } from "@/components/common/status-badge"
 import { getInitials } from "@/lib/utils"
 import { contactStatusOptions } from "@/lib/status-config"
 import type { Contact } from "@/types"

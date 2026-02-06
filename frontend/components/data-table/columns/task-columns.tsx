@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common"
+import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusOptions } from "@/lib/status-config"
 import type { Task } from "@/types"
 

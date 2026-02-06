@@ -29,16 +29,13 @@ import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
 import { DataTablePagination } from "@/components/data-table/data-table-pagination"
 import { DataTableColumnToggle } from "@/components/data-table/data-table-column-toggle"
 import { DataTableBulkActions } from "@/components/data-table/data-table-bulk-actions"
-import { ViewToggle, type ViewOption } from "@/components/common"
+import { ViewToggle, type ViewOption } from "@/components/common/view-toggle"
 import { StatusFilter } from "@/components/common/status-filter"
-import {
-  ContactFormDialog,
-  ContactDeleteDialog,
-  ContactCard,
-  CSVImportDialog,
-  ContactFiltersDialog,
-  type ContactFilters,
-} from "@/components/contacts"
+import { ContactFormDialog } from "@/components/contacts/contact-form-dialog"
+import { ContactDeleteDialog } from "@/components/contacts/contact-delete-dialog"
+import { ContactCard } from "@/components/contacts/contact-card"
+import { CSVImportDialog } from "@/components/contacts/csv-import-dialog"
+import { ContactFiltersDialog, type ContactFilters } from "@/components/contacts/contact-filters-dialog"
 import { createContactColumns, contactStatusOptions } from "@/components/data-table/columns/contact-columns"
 import { allContactStatuses, contactStatusConfig } from "@/lib/status-config"
 import { contacts as initialContacts } from "@/lib/data/contacts"
