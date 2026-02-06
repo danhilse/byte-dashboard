@@ -4,13 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-All commands are run from the `frontend/` directory:
+All commands are run from the project root:
 
-- `cd frontend && npm install` - Install dependencies (required once)
+- `npm install` - Install dependencies (required once)
 - `npm run dev` - Start development server at http://localhost:3000
 - `npm run build` - Build for production (fails on route or type errors)
 - `npm start` - Run compiled production build for smoke testing
 - `npm run lint` - Run ESLint 9 with Next.js config
+- `npm run db:generate` - Generate Drizzle migrations from schema
+- `npm run db:migrate` - Run pending database migrations
+- `npm run db:push` - Push schema changes directly to database
+- `npm run db:studio` - Open Drizzle Studio (database GUI)
 
 ## Reference Documents
 
@@ -21,7 +25,7 @@ Reference documents for this project are created and read in the `context/` fold
 Byte Dashboard is a Next.js 16 App Router application using TypeScript strict mode, Tailwind CSS v4, and Clerk authentication.
 
 ```
-frontend/
+byte-dashboard/
 ├── app/                         # Next.js App Router
 │   ├── (dashboard)/            # Route group with shared dashboard layout
 │   │   ├── layout.tsx          # Sidebar + top navigation wrapper
@@ -91,7 +95,19 @@ frontend/
 ├── types/
 │   └── index.ts                # TypeScript types for all domain models
 ├── hooks/                      # Custom React hooks
-└── middleware.ts               # Clerk authentication (DELETED in current state)
+├── middleware.ts               # Clerk authentication (DELETED in current state)
+├── drizzle.config.ts           # Drizzle Kit configuration
+├── package.json
+├── tsconfig.json
+├── next.config.ts
+└── .env.local
+
+# Future: Temporal workers (separate deployment to Railway)
+workers/                        # Will be added when implementing Temporal
+├── src/
+│   └── worker.ts
+├── package.json
+└── tsconfig.json
 ```
 
 ## Architecture & Key Patterns
