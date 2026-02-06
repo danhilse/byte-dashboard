@@ -1,6 +1,8 @@
 # MVP Roadmap: Byte Dashboard Rebuild
 
-**Goal:** Rebuild Byte Dashboard from scratch with a focused MVP targeting applicant onboarding and tracking for Fayette County Sheriff's Office.
+**Goal:** Build a lightweight system for tracking people through multi-step processes.
+
+**Primary Use Case:** Applicant onboarding and tracking for Fayette County Sheriff's Office.
 
 ---
 
@@ -10,18 +12,23 @@
 |-------|------------|
 | Framework | Next.js 14+ (App Router) |
 | Auth | Clerk (with Organizations for multi-tenant) |
-| Database | PostgreSQL via Railway |
+| Database | PostgreSQL via Neon or Railway |
+| Workflow Engine | Temporal.io (TypeScript SDK) |
 | ORM | Drizzle |
 | Styling | Tailwind CSS + shadcn/ui |
 | State/Data | TanStack React Query |
 | Forms | React Hook Form + Zod |
-| Deployment | Railway or Vercel |
+| Deployment | Vercel (frontend) + Railway (backend/workers) |
+
+**Note:** API routes handle both Next.js endpoints and Temporal worker processes.
 
 ---
 
 ## Data Model
 
 Core entities (~10 tables):
+
+**Note:** This schema is for application data only. Temporal.io maintains its own persistence layer for workflow execution state, history, timers, and signals.
 
 ```
 organizations (via Clerk - no table needed)
@@ -71,8 +78,10 @@ workflow_templates
 ├── id
 ├── organization_id
 ├── name
-├── statuses (JSONB array of status definitions)
+├── statuses (JSONB array of status definitions for UI/badges)
 ├── created_at
+
+**Note:** `workflow_templates` stores UI metadata (status labels, colors, badge variants). Temporal handles actual workflow execution, state, and orchestration.
 
 activity_log
 ├── id
@@ -118,10 +127,17 @@ users (sync from Clerk)
 - [ ] Role-based access (Owner, Admin, User)
 
 **Database & ORM**
-- [ ] Railway Postgres provisioned
+- [ ] Railway/Neon Postgres provisioned
 - [ ] Drizzle schema setup
 - [ ] Initial migrations
 - [ ] Database connection utilities
+
+**Temporal Setup**
+- [ ] Install @temporalio/client and @temporalio/worker
+- [ ] Configure Temporal connection (local dev or Temporal Cloud)
+- [ ] Set up worker process
+- [ ] Create first simple workflow (hello world)
+- [ ] Test workflow execution and signal handling
 
 **UI Foundation**
 - [ ] Tailwind config
@@ -129,7 +145,7 @@ users (sync from Clerk)
 - [ ] Layout components (sidebar, header, page container)
 - [ ] Basic navigation
 
-**Deliverable:** User can sign up, create org, see empty dashboard
+**Deliverable:** User can sign up, create org, see empty dashboard. Temporal workflows execute successfully.
 
 ---
 
@@ -180,15 +196,15 @@ users (sync from Clerk)
 - [ ] API route for Formstack webhook
 - [ ] Webhook signature verification
 - [ ] Field mapping config (Formstack fields → app fields)
-- [ ] Create contact from submission
-- [ ] Create application from submission
+- [ ] Temporal workflow triggered by webhook (not direct DB writes)
+- [ ] Workflow orchestrates: create contact → create application → send notifications → create tasks
 - [ ] Log ingestion in activity_log
 
 **Admin Config**
 - [ ] Settings page for Formstack integration
 - [ ] Field mapping UI (or config file for MVP)
 
-**Deliverable:** Applications auto-created when Formstack forms submitted
+**Deliverable:** Applications auto-created via Temporal workflow when Formstack forms submitted. Workflow handles retries and error recovery.
 
 ---
 
@@ -213,12 +229,17 @@ users (sync from Clerk)
 
 ---
 
-### Phase 6: Workflows & Activity
+### Phase 6: Workflow Orchestration
 
-**Simple Workflows**
-- [ ] Workflow template CRUD (define status sequences)
-- [ ] Assign workflow to application type
-- [ ] Status change triggers (optional: auto-create task)
+**Temporal Workflows**
+- [ ] Define application review workflow (lib/workflows/application-review.ts)
+- [ ] Implement activities (DB operations in lib/activities/database.ts)
+- [ ] Email sending activities (lib/activities/email.ts)
+- [ ] External API integration activities (lib/activities/integrations.ts)
+- [ ] Signal handling for task completion
+- [ ] Signal handling for form submission
+- [ ] Timeout/retry configuration
+- [ ] Workflow templates CRUD (UI metadata only)
 
 **Activity & Notes**
 - [ ] Activity log on application detail
@@ -226,7 +247,7 @@ users (sync from Clerk)
 - [ ] Add note to application/contact
 - [ ] Activity feed widget on dashboard
 
-**Deliverable:** Full audit trail, configurable status workflows
+**Deliverable:** Full audit trail, durable workflow orchestration with signal/wait patterns for external events
 
 ---
 

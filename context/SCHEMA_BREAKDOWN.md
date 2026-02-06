@@ -224,6 +224,8 @@ Most of these are RLS helpers or business logic that should live in application 
 
 ### Overview
 
+**Note:** This schema is for application data only. Temporal.io maintains its own persistence layer for workflow execution state, history, timers, and signals. The database below stores business data (contacts, applications, tasks), while Temporal handles workflow orchestration.
+
 ```
 organizations (via Clerk - no table needed)
 ├── users (via Clerk - synced to local table for app data)
@@ -233,12 +235,13 @@ organizations (via Clerk - no table needed)
 ├── contacts
 ├── applications
 ├── tasks
-├── workflow_templates
+├── workflow_templates (UI metadata: statuses, colors, labels)
 ├── notes
 ├── activity_log
 ├── formstack_config
 ├── formstack_submissions
 └── (Clerk handles: orgs, auth, roles, sessions)
+└── (Temporal handles: workflow execution, state, history, retries)
 ```
 
 ---
@@ -327,6 +330,7 @@ CREATE TABLE tasks (
   description     TEXT,
   status          TEXT NOT NULL DEFAULT 'todo',  -- todo, in_progress, done
   priority        TEXT DEFAULT 'medium',         -- low, medium, high
+  position        INTEGER DEFAULT 0,             -- For drag-and-drop ordering (future)
   due_date        DATE,
   completed_at    TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
@@ -337,10 +341,11 @@ CREATE INDEX idx_tasks_org ON tasks(org_id);
 CREATE INDEX idx_tasks_assigned ON tasks(assigned_to);
 CREATE INDEX idx_tasks_status ON tasks(org_id, status);
 CREATE INDEX idx_tasks_application ON tasks(application_id);
+CREATE INDEX idx_tasks_position ON tasks(org_id, status, position);  -- For kanban ordering
 ```
 
 #### `workflow_templates`
-Simple workflow definitions with status sequences.
+UI metadata for workflow templates. Stores status labels, colors, and badge variants for the frontend. **Actual workflow execution is managed by Temporal**, not this table.
 
 ```sql
 CREATE TABLE workflow_templates (
@@ -348,7 +353,7 @@ CREATE TABLE workflow_templates (
   org_id      TEXT NOT NULL,
   name        TEXT NOT NULL,
   description TEXT,
-  statuses    JSONB NOT NULL DEFAULT '[]',  -- ordered array of status objects
+  statuses    JSONB NOT NULL DEFAULT '[]',  -- ordered array of status objects for UI/badges
   is_active   BOOLEAN DEFAULT true,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW()
@@ -356,7 +361,7 @@ CREATE TABLE workflow_templates (
 
 CREATE INDEX idx_workflow_templates_org ON workflow_templates(org_id);
 
--- Example statuses JSONB:
+-- Example statuses JSONB (UI metadata only):
 -- [
 --   {"key": "submitted", "label": "Submitted", "color": "gray"},
 --   {"key": "under_review", "label": "Under Review", "color": "blue"},
@@ -365,37 +370,61 @@ CREATE INDEX idx_workflow_templates_org ON workflow_templates(org_id);
 --   {"key": "approved", "label": "Approved", "color": "green"},
 --   {"key": "rejected", "label": "Rejected", "color": "red"}
 -- ]
+
+-- Note: This table provides UI configuration only.
+-- Temporal workflows (lib/workflows/*.ts) handle execution, retries, signals, and durability.
+-- No need for workflow_instances table - Temporal tracks workflow runs in its own persistence.
 ```
 
 #### `notes`
-Notes on any entity (applications, contacts).
+Notes on any entity (applications, contacts, tasks). Uses hybrid polymorphic approach with soft FKs.
 
 ```sql
 CREATE TABLE notes (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id      TEXT NOT NULL,
-  entity_type TEXT NOT NULL,  -- 'application', 'contact'
+  entity_type TEXT NOT NULL,  -- 'application', 'contact', 'task' (for rendering)
   entity_id   UUID NOT NULL,
+  -- Soft FKs for sane queries (nullable, indexed)
+  application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
+  contact_id     UUID REFERENCES contacts(id) ON DELETE CASCADE,
+  task_id        UUID REFERENCES tasks(id) ON DELETE CASCADE,
   user_id     TEXT NOT NULL REFERENCES users(id),
   content     TEXT NOT NULL,
   is_internal BOOLEAN DEFAULT true,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  -- Ensure only one FK is set
+  CONSTRAINT one_parent_only CHECK (
+    (application_id IS NOT NULL)::int +
+    (contact_id IS NOT NULL)::int +
+    (task_id IS NOT NULL)::int = 1
+  )
 );
 
 CREATE INDEX idx_notes_entity ON notes(entity_type, entity_id);
 CREATE INDEX idx_notes_org ON notes(org_id);
+CREATE INDEX idx_notes_application ON notes(application_id) WHERE application_id IS NOT NULL;
+CREATE INDEX idx_notes_contact ON notes(contact_id) WHERE contact_id IS NOT NULL;
+CREATE INDEX idx_notes_task ON notes(task_id) WHERE task_id IS NOT NULL;
+
+-- Note: Soft FKs prevent N+1 queries and enable fast lookups like:
+-- SELECT * FROM notes WHERE application_id = ? (uses index, no table scan)
 ```
 
 #### `activity_log`
-Audit trail for compliance.
+Audit trail for compliance. Uses hybrid polymorphic approach with soft FKs.
 
 ```sql
 CREATE TABLE activity_log (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id      TEXT NOT NULL,
   user_id     TEXT REFERENCES users(id),
-  entity_type TEXT NOT NULL,  -- 'application', 'contact', 'task'
+  entity_type TEXT NOT NULL,  -- 'application', 'contact', 'task' (for rendering)
   entity_id   UUID NOT NULL,
+  -- Soft FKs for sane queries (nullable, indexed)
+  application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
+  contact_id     UUID REFERENCES contacts(id) ON DELETE CASCADE,
+  task_id        UUID REFERENCES tasks(id) ON DELETE CASCADE,
   action      TEXT NOT NULL,  -- 'created', 'updated', 'deleted', 'status_changed'
   details     JSONB DEFAULT '{}',
   created_at  TIMESTAMPTZ DEFAULT NOW()
@@ -404,6 +433,12 @@ CREATE TABLE activity_log (
 CREATE INDEX idx_activity_org ON activity_log(org_id);
 CREATE INDEX idx_activity_entity ON activity_log(entity_type, entity_id);
 CREATE INDEX idx_activity_time ON activity_log(created_at DESC);
+CREATE INDEX idx_activity_application ON activity_log(application_id) WHERE application_id IS NOT NULL;
+CREATE INDEX idx_activity_contact ON activity_log(contact_id) WHERE contact_id IS NOT NULL;
+CREATE INDEX idx_activity_task ON activity_log(task_id) WHERE task_id IS NOT NULL;
+
+-- Note: This prevents complex unions and enables efficient queries like:
+-- SELECT * FROM activity_log WHERE application_id = ? ORDER BY created_at DESC
 ```
 
 #### `formstack_config`
@@ -443,11 +478,14 @@ CREATE TABLE formstack_submissions (
   processed       BOOLEAN DEFAULT false,
   application_id  UUID REFERENCES applications(id),
   error           TEXT,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(org_id, submission_id)  -- Prevent duplicate webhook processing
 );
 
 CREATE INDEX idx_formstack_org ON formstack_submissions(org_id);
 CREATE INDEX idx_formstack_processed ON formstack_submissions(processed) WHERE NOT processed;
+
+-- Note: UNIQUE constraint prevents duplicate webhooks (Formstack retries on failure)
 ```
 
 ---

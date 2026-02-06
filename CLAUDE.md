@@ -12,6 +12,10 @@ All commands are run from the `frontend/` directory:
 - `npm start` - Run compiled production build for smoke testing
 - `npm run lint` - Run ESLint 9 with Next.js config
 
+## Reference Documents
+
+Reference documents for this project are created and read in the `context/` folder. This includes architecture documentation, roadmaps, schema definitions, and other planning artifacts.
+
 ## Project Structure
 
 Byte Dashboard is a Next.js 16 App Router application using TypeScript strict mode, Tailwind CSS v4, and Clerk authentication.
@@ -39,6 +43,9 @@ frontend/
 │   │       │   ├── crm/        # CRM-specific settings
 │   │       │   └── customizations/
 │   │       └── workflow-*/     # Workflow management tools
+│   ├── api/                    # Next.js API routes
+│   │   ├── webhooks/           # Webhook handlers (Formstack, etc.)
+│   │   └── workflows/          # Workflow trigger endpoints
 │   ├── globals.css             # Tailwind v4 imports + CSS variables
 │   └── layout.tsx              # Root layout with theme provider
 ├── components/
@@ -63,6 +70,21 @@ frontend/
 │   │   ├── tasks.ts
 │   │   ├── activity.ts
 │   │   └── settings.ts
+│   ├── db/                     # Database layer (Drizzle)
+│   │   ├── index.ts            # DB connection
+│   │   ├── schema.ts           # Drizzle schema
+│   │   └── queries.ts          # Reusable queries
+│   ├── workflows/              # Temporal workflows
+│   │   ├── application-review.ts
+│   │   └── background-check.ts
+│   ├── activities/             # Temporal activities
+│   │   ├── database.ts         # DB operations
+│   │   ├── email.ts            # Email sending
+│   │   └── integrations.ts     # External API calls
+│   ├── temporal/               # Temporal setup
+│   │   ├── client.ts           # Temporal client
+│   │   └── worker.ts           # Temporal worker
+│   ├── validations/            # Zod schemas
 │   ├── design-tokens.ts        # Semantic color mappings (priority, status, activity, trend)
 │   ├── status-config.ts        # Badge variants for statuses/priorities
 │   └── utils.ts                # Utility functions (cn, etc.)
@@ -109,16 +131,27 @@ frontend/
 - Maintain Tailwind class order: layout → spacing → color → state
 
 ### 6. Data & State Management
-- Mock data in `lib/data/*` for development
-- No backend integration yet - all data is static
+- Mock data in `lib/data/*` for development (current state)
+- Application data will be in PostgreSQL via Drizzle (not yet implemented)
+- Workflow state managed by Temporal's persistence layer
+- Client state via TanStack React Query (not yet implemented)
 - Use React Server Components where possible; opt into client components with `"use client"`
 
-### 7. Path Aliases
+### 7. Workflow Orchestration
+- **Temporal.io** handles long-running, durable workflows
+- Workflows defined in `lib/workflows/` - orchestration logic only
+- Activities defined in `lib/activities/` - actual work (DB, API calls, emails)
+- Workflows started via API routes (`app/api/workflows/`)
+- Workflows signaled from UI (task completion, form submission)
+- Can wait hours/days/weeks for external events (form submissions, webhooks, user actions)
+- `workflow_templates` table stores UI metadata (statuses, colors, labels), Temporal handles execution
+
+### 8. Path Aliases
 - `@/*` resolves to `frontend/*` (configured in tsconfig.json)
 - Import example: `import { Button } from "@/components/ui/button"`
 - Never use deep relative paths like `../../../components`
 
-### 8. Settings Architecture
+### 9. Settings Architecture
 The settings section uses a nested layout pattern:
 - Base path: `/admin/settings`
 - Layout (`admin/settings/layout.tsx`) renders:
@@ -149,6 +182,15 @@ The settings section uses a nested layout pattern:
 - Use `DataTable` component with `DataTableToolbar` and `DataTablePagination`
 - Filter options come from `lib/status-config.ts` exports
 - Example: `applications-columns.tsx`, `contacts-columns.tsx`
+
+### Working with Workflows
+- **Creating a new workflow**: Add to `lib/workflows/` with orchestration logic
+- **Defining activities**: Add to `lib/activities/` for DB operations, API calls, emails
+- **Starting workflows**: Create API route in `app/api/workflows/` that calls Temporal client
+- **Signaling workflows**: API routes that send signals (task completion, form submission)
+- **Testing locally**: Run Temporal server locally or use Temporal Cloud dev environment
+- **Workflow patterns**: Use signal/wait for external events, activities for I/O operations
+- **Durability**: Workflows survive server restarts, can run for hours/days/weeks
 
 ### Styling Guidelines
 - Use semantic tokens from `design-tokens.ts` for priority/status/activity colors
