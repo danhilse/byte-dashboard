@@ -18,9 +18,13 @@
 | Styling | Tailwind CSS + shadcn/ui |
 | State/Data | TanStack React Query |
 | Forms | React Hook Form + Zod |
-| Deployment | Vercel (frontend) + Railway (backend/workers) |
+| Deployment | Vercel (frontend) + Temporal Cloud + Railway (workers) |
 
-**Note:** API routes handle both Next.js endpoints and Temporal worker processes.
+**Notes:**
+- Use **Temporal Cloud for MVP** to avoid ops overhead (upgrades, backups, DR, observability)
+- Self-host Temporal Server only post-PMF if costs ($500+/month) justify eng time for 24/7 ops
+- Temporal workers run on Railway, connect to Temporal Cloud
+- API routes handle Next.js endpoints (Vercel Edge Functions)
 
 ---
 

@@ -420,15 +420,48 @@ Example: User completes task, signals workflow to continue to next step
 - **Worker**: Node process running locally (`npm run temporal:worker`)
 
 ### Production
+
+#### Recommended for MVP: Temporal Cloud
 - **Frontend**: Vercel (automatic deployment on git push)
 - **API Routes**: Vercel Edge Functions
-- **Database**: Neon (production instance)
-- **Temporal**: Temporal Cloud or self-hosted (Railway)
-- **Worker**: Railway deployment (separate from frontend)
+- **Database**: Neon (production instance, ~$25/month)
+- **Temporal**: **Temporal Cloud** (~$200/month after free tier)
+- **Worker**: Railway deployment (~$10-20/month)
   - Runs `lib/temporal/worker.ts`
   - Connects to Temporal Cloud
   - Executes workflows and activities
   - Auto-scales based on workflow load
+
+**Why Temporal Cloud for MVP:**
+- ✅ No operational overhead (upgrades, backups, DR, observability)
+- ✅ Built-in monitoring and debugging UI
+- ✅ Automatic scaling
+- ✅ Free tier for development
+- ✅ Ship faster, worry about ops later
+
+**Cost breakdown (MVP):**
+- Vercel: Free (hobby tier sufficient)
+- Neon: $25/month
+- Temporal Cloud: $0-200/month (free tier → paid as you scale)
+- Railway (workers): $10-20/month
+- **Total: ~$35-245/month** depending on usage
+
+#### Alternative: Self-Hosted (Post-MVP Only)
+**Option B: Temporal Server on Railway**
+- **Pros**: Lower cash costs (~$50/month total: Railway + Postgres)
+- **Cons**: You now own:
+  - Temporal server upgrades
+  - Backup/disaster recovery
+  - Observability setup (metrics, logs, traces)
+  - Incident response (3am Temporal crashes)
+  - Scaling tuning
+
+**Recommendation:** Use Temporal Cloud for MVP. Self-host only if:
+1. You've shipped v1 and have real users
+2. You have ops bandwidth for 24/7 availability
+3. Cost > $500/month justifies the eng time
+
+**MVP discipline:** Pay for managed services now, optimize costs after product-market fit.
 
 ---
 
