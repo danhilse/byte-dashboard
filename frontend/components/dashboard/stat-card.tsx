@@ -16,18 +16,22 @@ interface StatCardProps {
 
 export const StatCard = memo(function StatCard({ title, value, description, icon: Icon, trend }: StatCardProps) {
   return (
-    <Card>
+    <Card className="group/stat relative overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {Icon && <Icon className="size-4 text-muted-foreground" />}
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        {Icon && (
+          <div className="rounded-lg bg-primary/5 p-2 transition-all duration-200 group-hover/stat:bg-primary/10">
+            <Icon className="size-4 text-primary/60" />
+          </div>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-3xl font-bold tracking-tight">{value}</div>
         {(description || trend) && (
-          <p className="text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {trend && (
-              <span className={trend.isPositive ? trendColors.positive : trendColors.negative}>
-                {trend.isPositive ? "+" : ""}{trend.value}%
+              <span className={`font-medium ${trend.isPositive ? trendColors.positive : trendColors.negative}`}>
+                {trend.isPositive ? "↑" : "↓"} {trend.value}%
               </span>
             )}
             {trend && description && " "}
@@ -35,6 +39,7 @@ export const StatCard = memo(function StatCard({ title, value, description, icon
           </p>
         )}
       </CardContent>
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/[0.02] to-transparent opacity-0 transition-opacity duration-200 group-hover/stat:opacity-100" />
     </Card>
   )
 })

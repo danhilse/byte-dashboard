@@ -51,7 +51,7 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
   const [searchOpen, setSearchOpen] = React.useState(false)
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 sticky top-0 z-10">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <Breadcrumb>
@@ -80,30 +80,31 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
         {/* Search */}
         <Popover open={searchOpen} onOpenChange={setSearchOpen}>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Search className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative group">
+              <Search className="h-4 w-4 transition-transform group-hover:scale-110" />
               <span className="sr-only">Search</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-2" align="end">
-            <div className="flex items-center gap-2">
+          <PopoverContent className="w-96 p-3 shadow-refined-lg animate-scale-in" align="end">
+            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 ring-1 ring-border focus-within:ring-2 focus-within:ring-primary/20 transition-all">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search..."
-                className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="Search contacts, tasks, workflows..."
+                className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
                 autoFocus
               />
             </div>
-            <div className="mt-2 text-xs text-muted-foreground text-center py-4">
-              Type to search across contacts, tasks, and more...
+            <div className="mt-3 text-xs text-muted-foreground text-center py-3 border-t">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-foreground font-medium">⌘K</kbd> for quick access
             </div>
           </PopoverContent>
         </Popover>
 
         {/* AI Assistant */}
-        <Button variant="ghost" size="icon" className="h-9 w-9">
-          <Sparkles className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-9 w-9 relative group">
+          <Sparkles className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-primary" />
           <span className="sr-only">AI Assistant</span>
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
         </Button>
 
         {/* Quick Add */}
@@ -131,21 +132,24 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-              <Bell className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-9 w-9 relative group">
+              <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
               <span className="sr-only">Notifications</span>
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary/50 animate-pulse" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              Notifications
-              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground">
+          <DropdownMenuContent align="end" className="w-80 shadow-refined-lg animate-scale-in">
+            <DropdownMenuLabel className="flex items-center justify-between py-3">
+              <span className="font-semibold">Notifications</span>
+              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-primary transition-colors">
                 Mark all read
               </Button>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <div className="py-6 text-center text-sm text-muted-foreground">
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+                <Bell className="h-5 w-5 text-muted-foreground/50" />
+              </div>
               No new notifications
             </div>
           </DropdownMenuContent>

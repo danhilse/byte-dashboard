@@ -126,13 +126,13 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <span className="text-sm font-bold">B</span>
+              <Link href="/dashboard" className="group/logo">
+                <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm transition-all duration-200 group-hover/logo:shadow-md group-hover/logo:scale-105">
+                  <span className="text-[15px] font-bold tracking-tight">B</span>
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Byte</span>
-                  <span className="truncate text-xs text-muted-foreground">CRM Dashboard</span>
+                  <span className="truncate font-semibold tracking-tight">Byte</span>
+                  <span className="truncate text-xs text-muted-foreground">Workflow Platform</span>
                 </div>
               </Link>
             </SidebarMenuButton>

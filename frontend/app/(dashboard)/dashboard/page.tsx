@@ -54,33 +54,41 @@ async function DashboardStats() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <StatCard
-        title="Total Contacts"
-        value={stats.totalContacts}
-        description="from last month"
-        icon={Users}
-        trend={{ value: 12, isPositive: true }}
-      />
-      <StatCard
-        title="Active Workflows"
-        value={stats.activeWorkflows}
-        description="in pipeline"
-        icon={FileText}
-        trend={{ value: 8, isPositive: true }}
-      />
-      <StatCard
-        title="Pending Tasks"
-        value={stats.pendingTasks}
-        description="need attention"
-        icon={CheckSquare}
-      />
-      <StatCard
-        title="Completed This Week"
-        value={stats.completedTasksThisWeek}
-        description="tasks finished"
-        icon={TrendingUp}
-        trend={{ value: 25, isPositive: true }}
-      />
+      <div className="animate-slide-up stagger-1">
+        <StatCard
+          title="Total Contacts"
+          value={stats.totalContacts}
+          description="from last month"
+          icon={Users}
+          trend={{ value: 12, isPositive: true }}
+        />
+      </div>
+      <div className="animate-slide-up stagger-2">
+        <StatCard
+          title="Active Workflows"
+          value={stats.activeWorkflows}
+          description="in pipeline"
+          icon={FileText}
+          trend={{ value: 8, isPositive: true }}
+        />
+      </div>
+      <div className="animate-slide-up stagger-3">
+        <StatCard
+          title="Pending Tasks"
+          value={stats.pendingTasks}
+          description="need attention"
+          icon={CheckSquare}
+        />
+      </div>
+      <div className="animate-slide-up stagger-4">
+        <StatCard
+          title="Completed This Week"
+          value={stats.completedTasksThisWeek}
+          description="tasks finished"
+          icon={TrendingUp}
+          trend={{ value: 25, isPositive: true }}
+        />
+      </div>
     </div>
   )
 }
@@ -127,25 +135,25 @@ export default function DashboardPage() {
 
 function QuickActions() {
   return (
-    <Card>
+    <Card className="animate-slide-up stagger-2">
       <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
+        <CardTitle className="text-lg">Quick Actions</CardTitle>
         <CardDescription>Common tasks to get you started</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-2">
-        <Button variant="outline" className="justify-start" asChild>
+        <Button variant="outline" className="justify-start h-11" asChild>
           <Link href="/people">
             <UserPlus className="mr-2 size-4" />
             Add New Contact
           </Link>
         </Button>
-        <Button variant="outline" className="justify-start" asChild>
+        <Button variant="outline" className="justify-start h-11" asChild>
           <Link href="/my-work">
             <FileUp className="mr-2 size-4" />
             View My Work
           </Link>
         </Button>
-        <Button variant="outline" className="justify-start" asChild>
+        <Button variant="outline" className="justify-start h-11" asChild>
           <Link href="/calendar">
             <ListTodo className="mr-2 size-4" />
             Check Calendar
