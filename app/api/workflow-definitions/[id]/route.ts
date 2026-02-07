@@ -70,50 +70,52 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch existing definition
-    const [existing] = await db
-      .select()
-      .from(workflowDefinitions)
-      .where(
-        and(
-          eq(workflowDefinitions.id, id),
-          eq(workflowDefinitions.orgId, orgId),
-          eq(workflowDefinitions.isActive, true)
-        )
-      );
+    const body = await req.json();
+    const { name, description, steps, phases, variables, statuses } = body;
 
-    if (!existing) {
+    // Transactional clone + deactivate to avoid concurrent edit races.
+    const newDefinition = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .update(workflowDefinitions)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(workflowDefinitions.id, id),
+            eq(workflowDefinitions.orgId, orgId),
+            eq(workflowDefinitions.isActive, true)
+          )
+        )
+        .returning();
+
+      if (!existing) {
+        return null;
+      }
+
+      const [created] = await tx
+        .insert(workflowDefinitions)
+        .values({
+          orgId,
+          name: name !== undefined ? name : existing.name,
+          description:
+            description !== undefined ? description : existing.description,
+          version: existing.version + 1,
+          steps: steps !== undefined ? steps : existing.steps,
+          phases: phases !== undefined ? phases : existing.phases,
+          variables: variables !== undefined ? variables : existing.variables,
+          statuses: statuses !== undefined ? statuses : existing.statuses,
+          isActive: true,
+        })
+        .returning();
+
+      return created;
+    });
+
+    if (!newDefinition) {
       return NextResponse.json(
         { error: "Workflow definition not found" },
         { status: 404 }
       );
     }
-
-    const body = await req.json();
-    const { name, description, steps, phases, variables, statuses } = body;
-
-    // Clone with new UUID, increment version, apply updates
-    const [newDefinition] = await db
-      .insert(workflowDefinitions)
-      .values({
-        orgId,
-        name: name !== undefined ? name : existing.name,
-        description:
-          description !== undefined ? description : existing.description,
-        version: existing.version + 1,
-        steps: steps !== undefined ? steps : existing.steps,
-        phases: phases !== undefined ? phases : existing.phases,
-        variables: variables !== undefined ? variables : existing.variables,
-        statuses: statuses !== undefined ? statuses : existing.statuses,
-        isActive: true,
-      })
-      .returning();
-
-    // Deactivate old version
-    await db
-      .update(workflowDefinitions)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(workflowDefinitions.id, id));
 
     return NextResponse.json({ definition: newDefinition });
   } catch (error) {

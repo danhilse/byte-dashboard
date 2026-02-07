@@ -95,28 +95,48 @@ export function WorkflowsContent() {
     status: WorkflowStatus
   }) => {
     try {
-      const response = await fetch("/api/workflows", {
+      const startsImmediately = Boolean(data.workflowDefinitionId)
+      const endpoint = startsImmediately ? "/api/workflows/trigger" : "/api/workflows"
+      const payload = startsImmediately
+        ? {
+            contactId: data.contactId,
+            workflowDefinitionId: data.workflowDefinitionId,
+          }
+        : data
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create workflow")
+        throw new Error(
+          startsImmediately
+            ? "Failed to start workflow"
+            : "Failed to create workflow"
+        )
       }
 
       const { workflow } = await response.json()
+      if (!workflow) {
+        throw new Error("Workflow response was missing payload")
+      }
       setWorkflows((prev) => [workflow, ...prev])
 
       toast({
-        title: "Success",
-        description: "Workflow created successfully",
+        title: startsImmediately ? "Workflow started" : "Success",
+        description: startsImmediately
+          ? "Workflow execution started successfully"
+          : "Workflow created successfully",
       })
     } catch (error) {
       console.error("Error creating workflow:", error)
       toast({
         title: "Error",
-        description: "Failed to create workflow. Please try again.",
+        description: error instanceof Error
+          ? error.message
+          : "Failed to create workflow. Please try again.",
         variant: "destructive",
       })
     }

@@ -19,6 +19,8 @@ interface ConditionConfigProps {
   onUpdate: (step: ConditionStep) => void
 }
 
+const CONTINUE_TO_NEXT_VALUE = "__continue_to_next__"
+
 export function ConditionConfig({
   step,
   steps,
@@ -119,16 +121,21 @@ export function ConditionConfig({
       <div className="grid gap-2">
         <Label>Default (no match)</Label>
         <Select
-          value={step.config.defaultGotoStepId ?? ""}
+          value={step.config.defaultGotoStepId ?? CONTINUE_TO_NEXT_VALUE}
           onValueChange={(v) =>
-            updateConfig({ defaultGotoStepId: v || undefined })
+            updateConfig({
+              defaultGotoStepId:
+                v === CONTINUE_TO_NEXT_VALUE ? undefined : v,
+            })
           }
         >
           <SelectTrigger>
             <SelectValue placeholder="Continue to next step" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Continue to next step</SelectItem>
+            <SelectItem value={CONTINUE_TO_NEXT_VALUE}>
+              Continue to next step
+            </SelectItem>
             {otherSteps.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.label}

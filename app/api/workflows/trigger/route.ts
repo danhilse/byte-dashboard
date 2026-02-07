@@ -6,16 +6,15 @@ import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { ApplicantReviewWorkflowInput } from "@/lib/workflows/applicant-review-workflow";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
-import type { WorkflowStep } from "@/types";
 
 /**
  * POST /api/workflows/trigger
  *
  * Starts a new workflow execution.
  *
- * If workflowDefinitionId is provided AND the definition has steps,
- * starts the genericWorkflow interpreter. Otherwise falls back to
- * the hardcoded applicantReviewWorkflow (legacy).
+ * If workflowDefinitionId is provided, starts the genericWorkflow
+ * interpreter. Otherwise falls back to the hardcoded
+ * applicantReviewWorkflow (legacy).
  *
  * Request body:
  * {
@@ -51,15 +50,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    // Validate optional workflow definition and check for steps
-    let definitionVersion = 1;
-    let definitionSteps: WorkflowStep[] = [];
+    // Validate optional workflow definition
+    let definitionVersion: number | null = null;
+    let definitionName: string | undefined;
     if (workflowDefinitionId) {
       const [workflowDefinition] = await db
         .select({
           id: workflowDefinitions.id,
+          name: workflowDefinitions.name,
           version: workflowDefinitions.version,
-          steps: workflowDefinitions.steps,
         })
         .from(workflowDefinitions)
         .where(
@@ -76,9 +75,8 @@ export async function POST(req: Request) {
         );
       }
 
+      definitionName = workflowDefinition.name;
       definitionVersion = workflowDefinition.version;
-      const stepsData = workflowDefinition.steps as { steps: WorkflowStep[] } | null;
-      definitionSteps = stepsData?.steps ?? [];
     }
 
     // Create workflow execution record in DB
@@ -88,7 +86,7 @@ export async function POST(req: Request) {
         orgId,
         contactId,
         workflowDefinitionId: workflowDefinitionId || null,
-        definitionVersion,
+        definitionVersion: definitionVersion ?? null,
         status: "running",
         source: "manual",
       })
@@ -98,10 +96,13 @@ export async function POST(req: Request) {
       const client = await getTemporalClient();
 
       // Decide which workflow to start
-      const useGeneric =
-        workflowDefinitionId && definitionSteps.length > 0;
+      const useGeneric = Boolean(workflowDefinitionId);
+      const contactName =
+        `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim();
 
       if (useGeneric) {
+        const genericDefinitionId = workflowDefinitionId as string;
+
         // Start generic workflow interpreter
         const workflowInput: GenericWorkflowInput = {
           workflowId: workflowExecution.id,
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
           contactId: contact.id,
           contactEmail: contact.email || "",
           contactFirstName: contact.firstName,
-          definitionId: workflowDefinitionId,
+          definitionId: genericDefinitionId,
         };
 
         const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;
@@ -138,6 +139,14 @@ export async function POST(req: Request) {
           workflowId: workflowExecution.id,
           temporalWorkflowId: handle.workflowId,
           status: "running",
+          workflow: {
+            ...workflowExecution,
+            temporalWorkflowId: handle.workflowId,
+            temporalRunId: handle.firstExecutionRunId,
+            contactName,
+            contactAvatarUrl: contact.avatarUrl ?? undefined,
+            definitionName,
+          },
         });
       } else {
         // Legacy: start hardcoded applicant review workflow
@@ -180,6 +189,14 @@ export async function POST(req: Request) {
           workflowId: workflowExecution.id,
           temporalWorkflowId: handle.workflowId,
           status: "running",
+          workflow: {
+            ...workflowExecution,
+            temporalWorkflowId: handle.workflowId,
+            temporalRunId: handle.firstExecutionRunId,
+            contactName,
+            contactAvatarUrl: contact.avatarUrl ?? undefined,
+            definitionName,
+          },
         });
       }
     } catch (startError) {

@@ -6,6 +6,7 @@ import { tasks, workflows } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import type { ApprovalSignal } from "@/lib/workflows/applicant-review-workflow";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
+import { requiresApprovalComment } from "@/lib/tasks/approval-requirements";
 
 /**
  * PATCH /api/tasks/[id]/approve
@@ -40,6 +41,15 @@ export async function PATCH(
 
     const body = await req.json();
     const { comment } = body;
+    const normalizedComment =
+      typeof comment === "string" ? comment.trim() : undefined;
+
+    if (comment !== undefined && typeof comment !== "string") {
+      return NextResponse.json(
+        { error: "comment must be a string when provided" },
+        { status: 400 }
+      );
+    }
 
     // Scope by org to avoid leaking resource existence across tenants
     const [task] = await db
@@ -66,6 +76,18 @@ export async function PATCH(
       );
     }
 
+    const commentRequired = await requiresApprovalComment({
+      orgId,
+      workflowId: task.workflowId,
+    });
+
+    if (commentRequired && !normalizedComment) {
+      return NextResponse.json(
+        { error: "A comment is required for this approval step" },
+        { status: 400 }
+      );
+    }
+
     // Atomically transition from non-done -> done to avoid concurrent approve/reject races
     const now = new Date();
     const [updatedTask] = await db
@@ -73,7 +95,7 @@ export async function PATCH(
       .set({
         status: "done",
         outcome: "approved",
-        outcomeComment: comment,
+        outcomeComment: normalizedComment,
         completedAt: now,
         updatedAt: now,
       })
@@ -139,7 +161,7 @@ export async function PATCH(
           // Send approvalSubmitted signal
           const signal: ApprovalSignal = {
             outcome: "approved",
-            comment,
+            comment: normalizedComment,
             approvedBy: userId,
           };
 
@@ -159,7 +181,7 @@ export async function PATCH(
     return NextResponse.json({
       taskId,
       outcome: "approved",
-      comment,
+      comment: normalizedComment,
       workflowSignaled,
       task: updatedTask,
     });

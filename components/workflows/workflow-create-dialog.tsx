@@ -49,18 +49,25 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [loadingDefinitions, setLoadingDefinitions] = useState(false)
+  const startsImmediately = Boolean(workflowDefinitionId)
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (nextOpen) {
+      setLoadingContacts(true)
+      setLoadingDefinitions(true)
+    }
+  }
 
   useEffect(() => {
     if (!open) return
 
-    setLoadingContacts(true)
     fetch("/api/contacts")
       .then((res) => res.json())
       .then((data) => setContacts(data.contacts || []))
       .catch(console.error)
       .finally(() => setLoadingContacts(false))
 
-    setLoadingDefinitions(true)
     fetch("/api/workflow-definitions")
       .then((res) => res.json())
       .then((data) => setDefinitions(data.definitions || []))
@@ -97,10 +104,10 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
       description="Start a new workflow execution for a contact."
       trigger={trigger ?? defaultTrigger}
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
       onSubmit={handleSubmit}
       onCancel={resetForm}
-      submitLabel="Create Workflow"
+      submitLabel={startsImmediately ? "Start Workflow" : "Create Workflow"}
       submitDisabled={!contactId}
     >
       <div className="grid gap-2">
@@ -158,7 +165,11 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
 
       <div className="grid gap-2">
         <Label htmlFor="status">Initial Status</Label>
-        <Select value={status} onValueChange={(v) => setStatus(v as WorkflowStatus)}>
+        <Select
+          value={status}
+          onValueChange={(v) => setStatus(v as WorkflowStatus)}
+          disabled={startsImmediately}
+        >
           <SelectTrigger id="status" className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -170,6 +181,11 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
             ))}
           </SelectContent>
         </Select>
+        {startsImmediately && (
+          <p className="text-xs text-muted-foreground">
+            Status is managed by workflow steps after start.
+          </p>
+        )}
       </div>
     </FormDialog>
   )

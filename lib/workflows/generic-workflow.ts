@@ -22,7 +22,6 @@ import {
 } from "@temporalio/workflow";
 import type * as activities from "../activities";
 import type {
-  WorkflowStep,
   AssignTaskStep,
   WaitForTaskStep,
   WaitForApprovalStep,
@@ -134,9 +133,12 @@ export async function genericWorkflow(
 
   // Helper to resolve {{stepId.fieldName}} references in a string
   function resolveVariable(template: string): string {
-    return template.replace(/\{\{(\w+)\.(\w+)\}\}/g, (_match, stepId, field) => {
-      return variables[`${stepId}.${field}`] ?? "";
-    });
+    return template.replace(
+      /\{\{([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\}\}/g,
+      (_match, stepId, field) => {
+        return variables[`${stepId}.${field}`] ?? "";
+      }
+    );
   }
 
   // Execute steps sequentially
