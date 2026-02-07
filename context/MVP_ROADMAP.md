@@ -283,23 +283,39 @@ users (sync from Clerk)
 ### Phase 4: Tasks & Kanban
 
 **Task Management**
-- [x] Task list page (My Work page with table/kanban/grid views)
-- [x] Create task form (UI component)
-- [x] Task detail dialog (view/edit)
-- [ ] Task API routes (GET, POST, PATCH, DELETE)
-- [ ] Database integration
-- [x] Assign task to user (UI)
-- [x] Due date picker (UI)
-- [x] Task status (todo, in_progress, done)
-- [x] Link task to workflow or contact (UI)
+- [ ] Task list page (My Work page with table/kanban/grid views)
+- [ ] Create task form
+- [ ] Task detail dialog (view/edit)
+- [ ] Assign task to user
+- [ ] Due date picker
+- [ ] Task status (todo, in_progress, done)
+- [ ] Link task to workflow execution or contact
+
+**Task API Routes**
+- [ ] GET /api/tasks (list tasks, filter by assignee/status)
+- [ ] POST /api/tasks (create task - manual or from workflow)
+- [ ] GET /api/tasks/:id (get task details)
+- [ ] PATCH /api/tasks/:id (update task fields)
+- [ ] PATCH /api/tasks/:id/status (update status + conditional workflow signal)
+- [ ] DELETE /api/tasks/:id (delete task)
+
+**Task ↔ Workflow Integration**
+- [ ] Task status update logic:
+  - Update task in DB
+  - Check if `workflow_execution_id` exists
+  - If yes, send Temporal signal `taskStatusChanged`
+  - Workflow resumes from `wait_for_task` step
+- [ ] Standalone task support (no workflow signal if `workflow_execution_id` is null)
+- [ ] Task creation from workflow steps (store `created_by_step_id`)
 
 **Kanban Board**
-- [x] Kanban view component (GenericKanbanBoard - reusable for tasks and workflows)
-- [x] Drag-and-drop between columns
-- [x] Column = status
-- [x] Card = task with key info
+- [ ] Kanban view component (GenericKanbanBoard - reusable for tasks and workflows)
+- [ ] Drag-and-drop between columns
+- [ ] Column = status
+- [ ] Card = task with key info
+- [ ] Drag updates task status (triggers API call with signaling)
 
-**Deliverable:** User can create tasks, assign them, and manage via Kanban
+**Deliverable:** User can create tasks, assign them, manage via Kanban, and tasks integrate with workflow executions
 
 ---
 
