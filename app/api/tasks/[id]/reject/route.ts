@@ -76,9 +76,7 @@ export async function PATCH(
           ne(tasks.status, "done")
         )
       )
-      .returning({
-        workflowId: tasks.workflowId,
-      });
+      .returning();
 
     if (!updatedTask) {
       const [latestTask] = await db
@@ -154,6 +152,7 @@ export async function PATCH(
       outcome: "rejected",
       comment,
       workflowSignaled,
+      task: updatedTask,
     });
   } catch (error) {
     console.error("Error rejecting task:", error);

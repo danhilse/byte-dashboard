@@ -62,26 +62,17 @@ export const KanbanCard = memo(function KanbanCard({ task, className }: KanbanCa
             {task.description}
           </p>
         )}
-        {task.tags && task.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {task.tags.slice(0, 2).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
-                {tag}
-              </Badge>
-            ))}
-            {task.tags.length > 2 && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                +{task.tags.length - 2}
-              </Badge>
-            )}
-          </div>
-        )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          {task.assignee && (
+          {task.assignedTo && (
             <div className="flex items-center gap-1">
               <User className="size-3" />
-              <span className="truncate max-w-[80px]">{task.assignee.split(" ")[0]}</span>
+              <span className="truncate max-w-[80px]">{task.assignedTo}</span>
             </div>
+          )}
+          {!task.assignedTo && task.assignedRole && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {task.assignedRole}
+            </Badge>
           )}
           {task.dueDate && (
             <div className="flex items-center gap-1">

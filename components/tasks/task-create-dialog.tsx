@@ -29,18 +29,16 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState<TaskStatus>("todo")
   const [priority, setPriority] = useState<TaskPriority>("medium")
-  const [assignee, setAssignee] = useState("")
+  const [assignedTo, setAssignedTo] = useState("")
   const [dueDate, setDueDate] = useState("")
-  const [tags, setTags] = useState("")
 
   const resetForm = () => {
     setTitle("")
     setDescription("")
     setStatus("todo")
     setPriority("medium")
-    setAssignee("")
+    setAssignedTo("")
     setDueDate("")
-    setTags("")
   }
 
   const handleSubmit = () => {
@@ -53,10 +51,8 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
       priority,
       position: 0,
       metadata: {},
-      assignee: assignee || undefined,
+      assignedTo: assignedTo || undefined,
       dueDate: dueDate || undefined,
-      tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-      source: "manual",
     }
 
     onCreateTask?.(newTask)
@@ -141,12 +137,12 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
 
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="assignee">Assignee</Label>
+          <Label htmlFor="assignedTo">Assigned To</Label>
           <Input
-            id="assignee"
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-            placeholder="Assignee name (optional)"
+            id="assignedTo"
+            value={assignedTo}
+            onChange={(e) => setAssignedTo(e.target.value)}
+            placeholder="User ID (optional)"
           />
         </div>
 
@@ -159,16 +155,6 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
             onChange={(e) => setDueDate(e.target.value)}
           />
         </div>
-      </div>
-
-      <div className="grid gap-2">
-        <Label htmlFor="tags">Tags</Label>
-        <Input
-          id="tags"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="Comma-separated tags (e.g., urgent, sales)"
-        />
       </div>
     </FormDialog>
   )

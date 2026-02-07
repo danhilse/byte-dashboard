@@ -65,7 +65,6 @@ export interface Workflow {
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
-export type TaskSource = "manual" | "workflow"
 export type TaskType = "standard" | "approval"
 export type TaskOutcome = "approved" | "rejected" | "completed" | null
 
@@ -90,12 +89,6 @@ export interface Task {
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
-  /** @deprecated Use `assignedTo` instead. Remove during Phase 4 CRUD rewrite. */
-  assignee?: string
-  /** @deprecated Tasks don't have tags in the DB schema. Remove during Phase 4 CRUD rewrite. */
-  tags?: string[]
-  /** @deprecated Use `taskType` or check `workflowId` instead. Remove during Phase 4 CRUD rewrite. */
-  source?: TaskSource
 }
 
 export interface Activity {

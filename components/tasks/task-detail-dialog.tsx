@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { format } from "date-fns"
-import { Calendar, User, Tag, Trash2, Workflow, CheckCircle2, XCircle } from "lucide-react"
+import { Calendar, User, Trash2, Workflow, CheckCircle2, XCircle, Shield } from "lucide-react"
 
 import {
   Dialog,
@@ -46,6 +46,7 @@ interface TaskDetailDialogProps {
   onOpenChange: (open: boolean) => void
   onUpdateTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
+  onStatusChange?: (taskId: string, newStatus: TaskStatus) => void
   onApprove?: (taskId: string, comment?: string) => Promise<void>
   onReject?: (taskId: string, comment?: string) => Promise<void>
 }
@@ -56,6 +57,7 @@ export function TaskDetailDialog({
   onOpenChange,
   onUpdateTask,
   onDeleteTask,
+  onStatusChange,
   onApprove,
   onReject,
 }: TaskDetailDialogProps) {
@@ -131,7 +133,7 @@ export function TaskDetailDialog({
             </div>
             <div className="flex items-center gap-2">
               <TaskPriorityBadge priority={displayTask.priority} />
-              {displayTask.source === "workflow" && (
+              {displayTask.workflowId && (
                 <Badge variant="outline" className="gap-1">
                   <Workflow className="size-3" />
                   Workflow
@@ -175,7 +177,13 @@ export function TaskDetailDialog({
                         variant="ghost"
                         size="sm"
                         className="h-6 px-2 text-xs"
-                        onClick={() => handleQuickStatusUpdate(status)}
+                        onClick={() => {
+                          if (onStatusChange && task) {
+                            onStatusChange(task.id, status)
+                          } else {
+                            handleQuickStatusUpdate(status)
+                          }
+                        }}
                       >
                         Move to {taskStatusConfig[status].label}
                       </Button>
@@ -223,21 +231,27 @@ export function TaskDetailDialog({
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="edit-assignee">Assignee</Label>
+                <Label htmlFor="edit-assignedTo">Assigned To</Label>
                 <Input
-                  id="edit-assignee"
-                  value={editedTask?.assignee ?? ""}
-                  onChange={(e) => updateField("assignee", e.target.value || undefined)}
-                  placeholder="Assignee name"
+                  id="edit-assignedTo"
+                  value={editedTask?.assignedTo ?? ""}
+                  onChange={(e) => updateField("assignedTo", e.target.value || undefined)}
+                  placeholder="User ID"
                 />
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-4 text-sm">
-              {displayTask.assignee && (
+              {displayTask.assignedTo && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <User className="size-4" />
-                  <span>{displayTask.assignee}</span>
+                  <span>{displayTask.assignedTo}</span>
+                </div>
+              )}
+              {!displayTask.assignedTo && displayTask.assignedRole && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Shield className="size-4" />
+                  <Badge variant="outline">{displayTask.assignedRole}</Badge>
                 </div>
               )}
               {displayTask.dueDate && (
@@ -246,22 +260,6 @@ export function TaskDetailDialog({
                   <span>{format(new Date(displayTask.dueDate), "MMM d, yyyy")}</span>
                 </div>
               )}
-            </div>
-          )}
-
-          {displayTask.tags && displayTask.tags.length > 0 && (
-            <div className="grid gap-2">
-              <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                <Tag className="size-3" />
-                Tags
-              </Label>
-              <div className="flex flex-wrap gap-1">
-                {displayTask.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
             </div>
           )}
 

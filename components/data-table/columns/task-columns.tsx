@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusOptions } from "@/lib/status-config"
 import type { Task } from "@/types"
@@ -90,15 +91,21 @@ export const taskColumns: ColumnDef<Task>[] = [
     },
   },
   {
-    accessorKey: "assignee",
-    header: "Assignee",
+    accessorKey: "assignedTo",
+    header: "Assigned To",
     cell: ({ row }) => {
-      const assignee = row.getValue("assignee") as string | undefined
-      return assignee ? (
-        <span>{assignee}</span>
-      ) : (
-        <span className="text-muted-foreground">Unassigned</span>
-      )
+      const task = row.original
+      if (task.assignedTo) {
+        return <span>{task.assignedTo}</span>
+      }
+      if (task.assignedRole) {
+        return (
+          <Badge variant="outline" className="text-xs">
+            {task.assignedRole}
+          </Badge>
+        )
+      }
+      return <span className="text-muted-foreground">Unassigned</span>
     },
   },
   {

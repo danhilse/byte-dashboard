@@ -84,9 +84,7 @@ export async function PATCH(
             ne(tasks.status, "done")
           )
         )
-        .returning({
-          workflowId: tasks.workflowId,
-        });
+        .returning();
 
       // Already complete (or completed concurrently): return idempotent success
       if (!updatedTask) {
@@ -94,6 +92,7 @@ export async function PATCH(
           taskId,
           status,
           workflowSignaled,
+          task,
         });
       }
 
@@ -103,6 +102,7 @@ export async function PATCH(
           taskId,
           status,
           workflowSignaled,
+          task: updatedTask,
         });
       }
 
@@ -147,24 +147,27 @@ export async function PATCH(
         taskId,
         status,
         workflowSignaled,
+        task: updatedTask,
       });
     }
 
     // Non-terminal state updates
     const now = new Date();
-    await db
+    const [nonTerminalTask] = await db
       .update(tasks)
       .set({
         status,
         completedAt: null,
         updatedAt: now,
       })
-      .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
+      .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)))
+      .returning();
 
     return NextResponse.json({
       taskId,
       status,
       workflowSignaled,
+      task: nonTerminalTask,
     });
   } catch (error) {
     console.error("Error updating task status:", error);

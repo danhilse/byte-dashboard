@@ -5,7 +5,9 @@ import { KanbanCard } from "./kanban-card"
 import type { Task, TaskStatus } from "@/types"
 
 interface KanbanBoardProps {
-  initialTasks: Task[]
+  tasks: Task[]
+  onStatusChange?: (taskId: string, newStatus: TaskStatus) => void
+  onTaskClick?: (task: Task) => void
 }
 
 const columns: KanbanColumn<TaskStatus>[] = [
@@ -15,10 +17,10 @@ const columns: KanbanColumn<TaskStatus>[] = [
   { id: "done", title: "Done", color: "border-t-green-500" },
 ]
 
-export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onStatusChange, onTaskClick }: KanbanBoardProps) {
   return (
     <GenericKanbanBoard
-      items={initialTasks}
+      items={tasks}
       columns={columns}
       getItemStatus={(task) => task.status}
       setItemStatus={(task, status) => ({ ...task, status })}
@@ -26,6 +28,8 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
         <KanbanCard key={task.id} task={task} className={props?.className} />
       )}
       renderOverlayCard={(task) => <KanbanCard task={task} />}
+      onStatusChange={onStatusChange}
+      onItemClick={onTaskClick}
       enableReordering={true}
       emptyStateText="Drop tasks here"
     />

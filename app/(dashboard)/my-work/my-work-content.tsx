@@ -2,20 +2,19 @@
 
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useCallback, useState, useMemo } from "react"
-import * as React from "react"
+import { useCallback, useState, useMemo, useEffect } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
-import { tasks as initialTasks } from "@/lib/data/tasks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
 import { WorkflowTriggerDialog } from "@/components/workflows/workflow-trigger-dialog"
+import { AvailableTaskCard } from "@/components/tasks/available-task-card"
 import { StatusFilter } from "@/components/common/status-filter"
 import { allTaskStatuses, taskStatusConfig } from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
@@ -43,7 +42,10 @@ export function MyWorkContent() {
   const { toast } = useToast()
 
   const view = (searchParams.get("view") as ViewType) || "kanban"
-  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [availableTasks, setAvailableTasks] = useState<Task[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([])
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -55,8 +57,50 @@ export function MyWorkContent() {
     return tasks.filter((task) => selectedStatuses.includes(task.status))
   }, [tasks, selectedStatuses])
 
+  // Fetch tasks on mount
+  useEffect(() => {
+    async function fetchTasks() {
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        const response = await fetch("/api/tasks")
+        if (!response.ok) {
+          throw new Error("Failed to load tasks")
+        }
+
+        const data = await response.json()
+        setTasks(data.tasks ?? [])
+      } catch (error) {
+        console.error("Error fetching tasks:", error)
+        setLoadError("Unable to load tasks.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchTasks()
+  }, [])
+
+  // Fetch available (unclaimed role-based) tasks
+  useEffect(() => {
+    async function fetchAvailableTasks() {
+      try {
+        const response = await fetch("/api/tasks?available=true")
+        if (response.ok) {
+          const data = await response.json()
+          setAvailableTasks(data.tasks ?? [])
+        }
+      } catch (error) {
+        console.error("Error fetching available tasks:", error)
+      }
+    }
+
+    fetchAvailableTasks()
+  }, [])
+
   // Fetch contacts on mount
-  React.useEffect(() => {
+  useEffect(() => {
     async function fetchContacts() {
       try {
         const response = await fetch("/api/contacts")
@@ -82,32 +126,195 @@ export function MyWorkContent() {
     [searchParams, router]
   )
 
-  const handleCreateTask = (taskData: Omit<Task, "id" | "createdAt" | "updatedAt">) => {
-    const newTask: Task = {
-      ...taskData,
-      id: `t${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  const handleCreateTask = async (taskData: Omit<Task, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create task")
+      }
+
+      const { task } = await response.json()
+      setTasks((prev) => [task, ...prev])
+
+      toast({
+        title: "Success",
+        description: "Task created successfully",
+      })
+    } catch (error) {
+      console.error("Error creating task:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create task. Please try again.",
+        variant: "destructive",
+      })
     }
-    setTasks((prev) => [newTask, ...prev])
   }
 
-  const handleUpdateTask = (updatedTask: Task) => {
+  const handleUpdateTask = async (updatedTask: Task) => {
+    try {
+      // Strip status (must use /status endpoint) and read-only fields
+      const { id, orgId, status, createdAt, updatedAt, ...updateFields } = updatedTask
+      const response = await fetch(`/api/tasks/${updatedTask.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateFields),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update task")
+      }
+
+      const { task } = await response.json()
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? task : t))
+      )
+      setSelectedTask(task)
+
+      toast({
+        title: "Success",
+        description: "Task updated successfully",
+      })
+    } catch (error) {
+      console.error("Error updating task:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update task. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete task")
+      }
+
+      setTasks((prev) => prev.filter((t) => t.id !== taskId))
+
+      toast({
+        title: "Success",
+        description: "Task deleted successfully",
+      })
+    } catch (error) {
+      console.error("Error deleting task:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete task. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    const previous = tasks.find((t) => t.id === taskId)
+    if (!previous) return
+
+    // Optimistic update
     setTasks((prev) =>
       prev.map((t) =>
-        t.id === updatedTask.id ? { ...updatedTask, updatedAt: new Date().toISOString() } : t
+        t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t
       )
     )
-    setSelectedTask(updatedTask)
-  }
+    // Also update selectedTask if it's the same one
+    if (selectedTask?.id === taskId) {
+      setSelectedTask((prev) =>
+        prev ? { ...prev, status: newStatus, updatedAt: new Date().toISOString() } : prev
+      )
+    }
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId))
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update status")
+      }
+
+      const result = await response.json()
+
+      // Update with server response
+      if (result.task) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? result.task : t))
+        )
+        if (selectedTask?.id === taskId) {
+          setSelectedTask(result.task)
+        }
+      }
+    } catch (error) {
+      // Rollback on error
+      console.error("Error updating task status:", error)
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? previous : t))
+      )
+      if (selectedTask?.id === taskId) {
+        setSelectedTask(previous)
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update task status.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task)
     setDetailOpen(true)
+  }
+
+  const handleClaimTask = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/claim`, {
+        method: "PATCH",
+      })
+
+      if (response.status === 409) {
+        // Already claimed by someone else
+        toast({
+          title: "Already Claimed",
+          description: "This task was just claimed by someone else.",
+          variant: "destructive",
+        })
+        setAvailableTasks((prev) => prev.filter((t) => t.id !== taskId))
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to claim task")
+      }
+
+      const { task } = await response.json()
+
+      // Move from available to my tasks
+      setAvailableTasks((prev) => prev.filter((t) => t.id !== taskId))
+      setTasks((prev) => [task, ...prev])
+
+      toast({
+        title: "Task Claimed",
+        description: "Task has been assigned to you.",
+      })
+    } catch (error) {
+      console.error("Error claiming task:", error)
+      toast({
+        title: "Error",
+        description: "Failed to claim task. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleApprove = async (taskId: string, comment?: string) => {
@@ -124,20 +331,26 @@ export function MyWorkContent() {
 
       const result = await response.json()
 
-      // Update local state
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? {
-                ...t,
-                status: "done",
-                outcome: "approved",
-                outcomeComment: comment,
-                completedAt: new Date().toISOString(),
-              }
-            : t
+      // Update local state with server response
+      if (result.task) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? result.task : t))
         )
-      )
+      } else {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  status: "done" as TaskStatus,
+                  outcome: "approved",
+                  outcomeComment: comment,
+                  completedAt: new Date().toISOString(),
+                }
+              : t
+          )
+        )
+      }
 
       toast({
         title: "Task Approved",
@@ -170,20 +383,26 @@ export function MyWorkContent() {
 
       const result = await response.json()
 
-      // Update local state
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId
-            ? {
-                ...t,
-                status: "done",
-                outcome: "rejected",
-                outcomeComment: comment,
-                completedAt: new Date().toISOString(),
-              }
-            : t
+      // Update local state with server response
+      if (result.task) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? result.task : t))
         )
-      )
+      } else {
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  status: "done" as TaskStatus,
+                  outcome: "rejected",
+                  outcomeComment: comment,
+                  completedAt: new Date().toISOString(),
+                }
+              : t
+          )
+        )
+      }
 
       toast({
         title: "Task Rejected",
@@ -284,8 +503,37 @@ export function MyWorkContent() {
         onStatusChange={setSelectedStatuses}
       />
 
+      {availableTasks.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Available Tasks ({availableTasks.length})
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {availableTasks.map((task) => (
+              <AvailableTaskCard
+                key={task.id}
+                task={task}
+                onClaim={handleClaimTask}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex-1">
-        {view === "table" && (
+        {isLoading && (
+          <div className="grid h-[calc(100vh-14rem)] auto-cols-fr grid-flow-col gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-full rounded-lg" />
+            ))}
+          </div>
+        )}
+        {!isLoading && loadError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && view === "table" && (
           <DataTable
             columns={taskColumns}
             data={filteredTasks}
@@ -296,8 +544,14 @@ export function MyWorkContent() {
             onRowClick={(row) => handleTaskClick(row.original)}
           />
         )}
-        {view === "kanban" && <KanbanBoard initialTasks={filteredTasks} />}
-        {view === "grid" && (
+        {!isLoading && !loadError && view === "kanban" && (
+          <KanbanBoard
+            tasks={filteredTasks}
+            onStatusChange={handleStatusChange}
+            onTaskClick={handleTaskClick}
+          />
+        )}
+        {!isLoading && !loadError && view === "grid" && (
           <TasksGridView tasks={filteredTasks} onTaskClick={handleTaskClick} />
         )}
       </div>
@@ -308,6 +562,7 @@ export function MyWorkContent() {
         onOpenChange={setDetailOpen}
         onUpdateTask={handleUpdateTask}
         onDeleteTask={handleDeleteTask}
+        onStatusChange={handleStatusChange}
         onApprove={handleApprove}
         onReject={handleReject}
       />

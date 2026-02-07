@@ -15,8 +15,8 @@
 | Phase 1: Foundation | ✅ **COMPLETE** | Auth, DB, basic Temporal setup done. Code rolled back to clean state. |
 | Phase 2: Hardcoded Workflow E2E | ✅ **COMPLETE** | Hardcoded applicant review workflow validates Temporal architecture end-to-end. |
 | Phase 3: Core CRUD | ✅ **COMPLETE** | Contacts + Workflow Executions CRUD fully implemented. |
-| Phase 4: Tasks & Kanban | ⚪ **NEXT** | Task management with workflow signaling. |
-| Phase 5: Workflow Builder | ⚪ Not Started | Generic builder (now informed by real workflow experience). |
+| Phase 4: Tasks & Kanban | ✅ **COMPLETE** | Tasks CRUD, kanban drag-and-drop with workflow signaling, atomic claiming. |
+| Phase 5: Workflow Builder | ⚪ **NEXT** | Generic builder (now informed by real workflow experience). |
 | Phase 6: Dashboard & Reporting | ⚪ Not Started | |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
@@ -26,9 +26,9 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 4: Tasks with atomic claiming and workflow signaling
-2. Phase 5: Generic workflow builder (informed by Phase 2 learnings)
-3. Phase 6: Dashboard & Reporting
+1. Phase 5: Generic workflow builder (informed by Phase 2 learnings)
+2. Phase 6: Dashboard & Reporting
+3. Phase 7: Polish & Launch Prep
 
 ---
 
@@ -353,54 +353,54 @@ users (sync from Clerk)
 ### Phase 4: Tasks & Kanban
 
 **Task Management**
-- [ ] Task list page (My Work page with table/kanban/grid views)
-- [ ] Create task form (manual task creation)
-- [ ] Task detail dialog (view/edit)
-- [ ] Assign task to user OR role (role-based assignment)
-- [ ] "Available Tasks" section (unclaimed role-based tasks)
-- [ ] "Claim Task" functionality with atomic UPDATE (see Invariant 5)
-- [ ] Approval task UI (Approve/Reject buttons for approval tasks)
-- [ ] Due date picker
-- [ ] Task status (todo, in_progress, done)
-- [ ] Link task to workflow execution or contact
+- [x] Task list page (My Work page with table/kanban/grid views)
+- [x] Create task form (manual task creation)
+- [x] Task detail dialog (view/edit)
+- [x] Assign task to user OR role (role-based assignment)
+- [x] "Available Tasks" section (unclaimed role-based tasks)
+- [x] "Claim Task" functionality with atomic UPDATE (see Invariant 5)
+- [x] Approval task UI (Approve/Reject buttons for approval tasks)
+- [x] Due date picker
+- [x] Task status (todo, in_progress, done)
+- [x] Link task to workflow execution or contact
 
 **Task API Routes**
-- [ ] GET /api/tasks (list tasks, filter by assignee/status/role)
-- [ ] POST /api/tasks (create task - manual or from workflow)
-- [ ] GET /api/tasks/:id (get task details)
-- [ ] PATCH /api/tasks/:id (update task fields)
-- [ ] PATCH /api/tasks/:id/status (update status + conditional workflow signal)
-- [ ] **PATCH /api/tasks/:id/claim** - Atomic claim with race condition handling:
-  ```typescript
-  // UPDATE tasks SET assigned_to = ? WHERE id = ? AND assigned_to IS NULL
-  // Return 409 if already claimed (affected rows = 0)
-  ```
-- [ ] PATCH /api/tasks/:id/approve (approve with comment + signal)
-- [ ] PATCH /api/tasks/:id/reject (reject with comment + signal)
-- [ ] DELETE /api/tasks/:id (delete task)
+- [x] GET /api/tasks (list tasks, filter by assignee/status/role)
+- [x] POST /api/tasks (create task - manual or from workflow)
+- [x] GET /api/tasks/:id (get task details)
+- [x] PATCH /api/tasks/:id (update task fields — rejects status changes)
+- [x] PATCH /api/tasks/:id/status (update status + conditional workflow signal)
+- [x] PATCH /api/tasks/:id/claim — Atomic claim with race condition handling (409 on conflict)
+- [x] PATCH /api/tasks/:id/approve (approve with comment + signal)
+- [x] PATCH /api/tasks/:id/reject (reject with comment + signal)
+- [x] DELETE /api/tasks/:id (delete task)
 
 **Task ↔ Workflow Integration**
-- [ ] Task status update logic:
-  - Update task in DB
-  - Check if `workflow_execution_id` exists
-  - If yes, send Temporal signal `taskCompleted`
-  - Workflow resumes from `wait_for_task` step
-- [ ] Standalone task support (no workflow signal if `workflow_execution_id` is null)
-- [ ] Task creation from workflow activities (store `created_by_step_id`)
+- [x] Task status update logic (signal workflow if workflowId present)
+- [x] Standalone task support (no workflow signal if workflowId is null)
+- [x] Task creation from workflow activities (store `created_by_step_id`)
 
 **Atomic Task Claiming (Invariant 5)**
-- [ ] Implement atomic claim endpoint with WHERE assigned_to IS NULL
-- [ ] Return 409 Conflict if task already claimed
-- [ ] UI: Show toast "This task was just claimed by someone else"
-- [ ] UI: No optimistic updates (wait for server response)
+- [x] Implement atomic claim endpoint with WHERE assigned_to IS NULL
+- [x] Return 409 Conflict if task already claimed
+- [x] UI: Show toast "This task was just claimed by someone else"
+- [x] UI: No optimistic updates (wait for server response)
 - [ ] Test concurrent claim attempts (simulate race condition)
 
 **Kanban Board**
-- [ ] Kanban view component (GenericKanbanBoard - reusable)
-- [ ] Drag-and-drop between columns
-- [ ] Column = status
-- [ ] Card = task with key info
-- [ ] Drag updates task status (triggers API call with signaling)
+- [x] Kanban view component (GenericKanbanBoard - reusable)
+- [x] Drag-and-drop between columns
+- [x] Column = status
+- [x] Card = task with key info
+- [x] Drag updates task status (triggers API call with signaling)
+
+**Type Cleanup**
+- [x] Removed deprecated Task fields (assignee, tags, source, TaskSource)
+- [x] Replaced with assignedTo/assignedRole/workflowId across all components
+- [x] Deleted mock data file (lib/data/tasks.ts)
+- [x] Enhanced status/approve/reject routes to return full task objects
+
+✅ **PHASE 4 COMPLETE (Feb 7, 2026)** — Tasks fully API-backed with CRUD, kanban drag-and-drop, workflow signaling, and atomic task claiming.
 
 **Deliverable:** User can create tasks, assign them, manage via Kanban. Task claiming is race-condition-safe. Tasks signal workflows correctly.
 
