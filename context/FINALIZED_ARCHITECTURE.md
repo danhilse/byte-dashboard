@@ -211,6 +211,51 @@ The `workflow_executions.status` field is **for UI display only**. Temporal work
 1. UI status changes must signal Temporal (not direct DB updates)
 2. Status updates are derived from Temporal workflow outcomes
 3. Never allow status dropdowns that bypass Temporal signals
+4. All status writes centralized in `setWorkflowStatus()` activity
+5. DB constraint enforces updates only from Temporal context
+
+**Enforcement Mechanisms:**
+
+1. **Centralized Activity** - All status writes go through one activity:
+```typescript
+// lib/activities/database.ts
+export async function setWorkflowStatus(
+  executionId: string,
+  status: string,
+  metadata?: any
+) {
+  await db.update(workflow_executions)
+    .set({
+      status,
+      updated_by_temporal: true,  // Flag for DB constraint
+      updated_at: new Date()
+    })
+    .where(eq(workflow_executions.id, executionId));
+}
+```
+
+2. **Database Constraint** - Prevent direct status updates:
+```sql
+-- Add check constraint to prevent status updates bypassing Temporal
+ALTER TABLE workflow_executions
+ADD CONSTRAINT status_updates_require_temporal
+CHECK (
+  updated_by_temporal = true
+  OR status = OLD.status
+);
+
+-- Reset flag after update (trigger)
+CREATE TRIGGER reset_temporal_flag
+AFTER UPDATE ON workflow_executions
+FOR EACH ROW
+EXECUTE FUNCTION reset_updated_by_temporal();
+```
+
+3. **Code Comments** - Document invariant in schema and API routes:
+```typescript
+// ⚠️ CRITICAL INVARIANT: workflow_executions.status is presentation-only
+// Never update directly. Signal Temporal workflow, which calls setWorkflowStatus() activity
+```
 
 **Example:**
 ```typescript
@@ -264,6 +309,89 @@ Phases are for UI organization only. They don't affect workflow logic.
 1. Phases group steps visually but don't control flow
 2. Steps execute sequentially regardless of phase boundaries
 3. Phase progress is derived from completed steps, not managed separately
+
+### Invariant 4: Workflow Definitions Are Immutable
+
+Workflow definitions are versioned immutably. Editing creates a new version to prevent breaking running workflows.
+
+**Problem:** If you edit a workflow definition while executions are running, Temporal will continue executing the old logic while the UI shows the new definition. This causes silent breakage.
+
+**Solution:** Version workflow definitions immutably.
+
+**Rules:**
+1. Each workflow definition has a `version` integer (starts at 1)
+2. Workflow executions reference a frozen `definition_version`
+3. "Edit workflow" clones the definition and increments version
+4. Old version marked `is_active=false` (don't show in UI, but keep for history)
+
+**Implementation:**
+```typescript
+// When editing a workflow definition
+async function editWorkflowDefinition(id: string, updates: Partial<WorkflowDefinition>) {
+  const original = await db.query.workflow_definitions.findFirst({
+    where: eq(workflow_definitions.id, id)
+  });
+
+  // Clone with incremented version
+  const newVersion = await db.insert(workflow_definitions).values({
+    ...original,
+    ...updates,
+    version: original.version + 1,
+    created_at: new Date()
+  }).returning();
+
+  // Deactivate old version (don't delete - preserve for running executions)
+  await db.update(workflow_definitions)
+    .set({ is_active: false })
+    .where(eq(workflow_definitions.id, id));
+
+  return newVersion;
+}
+```
+
+**Benefit:** Running workflows continue using their original definition. New executions use the latest version. No silent breakage.
+
+### Invariant 5: Task Claiming Is Atomic
+
+Role-based task claiming must be atomic to prevent race conditions.
+
+**Problem:** Two users click "Claim" simultaneously on the same role-based task.
+
+**Solution:** Atomic UPDATE with WHERE clause checking `assigned_to IS NULL`.
+
+**Implementation:**
+```typescript
+// PATCH /api/tasks/:id/claim
+async function claimTask(taskId: string, userId: string) {
+  const result = await db.update(tasks)
+    .set({
+      assigned_to: userId,
+      updated_at: new Date()
+    })
+    .where(
+      and(
+        eq(tasks.id, taskId),
+        isNull(tasks.assigned_to)  // Only claim if unclaimed
+      )
+    )
+    .returning();
+
+  if (result.length === 0) {
+    // Task was already claimed by someone else
+    return { error: 'Task already claimed', status: 409 };
+  }
+
+  return { task: result[0], status: 200 };
+}
+```
+
+**Rules:**
+1. Claim = single UPDATE with WHERE assigned_to IS NULL
+2. Return 409 Conflict if affected rows = 0
+3. No optimistic UI updates (wait for server response)
+4. Show toast on conflict: "This task was just claimed by someone else"
+
+**Benefit:** No double-claims, no race conditions, proper error handling.
 
 ---
 

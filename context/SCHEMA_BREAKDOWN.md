@@ -303,22 +303,26 @@ CREATE INDEX idx_contacts_name ON contacts(last_name, first_name);
 #### `workflow_definitions`
 Workflow blueprints with steps, triggers, and conditions. Defines HOW a workflow should execute.
 
+**IMPORTANT:** Workflow definitions are immutably versioned. Editing creates a new version to prevent breaking running executions.
+
 ```sql
 CREATE TABLE workflow_definitions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id          TEXT NOT NULL,
   name            TEXT NOT NULL,  -- "Application Review Workflow"
   description     TEXT,
-  phases          JSONB DEFAULT '[]',  -- NEW: Array of phase definitions for visual grouping
+  version         INTEGER NOT NULL DEFAULT 1,  -- NEW: Immutable version number
+  phases          JSONB DEFAULT '[]',  -- Array of phase definitions for visual grouping
   steps           JSONB NOT NULL DEFAULT '{"steps": []}',  -- Array of step definitions
   variables       JSONB DEFAULT '{}',  -- Variable definitions this workflow needs
-  is_active       BOOLEAN DEFAULT true,
+  is_active       BOOLEAN DEFAULT true,  -- false for old versions (keep for history)
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_workflow_definitions_org ON workflow_definitions(org_id);
 CREATE INDEX idx_workflow_definitions_active ON workflow_definitions(org_id, is_active);
+CREATE INDEX idx_workflow_definitions_version ON workflow_definitions(org_id, name, version);
 
 -- Example phases JSONB:
 -- {
@@ -400,15 +404,19 @@ CREATE INDEX idx_workflow_definitions_active ON workflow_definitions(org_id, is_
 #### `workflow_executions`
 Active instances/runs of workflow definitions. Each row is one execution (e.g., "John Doe's Application").
 
+**IMPORTANT:** `status` is presentation-only. Temporal workflow state is authoritative. See Invariant 1 in FINALIZED_ARCHITECTURE.md.
+
 ```sql
 CREATE TABLE workflow_executions (
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id                  TEXT NOT NULL,
   workflow_definition_id  UUID NOT NULL REFERENCES workflow_definitions(id),
+  definition_version      INTEGER NOT NULL,  -- NEW: Frozen version at execution time
   contact_id              UUID NOT NULL REFERENCES contacts(id),
   current_step_id         TEXT,  -- Which step is currently executing
-  current_phase_id        TEXT,  -- NEW: Track current phase for UI progress
-  status                  TEXT NOT NULL DEFAULT 'running',  -- running, completed, failed, paused
+  current_phase_id        TEXT,  -- Track current phase for UI progress
+  status                  TEXT NOT NULL DEFAULT 'running',  -- ⚠️ PRESENTATION-ONLY (see Invariant 1)
+  updated_by_temporal     BOOLEAN DEFAULT false,  -- NEW: Flag for constraint enforcement
   variables               JSONB DEFAULT '{}',  -- Runtime variables for this execution
   source                  TEXT DEFAULT 'manual',  -- manual, formstack, api, etc.
   source_id               TEXT,  -- external reference ID
@@ -426,6 +434,22 @@ CREATE INDEX idx_workflow_executions_contact ON workflow_executions(contact_id);
 CREATE INDEX idx_workflow_executions_status ON workflow_executions(org_id, status);
 CREATE INDEX idx_workflow_executions_definition ON workflow_executions(workflow_definition_id);
 CREATE INDEX idx_workflow_executions_temporal ON workflow_executions(temporal_workflow_id);
+
+-- Constraint: Prevent status updates unless coming from Temporal
+-- (Implementation note: May use trigger instead for more flexibility)
+-- ALTER TABLE workflow_executions
+-- ADD CONSTRAINT status_updates_require_temporal
+-- CHECK (updated_by_temporal = true OR status = OLD.status);
+```
+
+**Note on `definition_version`:** When starting an execution, snapshot the current version:
+```typescript
+const definition = await getLatestWorkflowDefinition(definitionId);
+await db.insert(workflow_executions).values({
+  workflow_definition_id: definition.id,
+  definition_version: definition.version,  // Freeze version
+  // ...
+});
 ```
 
 #### `tasks`

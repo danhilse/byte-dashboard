@@ -13,17 +13,23 @@
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 1: Foundation | ✅ **COMPLETE** | Auth, DB, basic Temporal setup done. Code rolled back to clean state. |
-| Phase 2: Workflow Builder | ⚪ Not Started | Linear step-based builder for creating workflow definitions. |
+| Phase 2: Hardcoded Workflow E2E | ⚪ **NEXT** | Build one hardcoded workflow end-to-end with Temporal to validate architecture. |
 | Phase 3: Core CRUD | ⚪ Not Started | Contacts + Workflow Executions (rebuilt with correct architecture). |
-| Phase 4: Tasks & Kanban | ⚪ Not Started | |
-| Phase 5: Dashboard & Reporting | ⚪ Not Started | |
-| Phase 6: Workflow Orchestration | ⚪ Not Started | Temporal integration with generic workflow interpreter. |
+| Phase 4: Tasks & Kanban | ⚪ Not Started | Task management with workflow signaling. |
+| Phase 5: Workflow Builder | ⚪ Not Started | Generic builder (now informed by real workflow experience). |
+| Phase 6: Dashboard & Reporting | ⚪ Not Started | |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
+**Roadmap Rationale:**
+- Phase 2 de-risks 70% of the system by validating Temporal integration early
+- Building one real workflow reveals what the generic builder actually needs
+- Avoids overbuilding the builder without execution feedback
+
 **Next Steps:**
-1. Phase 2: Build workflow definition builder UI
-2. Phase 3: Rebuild CRUD with workflow_definitions and workflow_executions
-3. Phase 6: Implement generic Temporal workflow interpreter
+1. Phase 2: Build hardcoded applicant review workflow with Temporal
+2. Validate: wait_for_task, approval branching, external signal flow
+3. Phase 3: Rebuild CRUD with workflow_definitions and workflow_executions
+4. Phase 4: Tasks with atomic claiming and workflow signaling
 
 ---
 
@@ -219,13 +225,165 @@ users (sync from Clerk)
 
 ---
 
-### Phase 2: Workflow Builder
+### Phase 2: Hardcoded Workflow E2E
+
+**Rationale:** Build one complete workflow end-to-end with Temporal BEFORE building the generic builder. This validates the architecture and reveals what the builder actually needs.
+
+**Workflow to Build:** Applicant Review Workflow (hardcoded)
+
+**Steps in Hardcoded Workflow:**
+1. Trigger: Form submission (create contact, create execution)
+2. Assign Task: "Review Application" (assign to role: reviewer)
+3. Wait for Task: Wait for review completion (with timeout)
+4. Wait for Approval: "Manager Approval" (approve/reject with comment)
+5. Condition: Branch on approval outcome
+   - If approved → Step 6
+   - If rejected → Step 8
+6. Update Status: Set execution status to "approved"
+7. Send Email: "Welcome to the team"
+8. Update Status: Set execution status to "rejected"
+
+**Implementation Tasks:**
+
+**Database Updates**
+- [ ] Add `version` column to workflow_definitions
+- [ ] Add `definition_version` column to workflow_executions
+- [ ] Add `updated_by_temporal` column to workflow_executions
+- [ ] Add `assigned_role`, `task_type`, `outcome`, `outcome_comment` to tasks
+- [ ] Create initial hardcoded workflow definition in seed data
+
+**Temporal Workflows**
+- [ ] Implement `applicant-review-workflow.ts` (hardcoded steps)
+- [ ] Test workflow execution locally (Temporal CLI)
+- [ ] Implement activities:
+  - [ ] `createTask(executionId, taskConfig)` - Create task in DB
+  - [ ] `setWorkflowStatus(executionId, status)` - Update execution status (centralized)
+  - [ ] `sendEmail(to, subject, body)` - Send email (stub or real SendGrid)
+  - [ ] `updateContact(contactId, fields)` - Update contact fields
+
+**Signal Handling**
+- [ ] Implement `taskCompleted` signal handler
+- [ ] Implement `approvalSubmitted` signal handler
+- [ ] Test signal flow: Task completion → signal → workflow resumes
+
+**API Routes**
+- [ ] POST /api/workflows/trigger - Start workflow execution
+- [ ] PATCH /api/tasks/:id/status - Update task status + signal workflow
+- [ ] PATCH /api/tasks/:id/approve - Approve with comment + signal workflow
+- [ ] PATCH /api/tasks/:id/reject - Reject with comment + signal workflow
+- [ ] GET /api/workflows/:id - Get execution details
+
+**UI (Minimal for Testing)**
+- [ ] Simple form to trigger workflow (contact selection)
+- [ ] Task detail view with "Approve" / "Reject" buttons for approval tasks
+- [ ] Workflow execution detail view (status, current step)
+
+**Validation Goals:**
+- [ ] ✅ Workflow starts successfully via API
+- [ ] ✅ Task created by workflow appears in DB
+- [ ] ✅ Task completion signals workflow correctly
+- [ ] ✅ Approval branching works (approve path vs reject path)
+- [ ] ✅ Workflow execution status updates from Temporal activity only
+- [ ] ✅ External signal flow works (UI → API → Temporal)
+- [ ] ✅ Workflow survives server restart (durability test)
+
+**Deliverable:** One complete applicant review workflow running end-to-end with Temporal, proving the architecture works.
+
+---
+
+### Phase 3: Core CRUD (Updated)
+
+### Phase 3: Core CRUD (Contacts + Workflow Executions)
+
+**Note:** Phase 2 proved the architecture works. Now build the full CRUD layer.
+
+**Contacts**
+- [ ] Contact list page (table with search/filter)
+- [ ] Contact detail page
+- [ ] Create contact form
+- [ ] Edit contact
+- [ ] Delete contact
+- [ ] Contact API routes (GET, POST, PATCH, DELETE)
+
+**Workflow Executions** *(instances of workflow definitions)*
+- [ ] Workflow execution list page (table with filters)
+- [ ] Workflow execution detail page with timeline
+- [ ] Trigger workflow execution (manual trigger form)
+- [ ] Link execution to contact
+- [ ] Display current step and phase in execution
+- [ ] Workflow execution API routes (GET, POST, PATCH, DELETE)
+- [ ] Status display (from Temporal workflow state)
+
+**Deliverable:** User can manage contacts and trigger/view workflow executions
+
+---
+
+### Phase 4: Tasks & Kanban
+
+**Task Management**
+- [ ] Task list page (My Work page with table/kanban/grid views)
+- [ ] Create task form (manual task creation)
+- [ ] Task detail dialog (view/edit)
+- [ ] Assign task to user OR role (role-based assignment)
+- [ ] "Available Tasks" section (unclaimed role-based tasks)
+- [ ] "Claim Task" functionality with atomic UPDATE (see Invariant 5)
+- [ ] Approval task UI (Approve/Reject buttons for approval tasks)
+- [ ] Due date picker
+- [ ] Task status (todo, in_progress, done)
+- [ ] Link task to workflow execution or contact
+
+**Task API Routes**
+- [ ] GET /api/tasks (list tasks, filter by assignee/status/role)
+- [ ] POST /api/tasks (create task - manual or from workflow)
+- [ ] GET /api/tasks/:id (get task details)
+- [ ] PATCH /api/tasks/:id (update task fields)
+- [ ] PATCH /api/tasks/:id/status (update status + conditional workflow signal)
+- [ ] **PATCH /api/tasks/:id/claim** - Atomic claim with race condition handling:
+  ```typescript
+  // UPDATE tasks SET assigned_to = ? WHERE id = ? AND assigned_to IS NULL
+  // Return 409 if already claimed (affected rows = 0)
+  ```
+- [ ] PATCH /api/tasks/:id/approve (approve with comment + signal)
+- [ ] PATCH /api/tasks/:id/reject (reject with comment + signal)
+- [ ] DELETE /api/tasks/:id (delete task)
+
+**Task ↔ Workflow Integration**
+- [ ] Task status update logic:
+  - Update task in DB
+  - Check if `workflow_execution_id` exists
+  - If yes, send Temporal signal `taskCompleted`
+  - Workflow resumes from `wait_for_task` step
+- [ ] Standalone task support (no workflow signal if `workflow_execution_id` is null)
+- [ ] Task creation from workflow activities (store `created_by_step_id`)
+
+**Atomic Task Claiming (Invariant 5)**
+- [ ] Implement atomic claim endpoint with WHERE assigned_to IS NULL
+- [ ] Return 409 Conflict if task already claimed
+- [ ] UI: Show toast "This task was just claimed by someone else"
+- [ ] UI: No optimistic updates (wait for server response)
+- [ ] Test concurrent claim attempts (simulate race condition)
+
+**Kanban Board**
+- [ ] Kanban view component (GenericKanbanBoard - reusable)
+- [ ] Drag-and-drop between columns
+- [ ] Column = status
+- [ ] Card = task with key info
+- [ ] Drag updates task status (triggers API call with signaling)
+
+**Deliverable:** User can create tasks, assign them, manage via Kanban. Task claiming is race-condition-safe. Tasks signal workflows correctly.
+
+---
+
+### Phase 5: Workflow Builder
+
+**Note:** Now that we have real workflow experience from Phase 2, we can build a generic builder informed by actual requirements.
 
 **Workflow Definition UI**
 - [ ] Workflow builder page (`/admin/workflow-builder`)
-- [ ] List of workflow definitions (table)
+- [ ] List of workflow definitions (table) with version display
 - [ ] Create new workflow definition form (name, description)
-- [ ] Edit workflow definition
+- [ ] Edit workflow definition (clones + increments version - see Invariant 4)
+- [ ] Version history view (show all versions of a definition)
 
 **Step Builder UI**
 - [ ] Linear step list component (vertical, draggable cards)
@@ -234,11 +392,17 @@ users (sync from Clerk)
 - [ ] Step configuration panel (right sidebar or modal)
 - [ ] Delete step functionality
 
+**Phase Management UI**
+- [ ] Phase grouping in step list (collapsible sections)
+- [ ] Add/edit/delete phases
+- [ ] Drag steps between phases
+- [ ] Phase progress indicator in execution view
+
 **Step Type Components**
 - [ ] Trigger step config (form_submission, manual)
 - [ ] Assign Task step config (title, assignee role/user selector, description)
 - [ ] Wait for Task step config (task reference, timeout)
-- [ ] Wait for Approval step config (NEW: approve/reject buttons, require comment)
+- [ ] Wait for Approval step config (approve/reject buttons, require comment)
 - [ ] Update Task step config (task reference, field updates)
 - [ ] Update Contact step config (field mappings)
 - [ ] Update Status step config (status selector)
@@ -252,83 +416,23 @@ users (sync from Clerk)
 - [ ] Variable definitions for workflow
 
 **API & Database**
-- [ ] Workflow definition API routes (CRUD)
+- [ ] Workflow definition API routes (CRUD with versioning)
 - [ ] Save/load workflow definitions from DB
 - [ ] Validate workflow definition structure
+- [ ] Implement immutable versioning (edit = clone + deactivate old)
 
-**Deliverable:** User can create, edit, and manage workflow definitions with linear steps
+**Generic Workflow Interpreter**
+- [ ] Refactor hardcoded workflow into generic interpreter
+- [ ] Read workflow definition from DB
+- [ ] Execute steps based on definition JSONB
+- [ ] Support all step types dynamically
+- [ ] Test generic workflow with multiple definitions
 
----
-
-### Phase 3: Core CRUD
-
-**Contacts**
-- [ ] Contact list page (table with search/filter)
-- [ ] Contact detail page
-- [ ] Create contact form
-- [ ] Edit contact
-- [ ] Delete contact
-- [ ] Contact API routes (GET, POST, PATCH, DELETE)
-
-**Workflow Executions** *(instances of workflow definitions)*
-- [ ] Workflow execution list page (table with filters)
-- [ ] Workflow execution detail page
-- [ ] Trigger workflow execution (manual trigger form)
-- [ ] Link execution to contact
-- [ ] Display current step in execution
-- [ ] Workflow execution API routes (GET, POST, PATCH, DELETE)
-- [ ] Execution status updates
-
-**Deliverable:** User can manage contacts and trigger/view workflow executions
+**Deliverable:** User can create, edit, and manage workflow definitions with linear steps. Generic interpreter executes any user-defined workflow.
 
 ---
 
-### Phase 4: Tasks & Kanban
-
-**Task Management**
-- [ ] Task list page (My Work page with table/kanban/grid views)
-- [ ] Create task form
-- [ ] Task detail dialog (view/edit)
-- [ ] Assign task to user OR role (NEW: role-based assignment)
-- [ ] "Available Tasks" section (NEW: unclaimed role-based tasks)
-- [ ] "Claim Task" functionality (NEW: claim role-based task)
-- [ ] Approval task UI (NEW: Approve/Reject buttons for approval tasks)
-- [ ] Due date picker
-- [ ] Task status (todo, in_progress, done)
-- [ ] Link task to workflow execution or contact
-
-**Task API Routes**
-- [ ] GET /api/tasks (list tasks, filter by assignee/status/role)
-- [ ] POST /api/tasks (create task - manual or from workflow)
-- [ ] GET /api/tasks/:id (get task details)
-- [ ] PATCH /api/tasks/:id (update task fields)
-- [ ] PATCH /api/tasks/:id/status (update status + conditional workflow signal)
-- [ ] PATCH /api/tasks/:id/claim (NEW: claim role-based task)
-- [ ] PATCH /api/tasks/:id/approve (NEW: approve with comment)
-- [ ] PATCH /api/tasks/:id/reject (NEW: reject with comment)
-- [ ] DELETE /api/tasks/:id (delete task)
-
-**Task ↔ Workflow Integration**
-- [ ] Task status update logic:
-  - Update task in DB
-  - Check if `workflow_execution_id` exists
-  - If yes, send Temporal signal `taskStatusChanged`
-  - Workflow resumes from `wait_for_task` step
-- [ ] Standalone task support (no workflow signal if `workflow_execution_id` is null)
-- [ ] Task creation from workflow steps (store `created_by_step_id`)
-
-**Kanban Board**
-- [ ] Kanban view component (GenericKanbanBoard - reusable for tasks and workflows)
-- [ ] Drag-and-drop between columns
-- [ ] Column = status
-- [ ] Card = task with key info
-- [ ] Drag updates task status (triggers API call with signaling)
-
-**Deliverable:** User can create tasks, assign them, manage via Kanban, and tasks integrate with workflow executions
-
----
-
-### Phase 5: Dashboard & Reporting
+### Phase 6: Dashboard & Reporting
 
 **Dashboard Widgets**
 - [ ] Workflow count by status (pie/bar chart)
@@ -340,34 +444,18 @@ users (sync from Clerk)
 - [ ] Widget grid layout
 - [ ] Date range filter (optional for MVP)
 
+**Activity & Notes**
+- [ ] Activity log on workflow detail (polymorphic with soft FKs)
+- [ ] Activity log on contact detail
+- [ ] Add note to workflow/contact
+- [ ] Activity feed widget on dashboard
+
 **Exports**
 - [ ] CSV export for workflows
 - [ ] CSV export for contacts
 - [ ] Basic PDF report (workflow summary)
 
-**Deliverable:** User sees pipeline overview, can export data
-
----
-
-### Phase 6: Workflow Orchestration
-
-**Temporal Workflows**
-- [ ] Define applicant review workflow (lib/workflows/applicant-review.ts)
-- [ ] Implement activities (DB operations in lib/activities/database.ts)
-- [ ] Email sending activities (lib/activities/email.ts)
-- [ ] External API integration activities (lib/activities/integrations.ts)
-- [ ] Signal handling for task completion
-- [ ] Signal handling for form submission
-- [ ] Timeout/retry configuration
-- [ ] Workflow templates CRUD (UI metadata only)
-
-**Activity & Notes**
-- [ ] Activity log on workflow detail
-- [ ] Activity log on contact detail
-- [ ] Add note to workflow/contact
-- [ ] Activity feed widget on dashboard
-
-**Deliverable:** Full audit trail, durable workflow orchestration with signal/wait patterns for external events
+**Deliverable:** User sees pipeline overview, full audit trail, can export data
 
 ---
 
