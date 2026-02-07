@@ -12,17 +12,18 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 1: Foundation | ✅ **COMPLETE** | Auth, DB, basic Temporal setup done. Ready for fresh start. |
-| Phase 2: Core CRUD | ⚪ Not Started | Need to rebuild with proper workflow architecture. |
-| Phase 3: Tasks & Kanban | ⚪ Not Started | |
-| Phase 4: Dashboard & Reporting | ⚪ Not Started | |
-| Phase 5: Workflow Orchestration | ⚪ Not Started | |
-| Phase 6: Polish & Launch Prep | ⚪ Not Started | |
+| Phase 1: Foundation | ✅ **COMPLETE** | Auth, DB, basic Temporal setup done. Code rolled back to clean state. |
+| Phase 2: Workflow Builder | ⚪ Not Started | Linear step-based builder for creating workflow definitions. |
+| Phase 3: Core CRUD | ⚪ Not Started | Contacts + Workflow Executions (rebuilt with correct architecture). |
+| Phase 4: Tasks & Kanban | ⚪ Not Started | |
+| Phase 5: Dashboard & Reporting | ⚪ Not Started | |
+| Phase 6: Workflow Orchestration | ⚪ Not Started | Temporal integration with generic workflow interpreter. |
+| Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
 **Next Steps:**
-1. **CRITICAL**: Design proper workflow architecture (workflow definitions vs instances)
-2. Phase 2: Rebuild CRUD with correct data model
-3. Phase 3: Implement tasks system
+1. Phase 2: Build workflow definition builder UI
+2. Phase 3: Rebuild CRUD with workflow_definitions and workflow_executions
+3. Phase 6: Implement generic Temporal workflow interpreter
 
 ---
 
@@ -218,30 +219,68 @@ users (sync from Clerk)
 
 ---
 
-### Phase 2: Core CRUD ✅ COMPLETE
+### Phase 2: Workflow Builder
 
-**Contacts**
-- [x] Contact list page (table with search/filter)
-- [x] Contact detail page
-- [x] Create contact form
-- [x] Edit contact
-- [x] Delete contact
-- [x] Database integration with API routes
+**Workflow Definition UI**
+- [ ] Workflow builder page (`/admin/workflow-builder`)
+- [ ] List of workflow definitions (table)
+- [ ] Create new workflow definition form (name, description)
+- [ ] Edit workflow definition
 
-**Workflows** *(application tracking is the primary use case)*
-- [x] Workflow list page (table with filters)
-- [x] Workflow detail page
-- [x] Create workflow (manual)
-- [x] Edit workflow
-- [x] Status field with dropdown
-- [x] Link workflow to contact
-- [x] Database integration with API routes
+**Step Builder UI**
+- [ ] Linear step list component (vertical, draggable cards)
+- [ ] Add step button with type selector
+- [ ] Drag-and-drop reordering (dnd-kit)
+- [ ] Step configuration panel (right sidebar or modal)
+- [ ] Delete step functionality
 
-**Deliverable:** User can manually create and manage contacts and workflows (workflows used for application tracking) ✅
+**Step Type Components**
+- [ ] Trigger step config (form_submission, manual)
+- [ ] Assign Task step config (title, assignee role selector, description)
+- [ ] Wait for Task step config (task reference, timeout)
+- [ ] Send Email step config (to, subject, template)
+- [ ] Update Status step config (status selector)
+- [ ] Condition step config (field, branches with if/then)
+- [ ] Update Contact step config (field mappings)
+
+**Variable System**
+- [ ] Variable templating UI (e.g., `{{contact.email}}`)
+- [ ] Variable picker/autocomplete
+- [ ] Variable definitions for workflow
+
+**API & Database**
+- [ ] Workflow definition API routes (CRUD)
+- [ ] Save/load workflow definitions from DB
+- [ ] Validate workflow definition structure
+
+**Deliverable:** User can create, edit, and manage workflow definitions with linear steps
 
 ---
 
-### Phase 3: Tasks & Kanban (IN PROGRESS)
+### Phase 3: Core CRUD
+
+**Contacts**
+- [ ] Contact list page (table with search/filter)
+- [ ] Contact detail page
+- [ ] Create contact form
+- [ ] Edit contact
+- [ ] Delete contact
+- [ ] Contact API routes (GET, POST, PATCH, DELETE)
+
+**Workflow Executions** *(instances of workflow definitions)*
+- [ ] Workflow execution list page (table with filters)
+- [ ] Workflow execution detail page
+- [ ] Trigger workflow execution (manual trigger form)
+- [ ] Link execution to contact
+- [ ] Display current step in execution
+- [ ] Workflow execution API routes (GET, POST, PATCH, DELETE)
+- [ ] Execution status updates
+
+**Deliverable:** User can manage contacts and trigger/view workflow executions
+
+---
+
+### Phase 4: Tasks & Kanban
 
 **Task Management**
 - [x] Task list page (My Work page with table/kanban/grid views)
@@ -260,11 +299,11 @@ users (sync from Clerk)
 - [x] Column = status
 - [x] Card = task with key info
 
-**Deliverable:** User can create tasks, assign them, and manage via Kanban ⚠️ _UI complete, needs API integration_
+**Deliverable:** User can create tasks, assign them, and manage via Kanban
 
 ---
 
-### Phase 4: Dashboard & Reporting
+### Phase 5: Dashboard & Reporting
 
 **Dashboard Widgets**
 - [ ] Workflow count by status (pie/bar chart)
@@ -285,7 +324,7 @@ users (sync from Clerk)
 
 ---
 
-### Phase 5: Workflow Orchestration
+### Phase 6: Workflow Orchestration
 
 **Temporal Workflows**
 - [ ] Define applicant review workflow (lib/workflows/applicant-review.ts)
@@ -307,7 +346,7 @@ users (sync from Clerk)
 
 ---
 
-### Phase 6: Polish & Launch Prep
+### Phase 7: Polish & Launch Prep
 
 **UX Polish**
 - [ ] Loading states
