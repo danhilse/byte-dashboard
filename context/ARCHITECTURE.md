@@ -411,6 +411,93 @@ Frontend → API Route → Send Signal to Workflow → Workflow Resumes → Acti
 ```
 Example: User completes task, signals workflow to continue to next step
 
+### Pattern 4: Task Status Update → Conditional Workflow Signal
+
+**Flow: Task Completion Signals Workflow**
+```
+User marks task done
+  ↓
+PATCH /api/tasks/:id/status { status: "done" }
+  ↓
+Update task in DB (set status, completed_at)
+  ↓
+Check: Does task.workflow_execution_id exist?
+  ↓ YES
+Check: Does task.created_by_step_id exist?
+  ↓ YES
+Get workflow execution from DB
+  ↓
+Send Temporal signal: taskStatusChanged
+  {
+    taskId: string,
+    stepId: string,
+    newStatus: string,
+    completedAt: timestamp
+  }
+  ↓
+Workflow waiting on wait_for_task step receives signal
+  ↓
+Workflow validates signal matches expected task
+  ↓
+Workflow continues to next step
+```
+
+**Key Points:**
+- Not all task status changes signal workflows (only if task belongs to a workflow)
+- Tasks can be standalone (workflow_execution_id = null)
+- Signal includes step_id so workflow knows which task completed
+
+### Pattern 5: Workflow Status Change → Task Creation
+
+**Flow: Workflow Triggers Task Creation**
+```
+Workflow reaches update_status step
+  ↓
+Activity: Update workflow_executions.status = "approved"
+  ↓
+Workflow continues to next step
+  ↓
+Next step: assign_task (may be conditional on status)
+  ↓
+Activity: Create task in DB
+  {
+    workflow_execution_id: execution.id,
+    created_by_step_id: "step_5",
+    assigned_to: "role:hr",
+    title: "Complete background check"
+  }
+  ↓
+Task appears in assignee's "My Work" page
+```
+
+**Key Points:**
+- Workflow status changes can trigger subsequent steps
+- Steps can be conditional based on execution status
+- Tasks created by workflows are linked via workflow_execution_id
+
+### Pattern 6: Workflow Updates Existing Task
+
+**Flow: Workflow Modifies Task**
+```
+Workflow reaches update_task step
+  ↓
+Activity: Query task created by step_2
+  ↓
+Activity: Update task fields
+  {
+    priority: "high",
+    due_date: new Date(),
+    metadata: { urgency: "critical" }
+  }
+  ↓
+Task updates reflected in UI
+```
+
+**Key Points:**
+- update_task step can reference tasks from previous steps
+- Can update priority, due date, assignee, metadata
+- Does not signal workflow (workflow is already running)
+
 ---
 
 ## Workflow Builder Architecture
@@ -443,18 +530,99 @@ Example: User completes task, signals workflow to continue to next step
 
 ### Step Types
 
-| Type | Purpose | Configuration |
-|------|---------|---------------|
-| `trigger` | Start the workflow | Trigger type (form_submission, manual, etc.) |
-| `assign_task` | Create and assign task | Title, assignee, description |
-| `wait_for_task` | Wait for task completion | Task ref, timeout |
-| `update_contact` | Update contact fields | Field mappings |
-| `update_status` | Change execution status | Status value |
-| `set_due_date` | Set task/execution due date | Date expression |
-| `send_email` | Send email | To, subject, template |
-| `reminder` | Schedule reminder | Delay, message |
-| `delay` | Wait X days/hours | Duration |
-| `condition` | Branch based on value | Field, branches |
+| Type | Purpose | Configuration | Signals? |
+|------|---------|---------------|----------|
+| `trigger` | Start the workflow | Trigger type (form_submission, manual, etc.) | Entry point |
+| `assign_task` | Create and assign task | Title, assignee, description | No |
+| `wait_for_task` | Wait for task completion | Task ref, timeout | Receives signal |
+| `update_task` | Modify existing task | Task ref, field updates | No |
+| `complete_task` | Auto-complete task | Task ref | Optional signal |
+| `update_contact` | Update contact fields | Field mappings | No |
+| `update_status` | Change execution status | Status value (can trigger subsequent steps) | No |
+| `set_due_date` | Set task/execution due date | Date expression | No |
+| `send_email` | Send email | To, subject, template | No |
+| `reminder` | Schedule reminder | Delay, message | No |
+| `delay` | Wait X days/hours | Duration | No |
+| `condition` | Branch based on value | Field, branches | No |
+| `wait_for_signal` | Generic wait for any signal | Signal name, timeout | Receives signal |
+
+### Step Configuration Examples
+
+**assign_task:**
+```json
+{
+  "id": "step_2",
+  "type": "assign_task",
+  "name": "Assign Review Task",
+  "config": {
+    "title": "Review {{contact.first_name}}'s Application",
+    "description": "Review submitted application and approve/reject",
+    "assign_to": "role:admin",
+    "priority": "medium",
+    "due_date": "{{now + 3 days}}"
+  }
+}
+```
+
+**wait_for_task:**
+```json
+{
+  "id": "step_3",
+  "type": "wait_for_task",
+  "name": "Wait for Review",
+  "config": {
+    "task_from_step": "step_2",
+    "timeout_days": 7,
+    "on_timeout": "send_reminder"
+  }
+}
+```
+
+**update_task:**
+```json
+{
+  "id": "step_7",
+  "type": "update_task",
+  "name": "Mark Task Urgent",
+  "config": {
+    "task_from_step": "step_2",
+    "updates": {
+      "priority": "high",
+      "due_date": "{{now + 1 day}}",
+      "metadata": { "urgency": "critical" }
+    }
+  }
+}
+```
+
+**update_status:**
+```json
+{
+  "id": "step_5",
+  "type": "update_status",
+  "name": "Mark as Approved",
+  "config": {
+    "status": "approved"
+  }
+}
+```
+
+**condition:**
+```json
+{
+  "id": "step_4",
+  "type": "condition",
+  "name": "Check Review Outcome",
+  "config": {
+    "field": "{{step_3.task.metadata.outcome}}",
+    "branches": [
+      { "if": "approved", "then_goto": "step_5" },
+      { "if": "rejected", "then_goto": "step_8" }
+    ],
+    "default": "step_5"
+  }
+}
+```
 
 ### Execution Flow
 
