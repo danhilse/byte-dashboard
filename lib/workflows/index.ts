@@ -6,3 +6,4 @@
 
 export * from "./hello-world";
 export * from "./applicant-review-workflow";
+export * from "./generic-workflow";

@@ -16,7 +16,8 @@
 | Phase 2: Hardcoded Workflow E2E | ✅ **COMPLETE** | Hardcoded applicant review workflow validates Temporal architecture end-to-end. |
 | Phase 3: Core CRUD | ✅ **COMPLETE** | Contacts + Workflow Executions CRUD fully implemented. |
 | Phase 4: Tasks & Kanban | ✅ **COMPLETE** | Tasks CRUD, kanban drag-and-drop with workflow signaling, atomic claiming. |
-| Phase 5: Workflow Builder | ⚪ **NEXT** | Generic builder (now informed by real workflow experience). |
+| Phase 5a: Workflow Builder (Core) | ✅ **COMPLETE** | Definition CRUD, step builder, core step types, generic interpreter. |
+| Phase 5b: Workflow Builder (Advanced) | ⚪ **NEXT** | Phase management, variable system, advanced step types. |
 | Phase 6: Dashboard & Reporting | ⚪ Not Started | |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
@@ -26,7 +27,7 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 5: Generic workflow builder (informed by Phase 2 learnings)
+1. Phase 5b: Phase management, variable system, advanced step types
 2. Phase 6: Dashboard & Reporting
 3. Phase 7: Polish & Launch Prep
 
@@ -406,23 +407,65 @@ users (sync from Clerk)
 
 ---
 
-### Phase 5: Workflow Builder
+### Phase 5a: Workflow Builder (Core)
 
-**Note:** Now that we have real workflow experience from Phase 2, we can build a generic builder informed by actual requirements.
+**Note:** Now that we have real workflow experience from Phase 2, we can build a generic builder informed by actual requirements. Phase 5a delivers the minimum needed to create and execute user-defined workflows.
 
 **Workflow Definition UI**
-- [ ] Workflow builder page (`/admin/workflow-builder`)
-- [ ] List of workflow definitions (table) with version display
-- [ ] Create new workflow definition form (name, description)
-- [ ] Edit workflow definition (clones + increments version - see Invariant 4)
-- [ ] Version history view (show all versions of a definition)
+- [x] Workflow builder page (`/admin/workflow-builder`)
+- [x] List of workflow definitions (DataTable) with version display
+- [x] Create new workflow definition form (name, description)
+- [x] Edit workflow definition (clones + increments version - immutable versioning)
+- [ ] Version history view (show all versions of a definition) _(deferred to 5b)_
 
 **Step Builder UI**
-- [ ] Linear step list component (vertical, draggable cards)
-- [ ] Add step button with type selector
-- [ ] Drag-and-drop reordering (dnd-kit)
-- [ ] Step configuration panel (right sidebar or modal)
-- [ ] Delete step functionality
+- [x] Two-pane builder modal (step list + config panel)
+- [x] Linear step list component (vertical, draggable cards)
+- [x] Add step button with type selector (Popover picker)
+- [x] Drag-and-drop reordering (dnd-kit SortableContext)
+- [x] Step configuration panel (right pane)
+- [x] Delete step functionality
+
+**Core Step Type Components**
+- [x] Trigger step config (manual / form_submission)
+- [x] Assign Task step config (title, description, taskType, role/user assignment, priority, dueDays)
+- [x] Wait for Task step config (timeoutDays)
+- [x] Wait for Approval step config (timeoutDays, requireComment)
+- [x] Update Status step config (status selector from allWorkflowStatuses)
+- [x] Condition step config (field with variable syntax, dynamic branches, default step)
+
+**API & Database**
+- [x] GET /api/workflow-definitions (lightweight + ?full=true mode)
+- [x] POST /api/workflow-definitions (create new definition)
+- [x] GET /api/workflow-definitions/:id (full definition)
+- [x] PATCH /api/workflow-definitions/:id (immutable versioning: clone + increment + deactivate old)
+- [x] DELETE /api/workflow-definitions/:id (soft delete)
+- [x] `getWorkflowDefinition` activity for Temporal interpreter
+
+**Generic Workflow Interpreter**
+- [x] `genericWorkflow` Temporal workflow in `lib/workflows/generic-workflow.ts`
+- [x] Fetches definition steps from DB via activity
+- [x] Executes steps sequentially with type-based switch
+- [x] Supports all 6 core step types (trigger, assign_task, wait_for_task, wait_for_approval, update_status, condition)
+- [x] Variable resolution with `{{stepId.fieldName}}` syntax
+- [x] Condition branching with goto step support
+- [x] Reuses same Temporal signals as hardcoded workflow (backward compatible)
+- [x] Trigger route (`POST /api/workflows/trigger`) auto-selects generic vs legacy workflow
+
+**Type System**
+- [x] Discriminated union `WorkflowStep` type with 6 step variants
+- [x] Step registry (`lib/workflow-builder/step-registry.ts`) with icons, labels, default configs
+- [x] `createDefaultStep(type)` helper for builder UI
+
+✅ **PHASE 5a COMPLETE (Feb 7, 2026)** — Workflow builder UI, definition CRUD with immutable versioning, generic Temporal interpreter, and 6 core step types.
+
+**Deliverable:** User can create, edit, and manage workflow definitions with core step types. Generic interpreter executes any user-defined workflow.
+
+---
+
+### Phase 5b: Workflow Builder (Advanced)
+
+**Note:** Enhances the builder with phase grouping, variable templating, and additional step types. Builds on the core builder from Phase 5a.
 
 **Phase Management UI**
 - [ ] Phase grouping in step list (collapsible sections)
@@ -430,16 +473,10 @@ users (sync from Clerk)
 - [ ] Drag steps between phases
 - [ ] Phase progress indicator in execution view
 
-**Step Type Components**
-- [ ] Trigger step config (form_submission, manual)
-- [ ] Assign Task step config (title, assignee role/user selector, description)
-- [ ] Wait for Task step config (task reference, timeout)
-- [ ] Wait for Approval step config (approve/reject buttons, require comment)
+**Advanced Step Type Components**
 - [ ] Update Task step config (task reference, field updates)
 - [ ] Update Contact step config (field mappings)
-- [ ] Update Status step config (status selector)
 - [ ] Send Email step config (to, subject, template)
-- [ ] Condition step config (field, simple if/then branches)
 - [ ] Delay step config (duration in days/hours)
 
 **Variable System**
@@ -447,20 +484,7 @@ users (sync from Clerk)
 - [ ] Variable picker/autocomplete
 - [ ] Variable definitions for workflow
 
-**API & Database**
-- [ ] Workflow definition API routes (CRUD with versioning)
-- [ ] Save/load workflow definitions from DB
-- [ ] Validate workflow definition structure
-- [ ] Implement immutable versioning (edit = clone + deactivate old)
-
-**Generic Workflow Interpreter**
-- [ ] Refactor hardcoded workflow into generic interpreter
-- [ ] Read workflow definition from DB
-- [ ] Execute steps based on definition JSONB
-- [ ] Support all step types dynamically
-- [ ] Test generic workflow with multiple definitions
-
-**Deliverable:** User can create, edit, and manage workflow definitions with linear steps. Generic interpreter executes any user-defined workflow.
+**Deliverable:** Full-featured workflow builder with phase management, variable system, and all step types.
 
 ---
 

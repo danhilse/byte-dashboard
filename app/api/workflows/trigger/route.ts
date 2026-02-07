@@ -5,28 +5,26 @@ import { db } from "@/lib/db";
 import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { ApplicantReviewWorkflowInput } from "@/lib/workflows/applicant-review-workflow";
+import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
+import type { WorkflowStep } from "@/types";
 
 /**
  * POST /api/workflows/trigger
  *
- * Starts a new applicant review workflow execution
+ * Starts a new workflow execution.
+ *
+ * If workflowDefinitionId is provided AND the definition has steps,
+ * starts the genericWorkflow interpreter. Otherwise falls back to
+ * the hardcoded applicantReviewWorkflow (legacy).
  *
  * Request body:
  * {
  *   "contactId": "uuid",
  *   "workflowDefinitionId": "uuid" (optional)
  * }
- *
- * Returns:
- * {
- *   "workflowId": "uuid",
- *   "temporalWorkflowId": "string",
- *   "status": "running"
- * }
  */
 export async function POST(req: Request) {
   try {
-    // Get authenticated user and org
     const { userId, orgId } = await auth();
 
     if (!userId || !orgId) {
@@ -53,13 +51,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    // Validate optional workflow definition ownership
+    // Validate optional workflow definition and check for steps
     let definitionVersion = 1;
+    let definitionSteps: WorkflowStep[] = [];
     if (workflowDefinitionId) {
       const [workflowDefinition] = await db
         .select({
           id: workflowDefinitions.id,
           version: workflowDefinitions.version,
+          steps: workflowDefinitions.steps,
         })
         .from(workflowDefinitions)
         .where(
@@ -77,6 +77,8 @@ export async function POST(req: Request) {
       }
 
       definitionVersion = workflowDefinition.version;
+      const stepsData = workflowDefinition.steps as { steps: WorkflowStep[] } | null;
+      definitionSteps = stepsData?.steps ?? [];
     }
 
     // Create workflow execution record in DB
@@ -93,48 +95,93 @@ export async function POST(req: Request) {
       .returning();
 
     try {
-      // Get Temporal client
       const client = await getTemporalClient();
 
-      // Prepare workflow input
-      const workflowInput: ApplicantReviewWorkflowInput = {
-        workflowId: workflowExecution.id,
-        orgId,
-        contactId: contact.id,
-        contactEmail: contact.email || "",
-        contactFirstName: contact.firstName,
-      };
+      // Decide which workflow to start
+      const useGeneric =
+        workflowDefinitionId && definitionSteps.length > 0;
 
-      // Start Temporal workflow
-      const temporalWorkflowId = `applicant-review-${workflowExecution.id}`;
-      const handle = await client.workflow.start("applicantReviewWorkflow", {
-        taskQueue: "byte-dashboard",
-        args: [workflowInput],
-        workflowId: temporalWorkflowId,
-      });
+      if (useGeneric) {
+        // Start generic workflow interpreter
+        const workflowInput: GenericWorkflowInput = {
+          workflowId: workflowExecution.id,
+          orgId,
+          contactId: contact.id,
+          contactEmail: contact.email || "",
+          contactFirstName: contact.firstName,
+          definitionId: workflowDefinitionId,
+        };
 
-      console.log(`Started applicant review workflow: ${temporalWorkflowId}`);
+        const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;
+        const handle = await client.workflow.start("genericWorkflow", {
+          taskQueue: "byte-dashboard",
+          args: [workflowInput],
+          workflowId: temporalWorkflowId,
+        });
 
-      // Update workflow execution with Temporal IDs
-      await db
-        .update(workflows)
-        .set({
+        console.log(`Started generic workflow: ${temporalWorkflowId}`);
+
+        await db
+          .update(workflows)
+          .set({
+            temporalWorkflowId: handle.workflowId,
+            temporalRunId: handle.firstExecutionRunId,
+          })
+          .where(
+            and(
+              eq(workflows.id, workflowExecution.id),
+              eq(workflows.orgId, orgId)
+            )
+          );
+
+        return NextResponse.json({
+          workflowId: workflowExecution.id,
           temporalWorkflowId: handle.workflowId,
-          temporalRunId: handle.firstExecutionRunId,
-        })
-        .where(
-          and(
-            eq(workflows.id, workflowExecution.id),
-            eq(workflows.orgId, orgId)
-          )
+          status: "running",
+        });
+      } else {
+        // Legacy: start hardcoded applicant review workflow
+        const workflowInput: ApplicantReviewWorkflowInput = {
+          workflowId: workflowExecution.id,
+          orgId,
+          contactId: contact.id,
+          contactEmail: contact.email || "",
+          contactFirstName: contact.firstName,
+        };
+
+        const temporalWorkflowId = `applicant-review-${workflowExecution.id}`;
+        const handle = await client.workflow.start(
+          "applicantReviewWorkflow",
+          {
+            taskQueue: "byte-dashboard",
+            args: [workflowInput],
+            workflowId: temporalWorkflowId,
+          }
         );
 
-      // Don't wait for result - workflow runs in background
-      return NextResponse.json({
-        workflowId: workflowExecution.id,
-        temporalWorkflowId: handle.workflowId,
-        status: "running",
-      });
+        console.log(
+          `Started applicant review workflow: ${temporalWorkflowId}`
+        );
+
+        await db
+          .update(workflows)
+          .set({
+            temporalWorkflowId: handle.workflowId,
+            temporalRunId: handle.firstExecutionRunId,
+          })
+          .where(
+            and(
+              eq(workflows.id, workflowExecution.id),
+              eq(workflows.orgId, orgId)
+            )
+          );
+
+        return NextResponse.json({
+          workflowId: workflowExecution.id,
+          temporalWorkflowId: handle.workflowId,
+          status: "running",
+        });
+      }
     } catch (startError) {
       // Compensate so failed starts do not leave orphan "running" executions
       try {
@@ -146,7 +193,9 @@ export async function POST(req: Request) {
             updatedAt: new Date(),
             metadata: {
               triggerError:
-                startError instanceof Error ? startError.message : String(startError),
+                startError instanceof Error
+                  ? startError.message
+                  : String(startError),
             },
           })
           .where(
@@ -156,7 +205,10 @@ export async function POST(req: Request) {
             )
           );
       } catch (compensationError) {
-        console.error("Failed to compensate workflow execution:", compensationError);
+        console.error(
+          "Failed to compensate workflow execution:",
+          compensationError
+        );
       }
 
       throw startError;

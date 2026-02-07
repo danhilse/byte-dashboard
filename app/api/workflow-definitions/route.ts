@@ -8,9 +8,12 @@ import { and, eq } from "drizzle-orm";
  * GET /api/workflow-definitions
  *
  * Lists active workflow definitions for the authenticated organization.
- * Used by the create workflow dialog's definition picker.
+ *
+ * Query params:
+ * - full=true: Return all columns (steps, phases, etc.) for the builder UI
+ * - Default: Lightweight response (id, name, description, version) for pickers
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { userId, orgId } = await auth();
 
@@ -18,6 +21,24 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const full = searchParams.get("full") === "true";
+
+    if (full) {
+      const definitions = await db
+        .select()
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.orgId, orgId),
+            eq(workflowDefinitions.isActive, true)
+          )
+        );
+
+      return NextResponse.json({ definitions });
+    }
+
+    // Lightweight response for pickers
     const definitions = await db
       .select({
         id: workflowDefinitions.id,
@@ -39,6 +60,61 @@ export async function GET() {
     return NextResponse.json(
       {
         error: "Failed to fetch workflow definitions",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/workflow-definitions
+ *
+ * Creates a new workflow definition.
+ *
+ * Request body:
+ * {
+ *   "name": "string" (required),
+ *   "description": "string" (optional),
+ *   "steps": { steps: WorkflowStep[] } (optional)
+ * }
+ */
+export async function POST(req: Request) {
+  try {
+    const { userId, orgId } = await auth();
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { name, description, steps } = body;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json(
+        { error: "name is required" },
+        { status: 400 }
+      );
+    }
+
+    const [definition] = await db
+      .insert(workflowDefinitions)
+      .values({
+        orgId,
+        name: name.trim(),
+        description: description || null,
+        version: 1,
+        steps: steps || { steps: [] },
+        isActive: true,
+      })
+      .returning();
+
+    return NextResponse.json({ definition }, { status: 201 });
+  } catch (error) {
+    console.error("Error creating workflow definition:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to create workflow definition",
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }

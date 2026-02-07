@@ -6,9 +6,9 @@
  */
 
 import { db } from "@/lib/db";
-import { tasks, workflows, contacts } from "@/lib/db/schema";
+import { tasks, workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import type { TaskType, TaskPriority } from "@/types";
+import type { TaskType, TaskPriority, WorkflowStep } from "@/types";
 
 /**
  * Configuration for creating a task
@@ -169,4 +169,30 @@ export async function getTask(taskId: string) {
     .where(eq(tasks.id, taskId));
 
   return task || null;
+}
+
+/**
+ * Gets a workflow definition by ID
+ *
+ * Used by the generic workflow interpreter to fetch the step definitions.
+ *
+ * @param definitionId - The workflow definition ID
+ * @returns The definition's steps array, or empty array if not found
+ */
+export async function getWorkflowDefinition(
+  definitionId: string
+): Promise<{ steps: WorkflowStep[] }> {
+  console.log(`Activity: Fetching workflow definition ${definitionId}`);
+
+  const [definition] = await db
+    .select({ steps: workflowDefinitions.steps })
+    .from(workflowDefinitions)
+    .where(eq(workflowDefinitions.id, definitionId));
+
+  if (!definition) {
+    console.log(`Activity: Workflow definition ${definitionId} not found`);
+    return { steps: [] };
+  }
+
+  return definition.steps as { steps: WorkflowStep[] };
 }

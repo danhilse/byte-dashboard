@@ -23,6 +23,86 @@ export interface Contact {
 
 export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected" | "running" | "completed" | "failed" | "timeout"
 
+// ===========================
+// Workflow Step Types (Discriminated Union)
+// ===========================
+
+export type StepType =
+  | "trigger"
+  | "assign_task"
+  | "wait_for_task"
+  | "wait_for_approval"
+  | "update_status"
+  | "condition"
+
+interface BaseStep {
+  id: string
+  type: StepType
+  label: string
+}
+
+export interface TriggerStep extends BaseStep {
+  type: "trigger"
+  config: {
+    triggerType: "manual" | "form_submission"
+  }
+}
+
+export interface AssignTaskStep extends BaseStep {
+  type: "assign_task"
+  config: {
+    title: string
+    description?: string
+    taskType: TaskType
+    assignTo: { type: "role"; role: string } | { type: "user"; userId: string }
+    priority: TaskPriority
+    dueDays?: number
+  }
+}
+
+export interface WaitForTaskStep extends BaseStep {
+  type: "wait_for_task"
+  config: {
+    timeoutDays: number
+  }
+}
+
+export interface WaitForApprovalStep extends BaseStep {
+  type: "wait_for_approval"
+  config: {
+    timeoutDays: number
+    requireComment?: boolean
+  }
+}
+
+export interface UpdateStatusStep extends BaseStep {
+  type: "update_status"
+  config: {
+    status: WorkflowStatus
+  }
+}
+
+export interface ConditionStep extends BaseStep {
+  type: "condition"
+  config: {
+    field: string
+    branches: { value: string; gotoStepId: string }[]
+    defaultGotoStepId?: string
+  }
+}
+
+export type WorkflowStep =
+  | TriggerStep
+  | AssignTaskStep
+  | WaitForTaskStep
+  | WaitForApprovalStep
+  | UpdateStatusStep
+  | ConditionStep
+
+// ===========================
+// Workflow Definition
+// ===========================
+
 export interface WorkflowDefinition {
   id: string
   orgId: string
@@ -30,7 +110,7 @@ export interface WorkflowDefinition {
   description?: string
   version: number
   phases: unknown[] // JSONB array of phase definitions
-  steps: { steps: unknown[] } // JSONB array of step definitions
+  steps: { steps: WorkflowStep[] } // JSONB array of step definitions
   variables: Record<string, unknown> // JSONB variable definitions
   statuses: unknown[] // JSONB UI status definitions
   isActive: boolean
