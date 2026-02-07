@@ -4,6 +4,26 @@
 
 **Primary Use Case:** Applicant onboarding and tracking for Fayette County Sheriff's Office.
 
+**Note:** Internally we use "workflow" terminology. Application tracking is the primary use case, but workflows are the generalized system.
+
+---
+
+## Current Status (Updated: Feb 6, 2026)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Foundation | ✅ **COMPLETE** | Auth, DB, basic Temporal setup done. Ready for fresh start. |
+| Phase 2: Core CRUD | ⚪ Not Started | Need to rebuild with proper workflow architecture. |
+| Phase 3: Tasks & Kanban | ⚪ Not Started | |
+| Phase 4: Dashboard & Reporting | ⚪ Not Started | |
+| Phase 5: Workflow Orchestration | ⚪ Not Started | |
+| Phase 6: Polish & Launch Prep | ⚪ Not Started | |
+
+**Next Steps:**
+1. **CRITICAL**: Design proper workflow architecture (workflow definitions vs instances)
+2. Phase 2: Rebuild CRUD with correct data model
+3. Phase 3: Implement tasks system
+
 ---
 
 ## Stack
@@ -38,10 +58,11 @@ Core entities (~10 tables):
 organizations (via Clerk - no table needed)
 ├── users (via Clerk - synced to local table for app data)
 
-applications
+workflows
 ├── id
 ├── organization_id
 ├── contact_id (FK)
+├── workflow_template_id (FK, nullable)
 ├── status
 ├── source (formstack, manual, etc.)
 ├── source_id (external reference)
@@ -57,24 +78,34 @@ contacts
 ├── last_name
 ├── email
 ├── phone
+├── company
+├── role
+├── status (active, inactive, lead)
 ├── address_line_1
 ├── address_line_2
 ├── city
 ├── state
 ├── zip
+├── avatar_url
+├── last_contacted_at
+├── tags (array)
+├── metadata (JSONB)
 ├── created_at
 ├── updated_at
 
 tasks
 ├── id
 ├── organization_id
-├── application_id (FK, nullable)
+├── workflow_id (FK, nullable)
 ├── contact_id (FK, nullable)
 ├── assigned_to (user_id)
 ├── title
 ├── description
 ├── status (todo, in_progress, done)
+├── priority (low, medium, high)
+├── position (for ordering)
 ├── due_date
+├── completed_at
 ├── created_at
 ├── updated_at
 
@@ -82,28 +113,59 @@ workflow_templates
 ├── id
 ├── organization_id
 ├── name
+├── description
 ├── statuses (JSONB array of status definitions for UI/badges)
+├── is_active
 ├── created_at
+├── updated_at
 
 **Note:** `workflow_templates` stores UI metadata (status labels, colors, badge variants). Temporal handles actual workflow execution, state, and orchestration.
 
 activity_log
 ├── id
 ├── organization_id
-├── entity_type (application, contact, task)
+├── entity_type (workflow, contact, task)
 ├── entity_id
+├── workflow_id (FK, nullable, indexed)
+├── contact_id (FK, nullable, indexed)
+├── task_id (FK, nullable, indexed)
 ├── user_id
-├── action (created, updated, status_changed, note_added)
+├── action (created, updated, deleted, status_changed)
 ├── details (JSONB)
 ├── created_at
 
 notes
 ├── id
 ├── organization_id
-├── entity_type
+├── entity_type (workflow, contact, task)
 ├── entity_id
+├── workflow_id (FK, nullable, indexed)
+├── contact_id (FK, nullable, indexed)
+├── task_id (FK, nullable, indexed)
 ├── user_id
 ├── content
+├── is_internal
+├── created_at
+
+formstack_config
+├── id
+├── organization_id (unique)
+├── webhook_secret
+├── field_mappings (JSONB)
+├── default_workflow_id (FK to workflow_templates)
+├── is_active
+├── created_at
+├── updated_at
+
+formstack_submissions
+├── id
+├── organization_id
+├── form_id
+├── submission_id (unique per org)
+├── raw_payload (JSONB)
+├── processed
+├── workflow_id (FK, nullable)
+├── error
 ├── created_at
 
 users (sync from Clerk)
@@ -120,123 +182,113 @@ users (sync from Clerk)
 
 ## Build Phases
 
-### Phase 1: Foundation
+### Phase 1: Foundation (MOSTLY COMPLETE)
 
 **Auth & Multi-tenant Setup**
-- [ ] Next.js project scaffold
-- [ ] Clerk integration
-- [ ] Clerk Organizations enabled
-- [ ] Middleware for org-scoped routes
+- [x] Next.js project scaffold
+- [x] Clerk integration
+- [x] Clerk Organizations enabled
+- [x] Middleware for org-scoped routes
 - [ ] User sync webhook (Clerk → local users table)
-- [ ] Role-based access (Owner, Admin, User)
+- [ ] Role-based access (Owner, Admin, User) - _placeholder implemented_
 
 **Database & ORM**
-- [ ] Railway/Neon Postgres provisioned
-- [ ] Drizzle schema setup
-- [ ] Initial migrations
-- [ ] Database connection utilities
+- [x] Railway/Neon Postgres provisioned
+- [x] Drizzle schema setup
+- [ ] Initial migrations - _using db:push instead_
+- [x] Database connection utilities
 
 **Temporal Setup**
-- [ ] Install @temporalio/client and @temporalio/worker
-- [ ] Configure Temporal connection (local dev or Temporal Cloud)
-- [ ] Set up worker process
-- [ ] Create first simple workflow (hello world)
-- [ ] Test workflow execution and signal handling
+- [x] Install @temporalio/client and @temporalio/worker
+- [x] Configure Temporal connection (local dev or Temporal Cloud)
+- [x] Set up worker process
+- [x] Create first simple workflow (hello world)
+- [x] API route to start workflows
+- [x] Worker scripts in package.json
+- [ ] **USER ACTION REQUIRED:** Install Temporal CLI (`brew install temporal`)
+- [ ] **USER ACTION REQUIRED:** Test workflow execution end-to-end
 
 **UI Foundation**
-- [ ] Tailwind config
-- [ ] shadcn/ui components installed
-- [ ] Layout components (sidebar, header, page container)
-- [ ] Basic navigation
+- [x] Tailwind config
+- [x] shadcn/ui components installed
+- [x] Layout components (sidebar, header, page container)
+- [x] Basic navigation
 
-**Deliverable:** User can sign up, create org, see empty dashboard. Temporal workflows execute successfully.
+**Deliverable:** User can sign up, create org, see dashboard. ~~Temporal workflows execute successfully.~~ _Temporal deferred to Phase 6_
 
 ---
 
-### Phase 2: Core CRUD
+### Phase 2: Core CRUD ✅ COMPLETE
 
 **Contacts**
-- [ ] Contact list page (table with search/filter)
-- [ ] Contact detail page
-- [ ] Create contact form
-- [ ] Edit contact
-- [ ] Delete contact
+- [x] Contact list page (table with search/filter)
+- [x] Contact detail page
+- [x] Create contact form
+- [x] Edit contact
+- [x] Delete contact
+- [x] Database integration with API routes
 
-**Applications**
-- [ ] Application list page (table with filters)
-- [ ] Application detail page
-- [ ] Create application (manual)
-- [ ] Edit application
-- [ ] Status field with dropdown
-- [ ] Link application to contact
+**Workflows** *(application tracking is the primary use case)*
+- [x] Workflow list page (table with filters)
+- [x] Workflow detail page
+- [x] Create workflow (manual)
+- [x] Edit workflow
+- [x] Status field with dropdown
+- [x] Link workflow to contact
+- [x] Database integration with API routes
 
-**Deliverable:** User can manually create and manage contacts and applications
+**Deliverable:** User can manually create and manage contacts and workflows (workflows used for application tracking) ✅
 
 ---
 
-### Phase 3: Tasks & Kanban
+### Phase 3: Tasks & Kanban (IN PROGRESS)
 
 **Task Management**
-- [ ] Task list page
-- [ ] Create task form
-- [ ] Assign task to user
-- [ ] Due date picker
-- [ ] Task status (todo, in_progress, done)
-- [ ] Link task to application or contact
+- [x] Task list page (My Work page with table/kanban/grid views)
+- [x] Create task form (UI component)
+- [x] Task detail dialog (view/edit)
+- [ ] Task API routes (GET, POST, PATCH, DELETE)
+- [ ] Database integration
+- [x] Assign task to user (UI)
+- [x] Due date picker (UI)
+- [x] Task status (todo, in_progress, done)
+- [x] Link task to workflow or contact (UI)
 
 **Kanban Board**
-- [ ] Kanban view component
-- [ ] Drag-and-drop between columns
-- [ ] Column = status
-- [ ] Card = task with key info
+- [x] Kanban view component (GenericKanbanBoard - reusable for tasks and workflows)
+- [x] Drag-and-drop between columns
+- [x] Column = status
+- [x] Card = task with key info
 
-**Deliverable:** User can create tasks, assign them, and manage via Kanban
-
----
-
-### Phase 4: Formstack Integration
-
-**Webhook Ingestion**
-- [ ] API route for Formstack webhook
-- [ ] Webhook signature verification
-- [ ] Field mapping config (Formstack fields → app fields)
-- [ ] Temporal workflow triggered by webhook (not direct DB writes)
-- [ ] Workflow orchestrates: create contact → create application → send notifications → create tasks
-- [ ] Log ingestion in activity_log
-
-**Admin Config**
-- [ ] Settings page for Formstack integration
-- [ ] Field mapping UI (or config file for MVP)
-
-**Deliverable:** Applications auto-created via Temporal workflow when Formstack forms submitted. Workflow handles retries and error recovery.
+**Deliverable:** User can create tasks, assign them, and manage via Kanban ⚠️ _UI complete, needs API integration_
 
 ---
 
-### Phase 5: Dashboard & Reporting
+### Phase 4: Dashboard & Reporting
 
 **Dashboard Widgets**
-- [ ] Application count by status (pie/bar chart)
-- [ ] Recent applications list
+- [ ] Workflow count by status (pie/bar chart)
+- [ ] Recent workflows list
 - [ ] My tasks widget
-- [ ] Applications over time (line chart)
+- [ ] Workflows over time (line chart)
 
 **Dashboard Page**
 - [ ] Widget grid layout
 - [ ] Date range filter (optional for MVP)
 
 **Exports**
-- [ ] CSV export for applications
+- [ ] CSV export for workflows
 - [ ] CSV export for contacts
-- [ ] Basic PDF report (application summary)
+- [ ] Basic PDF report (workflow summary)
 
 **Deliverable:** User sees pipeline overview, can export data
 
 ---
 
-### Phase 6: Workflow Orchestration
+### Phase 5: Workflow Orchestration
 
 **Temporal Workflows**
-- [ ] Define application review workflow (lib/workflows/application-review.ts)
+- [ ] Define applicant review workflow (lib/workflows/applicant-review.ts)
 - [ ] Implement activities (DB operations in lib/activities/database.ts)
 - [ ] Email sending activities (lib/activities/email.ts)
 - [ ] External API integration activities (lib/activities/integrations.ts)
@@ -246,16 +298,16 @@ users (sync from Clerk)
 - [ ] Workflow templates CRUD (UI metadata only)
 
 **Activity & Notes**
-- [ ] Activity log on application detail
+- [ ] Activity log on workflow detail
 - [ ] Activity log on contact detail
-- [ ] Add note to application/contact
+- [ ] Add note to workflow/contact
 - [ ] Activity feed widget on dashboard
 
 **Deliverable:** Full audit trail, durable workflow orchestration with signal/wait patterns for external events
 
 ---
 
-### Phase 7: Polish & Launch Prep
+### Phase 6: Polish & Launch Prep
 
 **UX Polish**
 - [ ] Loading states
@@ -281,20 +333,22 @@ users (sync from Clerk)
 
 ## Feature Details
 
-### Application Statuses (Default)
+### Workflow Statuses (Default)
 
-Configurable per org, but sensible defaults:
+For application tracking workflows, configurable per org, but sensible defaults:
 
 ```
-1. Submitted
-2. Under Review
-3. Background Check
-4. Interview Scheduled
+1. Submitted (or "draft")
+2. In Review (or "under_review")
+3. Background Check (or "pending")
+4. Interview Scheduled (or "on_hold")
 5. Interview Complete
 6. Approved
 7. Rejected
 8. On Hold
 ```
+
+**Note:** These map to WorkflowStatus type. Status values come from workflow_templates table.
 
 ### User Roles
 
@@ -322,20 +376,44 @@ Expect something like:
 }
 ```
 
-Field mapping config maps Field IDs to contact/application fields.
+Field mapping config maps Field IDs to contact/workflow fields.
+
+---
+
+## Post-MVP Features
+
+These features will be built after the core platform is proven and when specific customer needs arise:
+
+### Formstack Integration
+
+**Webhook Ingestion**
+- [ ] API route for Formstack webhook
+- [ ] Webhook signature verification
+- [ ] Field mapping config (Formstack fields → workflow/contact fields)
+- [ ] Temporal workflow triggered by webhook (not direct DB writes)
+- [ ] Workflow orchestrates: create contact → create workflow instance → send notifications → create tasks
+- [ ] Log ingestion in activity_log
+
+**Admin Config**
+- [ ] Settings page for Formstack integration
+- [ ] Field mapping UI (or config file for MVP)
+
+**Deliverable:** Workflow instances (for application tracking) auto-created via Temporal when Formstack forms submitted. Temporal workflow handles retries and error recovery.
+
+**Note:** This requires Temporal (Phase 5) to be fully functional. Only build when a customer specifically needs Formstack integration.
 
 ---
 
 ## Not in MVP (Backlog)
 
-These are explicitly deferred:
+These are explicitly deferred until post-PMF:
 
 - [ ] Visual drag-and-drop workflow builder
 - [ ] AI assistant
 - [ ] Payment processing / Stripe
 - [ ] Drag-and-drop PDF template designer
 - [ ] Calendar integrations / scheduling
-- [ ] Advanced integrations (Mailchimp, SendGrid, etc.)
+- [ ] Advanced integrations (Mailchimp, SendGrid, Typeform, etc.)
 - [ ] Public applicant portal
 - [ ] Email notifications (can add late in MVP if needed)
 - [ ] Bulk import/export
@@ -354,7 +432,7 @@ When building, reference these from the old repo:
 | Data model ideas | `src/integrations/supabase/types.ts` |
 | UI components | `src/components/ui/` (shadcn base) |
 | Dashboard layout | `src/components/dashboard/` |
-| Application fields | `src/pages/Applications.tsx` |
+| Workflow fields | `src/pages/Applications.tsx` (old terminology) |
 | Contact fields | `src/components/contact/ContactProfile.tsx` |
 | Formstack mapping | `supabase/functions/formstack*/` |
 
@@ -365,13 +443,16 @@ When building, reference these from the old repo:
 MVP is complete when:
 
 1. New org can sign up via Clerk
-2. Formstack webhook creates applications automatically
-3. Users can view/manage applications and contacts
-4. Tasks can be created, assigned, and tracked via Kanban
-5. Dashboard shows pipeline overview
-6. Data can be exported to CSV
-7. All data is properly scoped to organization
-8. No cross-tenant data leakage
+2. Users can create workflow definitions (blueprints) with steps, triggers, and logic
+3. Users can create workflow instances that execute the defined workflows
+4. Users can view/manage contacts and workflow instances
+5. Tasks can be created, assigned, and tracked via Kanban
+6. Dashboard shows pipeline overview (workflow instance counts by status)
+7. Data can be exported to CSV
+8. Temporal workflows can orchestrate multi-step processes
+9. All data is properly scoped to organization
+10. No cross-tenant data leakage
+11. UI is polished with proper loading/error states
 
 ---
 
@@ -379,9 +460,11 @@ MVP is complete when:
 
 Resolve before/during build:
 
-1. **Formstack account access** - Need credentials and form IDs to test integration
-2. **Existing data migration** - Any real data in old system that needs migration?
-3. **Specific fields required** - Get final list of contact/application fields from FCSO
-4. **Status workflow specifics** - Confirm the exact stages for their process
-5. **User list** - Who needs accounts for initial pilot?
-6. **Compliance requirements** - Any specific security certifications needed at launch?
+1. **Workflow definition architecture** - How do we store and execute user-defined workflows? (Code? Config? Visual builder?)
+2. **Workflow builder scope** - MVP: Simple form-based? Or IFTTT-style conditional logic?
+3. **Existing data migration** - Any real data in old system that needs migration?
+4. **Specific fields required** - Get final list of contact/workflow fields from FCSO
+5. **Status workflow specifics** - Confirm the exact workflow statuses for their applicant tracking process
+6. **User list** - Who needs accounts for initial pilot?
+7. **Compliance requirements** - Any specific security certifications needed at launch?
+8. **Temporal Cloud setup** - Provision namespace and get connection credentials
