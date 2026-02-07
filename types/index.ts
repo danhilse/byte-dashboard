@@ -46,10 +46,6 @@ export interface Workflow {
   completedTaskCount?: number
 }
 
-// Legacy type alias for backward compatibility during migration
-export type ApplicationStatus = WorkflowStatus
-export type Application = Workflow
-
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
 export type TaskSource = "manual" | "workflow"
