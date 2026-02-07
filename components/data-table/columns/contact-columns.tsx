@@ -125,13 +125,11 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
       id: "location",
       header: "Location",
       accessorFn: (row) => {
-        if (!row.address) return ""
-        return [row.address.city, row.address.state].filter(Boolean).join(", ")
+        return [row.city, row.state].filter(Boolean).join(", ")
       },
       cell: ({ row }) => {
         const contact = row.original
-        if (!contact.address) return <span className="text-muted-foreground">-</span>
-        const location = [contact.address.city, contact.address.state].filter(Boolean).join(", ")
+        const location = [contact.city, contact.state].filter(Boolean).join(", ")
         return location || <span className="text-muted-foreground">-</span>
       },
       enableHiding: true,

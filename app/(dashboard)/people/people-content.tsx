@@ -286,13 +286,36 @@ export function PeopleContent() {
     }
   }
 
-  const handleCSVImport = (importedContacts: Omit<Contact, "id" | "createdAt">[]) => {
-    const newContacts: Contact[] = importedContacts.map((c, index) => ({
-      ...c,
-      id: `c${Date.now()}-${index}`,
-      createdAt: new Date().toISOString(),
-    }))
-    setContacts((prev) => [...newContacts, ...prev])
+  const handleCSVImport = async (importedContacts: Omit<Contact, "id" | "createdAt">[]) => {
+    try {
+      const results = await Promise.all(
+        importedContacts.map((c) =>
+          fetch("/api/contacts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(c),
+          }).then((res) => {
+            if (!res.ok) throw new Error("Failed to create contact")
+            return res.json()
+          })
+        )
+      )
+
+      const newContacts = results.map((r) => r.contact)
+      setContacts((prev) => [...newContacts, ...prev])
+
+      toast({
+        title: "Success",
+        description: `Imported ${newContacts.length} contact(s) successfully`,
+      })
+    } catch (error) {
+      console.error("Error importing contacts:", error)
+      toast({
+        title: "Error",
+        description: "Failed to import some contacts. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Bulk operations

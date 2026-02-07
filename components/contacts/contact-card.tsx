@@ -25,9 +25,7 @@ interface ContactCardProps {
 }
 
 export function ContactCard({ contact, onEdit, onDelete }: ContactCardProps) {
-  const location = contact.address
-    ? [contact.address.city, contact.address.state].filter(Boolean).join(", ")
-    : null
+  const location = [contact.city, contact.state].filter(Boolean).join(", ") || null
 
   return (
     <Card className="hover:bg-muted/50 transition-colors grid-card-optimized">

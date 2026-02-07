@@ -1,13 +1,5 @@
 export type ContactStatus = "active" | "inactive" | "lead"
 
-export interface ContactAddress {
-  line1: string
-  line2?: string
-  city: string
-  state: string
-  zip: string
-}
-
 export interface Contact {
   id: string
   firstName: string
@@ -21,7 +13,11 @@ export interface Contact {
   lastContactedAt: string
   avatarUrl?: string
   tags?: string[]
-  address?: ContactAddress
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  state?: string
+  zip?: string
   workflowsCount?: number
 }
 

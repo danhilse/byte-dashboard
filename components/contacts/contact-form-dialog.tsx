@@ -58,11 +58,11 @@ export function ContactFormDialog({
       setRole(contact.role)
       setStatus(contact.status)
       setTags(contact.tags?.join(", ") ?? "")
-      setAddressLine1(contact.address?.line1 ?? "")
-      setAddressLine2(contact.address?.line2 ?? "")
-      setCity(contact.address?.city ?? "")
-      setState(contact.address?.state ?? "")
-      setZip(contact.address?.zip ?? "")
+      setAddressLine1(contact.addressLine1 ?? "")
+      setAddressLine2(contact.addressLine2 ?? "")
+      setCity(contact.city ?? "")
+      setState(contact.state ?? "")
+      setZip(contact.zip ?? "")
     } else if (mode === "create") {
       resetForm()
     }
@@ -85,16 +85,6 @@ export function ContactFormDialog({
   }
 
   const handleSubmit = () => {
-    const address = addressLine1 || city || state || zip
-      ? {
-          line1: addressLine1,
-          line2: addressLine2 || undefined,
-          city,
-          state,
-          zip,
-        }
-      : undefined
-
     const contactData = {
       firstName,
       lastName,
@@ -104,7 +94,11 @@ export function ContactFormDialog({
       role,
       status,
       tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
-      address,
+      addressLine1: addressLine1 || undefined,
+      addressLine2: addressLine2 || undefined,
+      city: city || undefined,
+      state: state || undefined,
+      zip: zip || undefined,
       lastContactedAt: new Date().toISOString(),
     }
 

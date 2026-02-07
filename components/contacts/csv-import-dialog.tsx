@@ -171,10 +171,6 @@ export function CSVImportDialog({ onImport, trigger }: CSVImportDialogProps) {
           if (["active", "inactive", "lead"].includes(normalized)) {
             contact.status = normalized as Contact["status"]
           }
-        } else if (field === "addressLine1") {
-          contact.address = { ...(contact.address as object || {}), line1: value }
-        } else if (["city", "state", "zip"].includes(field)) {
-          contact.address = { ...(contact.address as object || {}), [field]: value }
         } else {
           contact[field] = value
         }
