@@ -2,7 +2,7 @@
 
 import { type ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal } from "lucide-react"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -114,7 +114,7 @@ export const taskColumns: ColumnDef<Task>[] = [
     cell: ({ row }) => {
       const date = row.getValue("dueDate") as string | undefined
       return date ? (
-        <span className="text-muted-foreground">{format(new Date(date), "MMM d, yyyy")}</span>
+        <span className="text-muted-foreground">{format(parseISO(date), "MMM d, yyyy")}</span>
       ) : (
         <span className="text-muted-foreground">-</span>
       )
@@ -122,9 +122,7 @@ export const taskColumns: ColumnDef<Task>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const task = row.original
-
+    cell: () => {
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -145,4 +143,3 @@ export const taskColumns: ColumnDef<Task>[] = [
     },
   },
 ]
-

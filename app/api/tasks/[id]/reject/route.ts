@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { tasks, workflows } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import type { ApprovalSignal } from "@/lib/workflows/applicant-review-workflow";
+import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 
 /**
  * PATCH /api/tasks/[id]/reject
@@ -31,7 +32,7 @@ export async function PATCH(
     const { id: taskId } = await params;
 
     // Get authenticated user and org
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
 
     if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -48,6 +49,14 @@ export async function PATCH(
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    if (!canMutateTask(access, task)) {
+      return NextResponse.json(
+        { error: "You do not have permission to reject this task" },
+        { status: 403 }
+      );
     }
 
     if (task.taskType !== "approval") {

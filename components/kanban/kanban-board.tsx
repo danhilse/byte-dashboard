@@ -25,7 +25,12 @@ export function KanbanBoard({ tasks, onStatusChange, onTaskClick }: KanbanBoardP
       getItemStatus={(task) => task.status}
       setItemStatus={(task, status) => ({ ...task, status })}
       renderCard={(task, props) => (
-        <KanbanCard key={task.id} task={task} className={props?.className} />
+        <KanbanCard
+          key={task.id}
+          task={task}
+          className={props?.className}
+          onClick={props?.onClick}
+        />
       )}
       renderOverlayCard={(task) => <KanbanCard task={task} />}
       onStatusChange={onStatusChange}

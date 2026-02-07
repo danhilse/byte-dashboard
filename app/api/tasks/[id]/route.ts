@@ -3,6 +3,11 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { tasks, contacts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import {
+  buildTaskAccessContext,
+  canClaimTask,
+  canMutateTask,
+} from "@/lib/tasks/access";
 
 /**
  * GET /api/tasks/:id
@@ -14,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
     const { id } = await params;
 
     if (!userId || !orgId) {
@@ -36,6 +41,15 @@ export async function GET(
     }
 
     const { task, contactFirstName, contactLastName } = rows[0];
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+
+    if (!canMutateTask(access, task) && !canClaimTask(access, task)) {
+      return NextResponse.json(
+        { error: "You do not have permission to access this task" },
+        { status: 403 }
+      );
+    }
+
     const contactName =
       contactFirstName || contactLastName
         ? `${contactFirstName ?? ""} ${contactLastName ?? ""}`.trim()
@@ -64,7 +78,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
     const { id } = await params;
 
     if (!userId || !orgId) {
@@ -95,6 +109,41 @@ export async function PATCH(
       position,
       metadata,
     } = body;
+
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const [existingTask] = await db
+      .select({
+        id: tasks.id,
+        assignedTo: tasks.assignedTo,
+      })
+      .from(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)));
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    if (!canMutateTask(access, existingTask)) {
+      return NextResponse.json(
+        { error: "You do not have permission to update this task" },
+        { status: 403 }
+      );
+    }
+
+    // Validate contactId belongs to org if provided
+    if (contactId) {
+      const [contact] = await db
+        .select({ id: contacts.id })
+        .from(contacts)
+        .where(and(eq(contacts.id, contactId), eq(contacts.orgId, orgId)));
+
+      if (!contact) {
+        return NextResponse.json(
+          { error: "Contact not found" },
+          { status: 404 }
+        );
+      }
+    }
 
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -143,11 +192,31 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
     const { id } = await params;
 
     if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const [existingTask] = await db
+      .select({
+        id: tasks.id,
+        assignedTo: tasks.assignedTo,
+      })
+      .from(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)));
+
+    if (!existingTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    if (!canMutateTask(access, existingTask)) {
+      return NextResponse.json(
+        { error: "You do not have permission to delete this task" },
+        { status: 403 }
+      );
     }
 
     const [deletedTask] = await db

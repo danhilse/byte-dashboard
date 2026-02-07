@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { tasks, workflows } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import type { TaskCompletedSignal } from "@/lib/workflows/applicant-review-workflow";
+import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 
 /**
  * PATCH /api/tasks/[id]/status
@@ -31,7 +32,7 @@ export async function PATCH(
     const { id: taskId } = await params;
 
     // Get authenticated user and org
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
 
     if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -52,6 +53,14 @@ export async function PATCH(
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    if (!canMutateTask(access, task)) {
+      return NextResponse.json(
+        { error: "You do not have permission to update this task" },
+        { status: 403 }
+      );
     }
 
     // Approval tasks must be completed via /approve or /reject to preserve outcome semantics
@@ -88,11 +97,16 @@ export async function PATCH(
 
       // Already complete (or completed concurrently): return idempotent success
       if (!updatedTask) {
+        const [latestTask] = await db
+          .select()
+          .from(tasks)
+          .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
+
         return NextResponse.json({
           taskId,
           status,
           workflowSignaled,
-          task,
+          task: latestTask ?? task,
         });
       }
 

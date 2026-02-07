@@ -4,7 +4,7 @@ import { memo } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical, Calendar, User } from "lucide-react"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,9 +15,10 @@ import type { Task } from "@/types"
 interface KanbanCardProps {
   task: Task
   className?: string
+  onClick?: () => void
 }
 
-export const KanbanCard = memo(function KanbanCard({ task, className }: KanbanCardProps) {
+export const KanbanCard = memo(function KanbanCard({ task, className, onClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -38,6 +39,7 @@ export const KanbanCard = memo(function KanbanCard({ task, className }: KanbanCa
       ref={setNodeRef}
       style={style}
       className={cn("cursor-grab active:cursor-grabbing", className)}
+      onClick={onClick}
     >
       <CardHeader className="p-3 pb-0">
         <div className="flex items-start gap-2">
@@ -77,7 +79,7 @@ export const KanbanCard = memo(function KanbanCard({ task, className }: KanbanCa
           {task.dueDate && (
             <div className="flex items-center gap-1">
               <Calendar className="size-3" />
-              <span>{format(new Date(task.dueDate), "MMM d")}</span>
+              <span>{format(parseISO(task.dueDate), "MMM d")}</span>
             </div>
           )}
         </div>

@@ -2,27 +2,47 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { tasks, contacts, workflows } from "@/lib/db/schema";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import {
+  buildTaskAccessContext,
+  canClaimTask,
+  canMutateTask,
+  normalizeRoleName,
+} from "@/lib/tasks/access";
 
 /**
  * GET /api/tasks
  *
  * Lists tasks for the authenticated organization.
  * Query params:
- *   ?status=todo,in_progress  - filter by status(es)
- *   ?available=true           - only unclaimed role-based tasks
+ *   ?status=todo,in_progress - filter by status(es)
+ *   ?assignee=me             - only tasks assigned to current user
+ *   ?role=manager,reviewer   - filter by assigned role(s)
+ *   ?available=true          - only unclaimed role-based tasks for current user
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
 
     if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+
     const url = new URL(req.url);
     const statusParam = url.searchParams.get("status");
+    const assigneeParam = url.searchParams.get("assignee");
+    const roleParam = url.searchParams.get("role");
     const availableParam = url.searchParams.get("available");
+    const isAvailableView = availableParam === "true";
+
+    if (assigneeParam && assigneeParam !== "me" && assigneeParam !== userId) {
+      return NextResponse.json(
+        { error: "assignee filter can only target the authenticated user" },
+        { status: 403 }
+      );
+    }
 
     const rows = await db
       .select({
@@ -55,11 +75,27 @@ export async function GET(req: Request) {
       result = result.filter((t) => statuses.includes(t.status));
     }
 
-    // Filter to available (unclaimed role-based) tasks
-    if (availableParam === "true") {
-      result = result.filter(
-        (t) => !t.assignedTo && t.assignedRole
+    // Filter by role
+    if (roleParam) {
+      const requestedRoles = new Set(
+        roleParam
+          .split(",")
+          .map((role) => normalizeRoleName(role))
+          .filter((role): role is string => Boolean(role))
       );
+
+      result = result.filter((t) => {
+        const assignedRole = normalizeRoleName(t.assignedRole);
+        return assignedRole ? requestedRoles.has(assignedRole) : false;
+      });
+    }
+
+    if (isAvailableView) {
+      // Available tasks are unclaimed role-based tasks the current user can claim.
+      result = result.filter((t) => canClaimTask(access, t));
+    } else {
+      // Default My Work scope: tasks currently assigned to the current user.
+      result = result.filter((t) => canMutateTask(access, t));
     }
 
     return NextResponse.json({ tasks: result });

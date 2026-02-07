@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
+import { buildTaskAccessContext, canClaimTask } from "@/lib/tasks/access";
 
 /**
  * PATCH /api/tasks/[id]/claim
@@ -21,10 +22,46 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { userId, orgId } = await auth();
+    const { userId, orgId, orgRole } = await auth();
 
     if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+
+    const [task] = await db
+      .select({
+        id: tasks.id,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+      })
+      .from(tasks)
+      .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)));
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    if (!task.assignedRole) {
+      return NextResponse.json(
+        { error: "Task is not role-assignable" },
+        { status: 400 }
+      );
+    }
+
+    if (task.assignedTo) {
+      return NextResponse.json(
+        { error: "Task already claimed by another user" },
+        { status: 409 }
+      );
+    }
+
+    if (!canClaimTask(access, task)) {
+      return NextResponse.json(
+        { error: "You do not have permission to claim this task" },
+        { status: 403 }
+      );
     }
 
     // Atomic claim: only succeeds if assignedTo is still NULL

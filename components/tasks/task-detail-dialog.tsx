@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { Calendar, User, Trash2, Workflow, CheckCircle2, XCircle, Shield } from "lucide-react"
 
 import {
@@ -149,47 +149,34 @@ export function TaskDetailDialog({
         <div className="space-y-4 py-4">
           <div className="grid gap-2">
             <Label className="text-muted-foreground text-xs uppercase">Status</Label>
-            {isEditing ? (
-              <Select
-                value={editedTask?.status}
-                onValueChange={(v) => updateField("status", v as TaskStatus)}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(taskStatusConfig).map(([value, config]) => (
-                    <SelectItem key={value} value={value}>
-                      {config.label}
-                    </SelectItem>
+            <div className="flex items-center gap-2">
+              <TaskStatusBadge status={displayTask.status} />
+              <div className="flex gap-1">
+                {(["backlog", "todo", "in_progress", "done"] as TaskStatus[])
+                  .filter((s) => s !== displayTask.status)
+                  .map((status) => (
+                    <Button
+                      key={status}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => {
+                        if (onStatusChange && task) {
+                          onStatusChange(task.id, status)
+                        } else {
+                          handleQuickStatusUpdate(status)
+                        }
+                      }}
+                    >
+                      Move to {taskStatusConfig[status].label}
+                    </Button>
                   ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <div className="flex items-center gap-2">
-                <TaskStatusBadge status={displayTask.status} />
-                <div className="flex gap-1">
-                  {(["backlog", "todo", "in_progress", "done"] as TaskStatus[])
-                    .filter((s) => s !== displayTask.status)
-                    .map((status) => (
-                      <Button
-                        key={status}
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        onClick={() => {
-                          if (onStatusChange && task) {
-                            onStatusChange(task.id, status)
-                          } else {
-                            handleQuickStatusUpdate(status)
-                          }
-                        }}
-                      >
-                        Move to {taskStatusConfig[status].label}
-                      </Button>
-                    ))}
-                </div>
               </div>
+            </div>
+            {isEditing && (
+              <p className="text-xs text-muted-foreground">
+                Status updates are saved immediately using the move actions above.
+              </p>
             )}
           </div>
 
@@ -257,7 +244,7 @@ export function TaskDetailDialog({
               {displayTask.dueDate && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Calendar className="size-4" />
-                  <span>{format(new Date(displayTask.dueDate), "MMM d, yyyy")}</span>
+                  <span>{format(parseISO(displayTask.dueDate), "MMM d, yyyy")}</span>
                 </div>
               )}
             </div>

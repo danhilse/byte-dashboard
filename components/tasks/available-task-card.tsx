@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { Calendar, Loader2 } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
@@ -42,7 +42,7 @@ export function AvailableTaskCard({ task, onClaim }: AvailableTaskCardProps) {
             {task.dueDate && (
               <span className="flex items-center gap-1">
                 <Calendar className="size-3" />
-                {format(new Date(task.dueDate), "MMM d")}
+                {format(parseISO(task.dueDate), "MMM d")}
               </span>
             )}
           </div>

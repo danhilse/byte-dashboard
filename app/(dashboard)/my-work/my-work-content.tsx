@@ -4,6 +4,7 @@ import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useCallback, useState, useMemo, useEffect } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
+import { parseISO } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table/data-table"
@@ -64,7 +65,7 @@ export function MyWorkContent() {
       setLoadError(null)
 
       try {
-        const response = await fetch("/api/tasks")
+        const response = await fetch("/api/tasks?assignee=me")
         if (!response.ok) {
           throw new Error("Failed to load tasks")
         }
@@ -157,8 +158,17 @@ export function MyWorkContent() {
 
   const handleUpdateTask = async (updatedTask: Task) => {
     try {
-      // Strip status (must use /status endpoint) and read-only fields
-      const { id, orgId, status, createdAt, updatedAt, ...updateFields } = updatedTask
+      const updateFields = {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        priority: updatedTask.priority,
+        assignedTo: updatedTask.assignedTo,
+        assignedRole: updatedTask.assignedRole,
+        contactId: updatedTask.contactId,
+        dueDate: updatedTask.dueDate,
+        position: updatedTask.position,
+        metadata: updatedTask.metadata,
+      }
       const response = await fetch(`/api/tasks/${updatedTask.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -301,7 +311,13 @@ export function MyWorkContent() {
 
       // Move from available to my tasks
       setAvailableTasks((prev) => prev.filter((t) => t.id !== taskId))
-      setTasks((prev) => [task, ...prev])
+      setTasks((prev) => {
+        const alreadyExists = prev.some((t) => t.id === task.id)
+        if (alreadyExists) {
+          return prev.map((t) => (t.id === task.id ? task : t))
+        }
+        return [task, ...prev]
+      })
 
       toast({
         title: "Task Claimed",
@@ -602,7 +618,7 @@ function TasksGridView({ tasks, onTaskClick }: TasksGridViewProps) {
             <CardDescription className="line-clamp-2">{task.description}</CardDescription>
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="outline">{task.status}</Badge>
-              {task.dueDate && <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
+              {task.dueDate && <span>Due: {parseISO(task.dueDate).toLocaleDateString()}</span>}
             </div>
           </CardContent>
         </Card>
