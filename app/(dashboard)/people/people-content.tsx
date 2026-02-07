@@ -1,8 +1,8 @@
 "use client"
 
 import { useSearchParams, useRouter } from "next/navigation"
-import { useCallback, useState, useMemo } from "react"
-import { List, LayoutGrid, Trash2, FileText } from "lucide-react"
+import { useCallback, useState, useMemo, useEffect } from "react"
+import { List, LayoutGrid, Trash2, FileText, Loader2 } from "lucide-react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -38,8 +38,8 @@ import { CSVImportDialog } from "@/components/contacts/csv-import-dialog"
 import { ContactFiltersDialog, type ContactFilters } from "@/components/contacts/contact-filters-dialog"
 import { createContactColumns, contactStatusOptions } from "@/components/data-table/columns/contact-columns"
 import { allContactStatuses, contactStatusConfig } from "@/lib/status-config"
-import { contacts as initialContacts } from "@/lib/data/contacts"
 import type { Contact, ContactStatus } from "@/types"
+import { useToast } from "@/hooks/use-toast"
 
 type ViewType = "table" | "card"
 
@@ -58,9 +58,11 @@ const defaultAdvancedFilters: ContactFilters = {
 export function PeopleContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { toast } = useToast()
 
   const view = (searchParams.get("view") as ViewType) || "table"
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedStatuses, setSelectedStatuses] = useState<ContactStatus[]>([])
   const [advancedFilters, setAdvancedFilters] = useState<ContactFilters>(defaultAdvancedFilters)
 
@@ -75,6 +77,34 @@ export function PeopleContent() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+
+  // Fetch contacts from API
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/contacts")
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch contacts")
+        }
+
+        const data = await response.json()
+        setContacts(data.contacts || [])
+      } catch (error) {
+        console.error("Error fetching contacts:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load contacts. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchContacts()
+  }, [toast])
 
   const updateView = useCallback(
     (newView: string) => {
@@ -164,28 +194,95 @@ export function PeopleContent() {
   })
 
   // CRUD operations
-  const handleCreateContact = (contactData: Omit<Contact, "id" | "createdAt">) => {
-    const newContact: Contact = {
-      ...contactData,
-      id: `c${Date.now()}`,
-      createdAt: new Date().toISOString(),
+  const handleCreateContact = async (contactData: Omit<Contact, "id" | "createdAt">) => {
+    try {
+      const response = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(contactData),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create contact")
+      }
+
+      const { contact } = await response.json()
+      setContacts((prev) => [contact, ...prev])
+
+      toast({
+        title: "Success",
+        description: "Contact created successfully",
+      })
+    } catch (error) {
+      console.error("Error creating contact:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create contact. Please try again.",
+        variant: "destructive",
+      })
     }
-    setContacts((prev) => [newContact, ...prev])
   }
 
-  const handleUpdateContact = (updatedContact: Contact) => {
-    setContacts((prev) =>
-      prev.map((c) => (c.id === updatedContact.id ? updatedContact : c))
-    )
-    setEditDialogOpen(false)
-    setEditingContact(null)
+  const handleUpdateContact = async (updatedContact: Contact) => {
+    try {
+      const response = await fetch(`/api/contacts/${updatedContact.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedContact),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update contact")
+      }
+
+      const { contact } = await response.json()
+      setContacts((prev) =>
+        prev.map((c) => (c.id === contact.id ? contact : c))
+      )
+      setEditDialogOpen(false)
+      setEditingContact(null)
+
+      toast({
+        title: "Success",
+        description: "Contact updated successfully",
+      })
+    } catch (error) {
+      console.error("Error updating contact:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update contact. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleConfirmDelete = () => {
-    if (deletingContact) {
+  const handleConfirmDelete = async () => {
+    if (!deletingContact) return
+
+    try {
+      const response = await fetch(`/api/contacts/${deletingContact.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete contact")
+      }
+
       setContacts((prev) => prev.filter((c) => c.id !== deletingContact.id))
       setDeleteDialogOpen(false)
       setDeletingContact(null)
+
+      toast({
+        title: "Success",
+        description: "Contact deleted successfully",
+      })
+    } catch (error) {
+      console.error("Error deleting contact:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete contact. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -199,16 +296,48 @@ export function PeopleContent() {
   }
 
   // Bulk operations
-  const handleBulkDelete = () => {
-    const selectedIds = table.getSelectedRowModel().rows.map((row) => row.original.id)
-    setContacts((prev) => prev.filter((c) => !selectedIds.includes(c.id)))
-    table.resetRowSelection()
+  const handleBulkDelete = async () => {
+    const selectedContacts = table.getSelectedRowModel().rows.map((row) => row.original)
+    const selectedIds = selectedContacts.map((c) => c.id)
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch(`/api/contacts/${id}`, { method: "DELETE" })
+        )
+      )
+
+      setContacts((prev) => prev.filter((c) => !selectedIds.includes(c.id)))
+      table.resetRowSelection()
+
+      toast({
+        title: "Success",
+        description: `Deleted ${selectedIds.length} contact(s) successfully`,
+      })
+    } catch (error) {
+      console.error("Error deleting contacts:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete some contacts. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleBulkCreateApplications = () => {
     const selectedContacts = table.getSelectedRowModel().rows.map((row) => row.original)
     alert(`Creating applications for ${selectedContacts.length} contacts`)
     table.resetRowSelection()
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Loading contacts...</p>
+      </div>
+    )
   }
 
   return (

@@ -71,6 +71,11 @@ export const contacts = pgTable(
     lastName: text("last_name").notNull(),
     email: text("email"),
     phone: text("phone"),
+    company: text("company"),
+    role: text("role"),
+    status: text("status").default("active").notNull(), // active, inactive, lead
+    avatarUrl: text("avatar_url"),
+    lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
     addressLine1: text("address_line_1"),
     addressLine2: text("address_line_2"),
     city: text("city"),
@@ -89,6 +94,7 @@ export const contacts = pgTable(
     orgIdx: index("idx_contacts_org").on(table.orgId),
     emailIdx: index("idx_contacts_email").on(table.email),
     nameIdx: index("idx_contacts_name").on(table.lastName, table.firstName),
+    statusIdx: index("idx_contacts_status").on(table.orgId, table.status),
   })
 );
 

@@ -18,14 +18,7 @@ export async function GET() {
     }
 
     const contactsList = await db
-      .select({
-        id: contacts.id,
-        firstName: contacts.firstName,
-        lastName: contacts.lastName,
-        email: contacts.email,
-        phone: contacts.phone,
-        createdAt: contacts.createdAt,
-      })
+      .select()
       .from(contacts)
       .where(eq(contacts.orgId, orgId))
       .orderBy(contacts.createdAt);
@@ -57,7 +50,24 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { firstName, lastName, email, phone } = body;
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      company,
+      role,
+      status,
+      avatarUrl,
+      lastContactedAt,
+      addressLine1,
+      addressLine2,
+      city,
+      state,
+      zip,
+      tags,
+      metadata,
+    } = body;
 
     if (!firstName || !lastName) {
       return NextResponse.json(
@@ -74,8 +84,18 @@ export async function POST(req: Request) {
         lastName,
         email,
         phone,
-        metadata: {},
-        tags: [],
+        company,
+        role,
+        status: status || "active",
+        avatarUrl,
+        lastContactedAt: lastContactedAt ? new Date(lastContactedAt) : null,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        zip,
+        metadata: metadata || {},
+        tags: tags || [],
       })
       .returning();
 
