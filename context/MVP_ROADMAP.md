@@ -236,15 +236,15 @@ users (sync from Clerk)
 
 **Step Type Components**
 - [ ] Trigger step config (form_submission, manual)
-- [ ] Assign Task step config (title, assignee role selector, description)
+- [ ] Assign Task step config (title, assignee role/user selector, description)
 - [ ] Wait for Task step config (task reference, timeout)
+- [ ] Wait for Approval step config (NEW: approve/reject buttons, require comment)
 - [ ] Update Task step config (task reference, field updates)
-- [ ] Send Email step config (to, subject, template)
-- [ ] Update Status step config (status selector)
 - [ ] Update Contact step config (field mappings)
-- [ ] Condition step config (field, branches with if/then)
+- [ ] Update Status step config (status selector)
+- [ ] Send Email step config (to, subject, template)
+- [ ] Condition step config (field, simple if/then branches)
 - [ ] Delay step config (duration in days/hours)
-- [ ] Set Due Date step config (date expression)
 
 **Variable System**
 - [ ] Variable templating UI (e.g., `{{contact.email}}`)
@@ -289,17 +289,23 @@ users (sync from Clerk)
 - [ ] Task list page (My Work page with table/kanban/grid views)
 - [ ] Create task form
 - [ ] Task detail dialog (view/edit)
-- [ ] Assign task to user
+- [ ] Assign task to user OR role (NEW: role-based assignment)
+- [ ] "Available Tasks" section (NEW: unclaimed role-based tasks)
+- [ ] "Claim Task" functionality (NEW: claim role-based task)
+- [ ] Approval task UI (NEW: Approve/Reject buttons for approval tasks)
 - [ ] Due date picker
 - [ ] Task status (todo, in_progress, done)
 - [ ] Link task to workflow execution or contact
 
 **Task API Routes**
-- [ ] GET /api/tasks (list tasks, filter by assignee/status)
+- [ ] GET /api/tasks (list tasks, filter by assignee/status/role)
 - [ ] POST /api/tasks (create task - manual or from workflow)
 - [ ] GET /api/tasks/:id (get task details)
 - [ ] PATCH /api/tasks/:id (update task fields)
 - [ ] PATCH /api/tasks/:id/status (update status + conditional workflow signal)
+- [ ] PATCH /api/tasks/:id/claim (NEW: claim role-based task)
+- [ ] PATCH /api/tasks/:id/approve (NEW: approve with comment)
+- [ ] PATCH /api/tasks/:id/reject (NEW: reject with comment)
 - [ ] DELETE /api/tasks/:id (delete task)
 
 **Task ↔ Workflow Integration**
@@ -466,11 +472,13 @@ These features will be built after the core platform is proven and when specific
 
 These are explicitly deferred until post-PMF:
 
+- [ ] **Asset Management** - Complete asset system deferred to v1.5 (nav placeholder exists, no functionality)
+- [ ] **Calendar** - Calendar views and task scheduling deferred to v1.5 (nav placeholder exists, no functionality)
 - [ ] Visual drag-and-drop workflow builder
 - [ ] AI assistant
 - [ ] Payment processing / Stripe
 - [ ] Drag-and-drop PDF template designer
-- [ ] Calendar integrations / scheduling
+- [ ] Calendar integrations / scheduling (Google/Outlook sync)
 - [ ] Advanced integrations (Mailchimp, SendGrid, Typeform, etc.)
 - [ ] Public applicant portal
 - [ ] Email notifications (can add late in MVP if needed)

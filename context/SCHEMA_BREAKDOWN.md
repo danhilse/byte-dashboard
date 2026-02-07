@@ -263,12 +263,14 @@ CREATE TABLE users (
   email         TEXT NOT NULL,
   first_name    TEXT,
   last_name     TEXT,
-  role          TEXT DEFAULT 'user',  -- owner, admin, user
+  role          TEXT DEFAULT 'user',  -- DEPRECATED: use roles array
+  roles         TEXT[] DEFAULT '{}',  -- NEW: Array of roles (admin, reviewer, hr, manager)
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_users_org ON users(org_id);
+CREATE INDEX idx_users_roles ON users USING GIN(roles);
 ```
 
 #### `contacts`
@@ -307,6 +309,7 @@ CREATE TABLE workflow_definitions (
   org_id          TEXT NOT NULL,
   name            TEXT NOT NULL,  -- "Application Review Workflow"
   description     TEXT,
+  phases          JSONB DEFAULT '[]',  -- NEW: Array of phase definitions for visual grouping
   steps           JSONB NOT NULL DEFAULT '{"steps": []}',  -- Array of step definitions
   variables       JSONB DEFAULT '{}',  -- Variable definitions this workflow needs
   is_active       BOOLEAN DEFAULT true,
@@ -317,12 +320,26 @@ CREATE TABLE workflow_definitions (
 CREATE INDEX idx_workflow_definitions_org ON workflow_definitions(org_id);
 CREATE INDEX idx_workflow_definitions_active ON workflow_definitions(org_id, is_active);
 
+-- Example phases JSONB:
+-- {
+--   "phases": [
+--     {
+--       "id": "phase_1",
+--       "name": "Initial Review",
+--       "description": "Review application and assign tasks",
+--       "order": 1,
+--       "step_ids": ["step_1", "step_2", "step_3"]
+--     }
+--   ]
+-- }
+
 -- Example steps JSONB structure:
 -- {
 --   "steps": [
 --     {
 --       "id": "step_1",
 --       "order": 1,
+--       "phase_id": "phase_1",  -- NEW: Link to phase
 --       "type": "trigger",
 --       "name": "Form Submitted",
 --       "config": { "trigger_type": "form_submission" }
@@ -330,13 +347,18 @@ CREATE INDEX idx_workflow_definitions_active ON workflow_definitions(org_id, is_
 --     {
 --       "id": "step_2",
 --       "order": 2,
+--       "phase_id": "phase_1",
 --       "type": "assign_task",
 --       "name": "Assign Review",
---       "config": { "title": "Review Application", "assign_to": "role:admin" }
+--       "config": {
+--         "title": "Review Application",
+--         "assign_to": { "type": "role", "role": "reviewer" }
+--       }
 --     },
 --     {
 --       "id": "step_3",
 --       "order": 3,
+--       "phase_id": "phase_1",
 --       "type": "wait_for_task",
 --       "name": "Wait for Review",
 --       "config": { "task_from_step": "step_2", "timeout_days": 3 }
@@ -344,13 +366,30 @@ CREATE INDEX idx_workflow_definitions_active ON workflow_definitions(org_id, is_
 --     {
 --       "id": "step_4",
 --       "order": 4,
+--       "phase_id": "phase_1",
+--       "type": "wait_for_approval",  -- NEW: Approval step type
+--       "name": "Manager Approval",
+--       "config": {
+--         "title": "Review Application",
+--         "assign_to": { "type": "role", "role": "manager" },
+--         "approval_options": {
+--           "approve_label": "Approve",
+--           "reject_label": "Reject",
+--           "require_comment": true
+--         }
+--       }
+--     },
+--     {
+--       "id": "step_5",
+--       "order": 5,
+--       "phase_id": "phase_2",
 --       "type": "condition",
 --       "name": "Check Outcome",
 --       "config": {
---         "field": "task.outcome",
+--         "field": "{{step_4.outcome}}",
 --         "branches": [
---           { "if": "approved", "then_goto": "step_5" },
---           { "if": "rejected", "then_goto": "step_8" }
+--           { "if": "approved", "then_goto": "step_6" },
+--           { "if": "rejected", "then_goto": "step_9" }
 --         ]
 --       }
 --     }
@@ -368,6 +407,7 @@ CREATE TABLE workflow_executions (
   workflow_definition_id  UUID NOT NULL REFERENCES workflow_definitions(id),
   contact_id              UUID NOT NULL REFERENCES contacts(id),
   current_step_id         TEXT,  -- Which step is currently executing
+  current_phase_id        TEXT,  -- NEW: Track current phase for UI progress
   status                  TEXT NOT NULL DEFAULT 'running',  -- running, completed, failed, paused
   variables               JSONB DEFAULT '{}',  -- Runtime variables for this execution
   source                  TEXT DEFAULT 'manual',  -- manual, formstack, api, etc.
@@ -397,12 +437,16 @@ CREATE TABLE tasks (
   org_id                TEXT NOT NULL,
   workflow_execution_id UUID REFERENCES workflow_executions(id),
   contact_id            UUID REFERENCES contacts(id),
-  assigned_to           TEXT REFERENCES users(id),
+  assigned_to           TEXT REFERENCES users(id),      -- Specific user if claimed
+  assigned_role         TEXT,                            -- NEW: Role if role-based assignment
   title                 TEXT NOT NULL,
   description           TEXT,
-  status                TEXT NOT NULL DEFAULT 'todo',  -- todo, in_progress, done
-  priority              TEXT DEFAULT 'medium',         -- low, medium, high
-  position              INTEGER DEFAULT 0,             -- For drag-and-drop ordering
+  task_type             TEXT DEFAULT 'standard',         -- NEW: standard, approval
+  status                TEXT NOT NULL DEFAULT 'todo',    -- todo, in_progress, done
+  priority              TEXT DEFAULT 'medium',           -- low, medium, high
+  outcome               TEXT,                            -- NEW: approved, rejected, completed, etc.
+  outcome_comment       TEXT,                            -- NEW: Comment from approver
+  position              INTEGER DEFAULT 0,               -- For drag-and-drop ordering
   due_date              DATE,
   completed_at          TIMESTAMPTZ,
   created_by_step_id    TEXT,  -- Which workflow step created this task
@@ -413,6 +457,7 @@ CREATE TABLE tasks (
 
 CREATE INDEX idx_tasks_org ON tasks(org_id);
 CREATE INDEX idx_tasks_assigned ON tasks(assigned_to);
+CREATE INDEX idx_tasks_role ON tasks(assigned_role) WHERE assigned_role IS NOT NULL;
 CREATE INDEX idx_tasks_status ON tasks(org_id, status);
 CREATE INDEX idx_tasks_workflow_execution ON tasks(workflow_execution_id);
 CREATE INDEX idx_tasks_position ON tasks(org_id, status, position);  -- For kanban ordering

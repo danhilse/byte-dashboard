@@ -54,7 +54,13 @@ type TaskAssignment =
 - Phases are optional visual grouping in workflow definitions
 - Steps belong to phases but execute linearly
 - Phases display progress in UI (e.g., "Phase 2 of 4: Background Check")
-- No complex phase-level triggers (keep it simple)
+- **No complex phase-level triggers (keep it simple)**
+
+**Critical Invariant: Phases are Visual Only**
+- Phases do NOT control execution flow
+- Phases do NOT have their own completion logic
+- Steps execute sequentially regardless of phase boundaries
+- Phase transitions happen automatically as steps complete
 
 **Structure:**
 ```typescript
@@ -192,6 +198,72 @@ Simplified approval pattern (no complex form needed):
 - Multi-condition AND/OR logic
 - Operators (>=, <=, contains, in)
 - Field-level comparisons
+
+---
+
+## Critical Architectural Invariants
+
+### Invariant 1: Workflow Status is Presentation-Only
+
+The `workflow_executions.status` field is **for UI display only**. Temporal workflow state is authoritative.
+
+**Rules:**
+1. UI status changes must signal Temporal (not direct DB updates)
+2. Status updates are derived from Temporal workflow outcomes
+3. Never allow status dropdowns that bypass Temporal signals
+
+**Example:**
+```typescript
+// ❌ WRONG: Direct status update
+UPDATE workflow_executions SET status = 'approved' WHERE id = ?;
+
+// ✅ CORRECT: Signal Temporal, workflow activity updates status
+await temporalClient.workflow.signal(workflowId, 'approve', { reason: '...' });
+// Temporal workflow activity updates workflow_executions.status as side effect
+```
+
+This prevents desyncing UI state from actual workflow progression.
+
+### Invariant 2: Task Signaling is Conditional
+
+Tasks only signal workflows when linked to a workflow execution.
+
+**Rules:**
+1. Check if `task.workflow_execution_id` exists before signaling
+2. Standalone tasks (no workflow_execution_id) don't signal Temporal
+3. Task status updates always update DB first, signal second
+
+**Example:**
+```typescript
+// Task status update flow
+async function updateTaskStatus(taskId: string, status: string) {
+  // 1. Update task in DB
+  const task = await db.update(tasks)
+    .set({ status, completed_at: status === 'done' ? new Date() : null })
+    .where(eq(tasks.id, taskId))
+    .returning();
+
+  // 2. Conditionally signal workflow
+  if (task.workflow_execution_id) {
+    await temporalClient.workflow.signal(
+      task.workflow_execution_id,
+      'taskStatusChanged',
+      { taskId, status }
+    );
+  }
+
+  return task;
+}
+```
+
+### Invariant 3: Phases Don't Control Execution
+
+Phases are for UI organization only. They don't affect workflow logic.
+
+**Rules:**
+1. Phases group steps visually but don't control flow
+2. Steps execute sequentially regardless of phase boundaries
+3. Phase progress is derived from completed steps, not managed separately
 
 ---
 
