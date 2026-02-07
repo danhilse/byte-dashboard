@@ -30,11 +30,13 @@ byte-dashboard/
 │   ├── (dashboard)/            # Route group with shared dashboard layout
 │   │   ├── layout.tsx          # Sidebar + top navigation wrapper
 │   │   ├── dashboard/          # Main dashboard view
-│   │   ├── workflow-builder/   # Workflow definition builder
-│   │   ├── workflow-executions/# Workflow execution tracking
+│   │   ├── my-work/            # Tasks assigned to logged-in user
+│   │   ├── workflows/          # Active workflow executions (running only)
 │   │   ├── people/             # Contact/people management
-│   │   ├── tasks/              # Task management
-│   │   ├── my-work/            # Personal work view
+│   │   ├── workflow-builder/   # Workflow definitions library + builder modal
+│   │   │   ├── page.tsx        # List/table of workflow definitions
+│   │   │   └── components/
+│   │   │       └── builder-modal.tsx  # Step builder modal (create/edit)
 │   │   ├── calendar/           # Calendar view
 │   │   ├── support/            # Support section
 │   │   └── admin/              # Admin section
@@ -62,7 +64,12 @@ byte-dashboard/
 │   │   ├── data-table-pagination.tsx
 │   │   └── columns/            # Column definitions by entity
 │   ├── workflow-builder/       # Workflow builder components
-│   ├── workflow-executions/    # Workflow execution components
+│   │   ├── builder-modal.tsx   # Main builder modal component
+│   │   ├── step-list.tsx       # Draggable vertical step list
+│   │   ├── step-card.tsx       # Individual step card
+│   │   ├── step-config-panel.tsx  # Step configuration sidebar/form
+│   │   └── step-types/         # Step type configuration components
+│   ├── workflows/              # Workflow execution components
 │   ├── contacts/               # Contact-specific components
 │   ├── tasks/                  # Task-specific components
 │   ├── kanban/                 # Kanban board with dnd-kit
@@ -115,10 +122,26 @@ workers/                        # Will be added when implementing Temporal
 
 ## Architecture & Key Patterns
 
-### 1. Route Organization
+### 1. Route Organization & Tab Structure
+
+**Main Navigation Tabs:**
+- **Dashboard** - Overview page with stats and widgets
+- **My Work** - Tasks assigned to logged-in user (personal task list)
+- **Workflows** - Active/running workflow executions only (not definitions)
+- **People** - Contact management (data used in workflows)
+- **Workflow Builder** - Library of workflow definitions + builder modal
+
+**Key Patterns:**
 - All dashboard routes live inside `app/(dashboard)/` route group which provides the sidebar layout
 - Settings pages use nested layout (`admin/settings/layout.tsx`) for tab navigation
-- Use kebab-case for route folder names (e.g., `/my-work`, `/workflow-blueprints`)
+- Use kebab-case for route folder names (e.g., `/my-work`, `/workflow-builder`)
+
+**Workflow Builder Pattern:**
+- Tab shows list/table of workflow definitions (library view)
+- "Create Workflow" button opens modal with step builder
+- Click definition row opens modal in edit mode
+- Modal contains drag-and-drop step builder UI
+- Modal closes → returns to library view
 
 ### 2. Authentication
 - Clerk handles authentication via `@clerk/nextjs`
@@ -170,14 +193,21 @@ workers/                        # Will be added when implementing Temporal
 **Workflow Builder:**
 - Linear step-based builder (not node-graph)
 - Vertical list of draggable step cards
-- Step types: trigger, assign_task, wait_for_task, send_email, update_status, condition, etc.
+- Step types: trigger, assign_task, wait_for_task, update_task, send_email, update_status, condition, etc.
 - Steps stored in `workflow_definitions.steps` JSONB column
+
+**Task ↔ Workflow Integration:**
+- Tasks can be standalone (manual) or created by workflows
+- Task status updates can signal workflows to continue
+- Workflow status changes can create or update tasks
+- Signal flow: Task status change → API checks `workflow_execution_id` → sends Temporal signal if exists
+- Not all tasks signal workflows (only if `workflow_execution_id` is not null)
 
 **Temporal Integration:**
 - Generic workflow interpreter (`lib/workflows/generic-workflow.ts`) reads workflow definitions and executes steps
 - Activities defined in `lib/activities/` - actual work (DB, API calls, emails)
 - Workflows started via API routes (`app/api/workflows/`)
-- Workflows signaled from UI (task completion, form submission)
+- Workflows signaled from UI (task completion via `PATCH /api/tasks/:id/status`)
 - Can wait hours/days/weeks for external events
 - Temporal handles execution state, Postgres stores business data
 
