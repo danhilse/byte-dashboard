@@ -7,7 +7,7 @@
 
 import { db } from "@/lib/db";
 import { tasks, workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { TaskType, TaskPriority, WorkflowStep } from "@/types";
 
 /**
@@ -172,12 +172,64 @@ export async function updateTask(
 ): Promise<void> {
   console.log(`Activity: Updating task ${taskId}`);
 
+  const [existingTask] = await db
+    .select({
+      id: tasks.id,
+    })
+    .from(tasks)
+    .where(eq(tasks.id, taskId));
+
+  if (!existingTask) {
+    throw new Error(`Task ${taskId} not found`);
+  }
+
+  const updateData: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+
+  if (fields.status !== undefined) {
+    if (!["backlog", "todo", "in_progress", "done"].includes(fields.status)) {
+      throw new Error(`Invalid task status "${fields.status}"`);
+    }
+
+    if (fields.status === "done") {
+      throw new Error(
+        'updateTask cannot set status to "done"; use task completion APIs/signals'
+      );
+    }
+
+    updateData.status = fields.status;
+    updateData.completedAt = null;
+  }
+
+  if (fields.priority !== undefined) {
+    if (!["low", "medium", "high", "urgent"].includes(fields.priority)) {
+      throw new Error(`Invalid task priority "${fields.priority}"`);
+    }
+    updateData.priority = fields.priority;
+  }
+
+  if (fields.description !== undefined) {
+    updateData.description = fields.description;
+  }
+
+  if (fields.assignedRole !== undefined) {
+    updateData.assignedRole = fields.assignedRole;
+  }
+
+  if (fields.assignedTo !== undefined) {
+    updateData.assignedTo = fields.assignedTo;
+  }
+
+  if (Object.keys(updateData).length === 1) {
+    throw new Error(
+      "updateTask called without any valid task fields to update"
+    );
+  }
+
   await db
     .update(tasks)
-    .set({
-      ...fields,
-      updatedAt: new Date(),
-    })
+    .set(updateData)
     .where(eq(tasks.id, taskId));
 
   console.log(`Activity: Task updated`);

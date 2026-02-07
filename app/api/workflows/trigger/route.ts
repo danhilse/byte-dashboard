@@ -110,6 +110,8 @@ export async function POST(req: Request) {
           contactId: contact.id,
           contactEmail: contact.email || "",
           contactFirstName: contact.firstName,
+          contactLastName: contact.lastName || "",
+          contactPhone: contact.phone || "",
           definitionId: genericDefinitionId,
         };
 

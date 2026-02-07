@@ -33,7 +33,13 @@ export function UpdateTaskConfig({
   steps,
   onUpdate,
 }: UpdateTaskConfigProps) {
-  const assignTaskSteps = steps.filter((s) => s.type === "assign_task")
+  const currentStepIndex = steps.findIndex((s) => s.id === step.id)
+  const assignTaskSteps =
+    currentStepIndex > 0
+      ? steps
+          .slice(0, currentStepIndex)
+          .filter((s) => s.type === "assign_task")
+      : []
 
   const updateConfig = (partial: Partial<UpdateTaskStep["config"]>) => {
     onUpdate({
@@ -69,6 +75,7 @@ export function UpdateTaskConfig({
       <div className="grid gap-2">
         <Label>Task Reference</Label>
         <Select
+          disabled={assignTaskSteps.length === 0}
           value={step.config.taskStepId}
           onValueChange={(v) => updateConfig({ taskStepId: v })}
         >
@@ -76,11 +83,17 @@ export function UpdateTaskConfig({
             <SelectValue placeholder="Select an Assign Task step..." />
           </SelectTrigger>
           <SelectContent>
-            {assignTaskSteps.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.label}
+            {assignTaskSteps.length === 0 ? (
+              <SelectItem value="__no_assign_task_steps__" disabled>
+                No earlier Assign Task steps
               </SelectItem>
-            ))}
+            ) : (
+              assignTaskSteps.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
