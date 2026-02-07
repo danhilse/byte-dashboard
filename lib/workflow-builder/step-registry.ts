@@ -5,6 +5,10 @@ import {
   ShieldCheck,
   RefreshCw,
   GitBranch,
+  Mail,
+  Timer,
+  UserCog,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react"
 import type { StepType, WorkflowStep } from "@/types"
@@ -53,6 +57,30 @@ export const stepRegistry: Record<StepType, StepMeta> = {
     description: "Branch based on a variable value",
     icon: GitBranch,
   },
+  send_email: {
+    type: "send_email",
+    label: "Send Email",
+    description: "Send an email notification",
+    icon: Mail,
+  },
+  delay: {
+    type: "delay",
+    label: "Delay",
+    description: "Wait for a specified duration",
+    icon: Timer,
+  },
+  update_contact: {
+    type: "update_contact",
+    label: "Update Contact",
+    description: "Update contact fields",
+    icon: UserCog,
+  },
+  update_task: {
+    type: "update_task",
+    label: "Update Task",
+    description: "Update a previously created task",
+    icon: ListChecks,
+  },
 }
 
 export const stepTypeList: StepMeta[] = Object.values(stepRegistry)
@@ -69,6 +97,10 @@ const defaultConfigs: Record<StepType, WorkflowStep["config"]> = {
   wait_for_approval: { timeoutDays: 7 },
   update_status: { status: "completed" },
   condition: { field: "", branches: [] },
+  send_email: { to: "{{contact.email}}", subject: "", body: "" },
+  delay: { duration: 1, unit: "days" },
+  update_contact: { fields: [] },
+  update_task: { taskStepId: "", fields: [] },
 }
 
 export function createDefaultStep(type: StepType): WorkflowStep {

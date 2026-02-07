@@ -155,6 +155,35 @@ export async function updateContact(
 }
 
 /**
+ * Updates a task's fields
+ *
+ * @param taskId - The task ID
+ * @param fields - Fields to update
+ */
+export async function updateTask(
+  taskId: string,
+  fields: {
+    status?: string;
+    priority?: string;
+    description?: string;
+    assignedRole?: string;
+    assignedTo?: string;
+  }
+): Promise<void> {
+  console.log(`Activity: Updating task ${taskId}`);
+
+  await db
+    .update(tasks)
+    .set({
+      ...fields,
+      updatedAt: new Date(),
+    })
+    .where(eq(tasks.id, taskId));
+
+  console.log(`Activity: Task updated`);
+}
+
+/**
  * Gets a task by ID
  *
  * @param taskId - The task ID
@@ -181,18 +210,27 @@ export async function getTask(taskId: string) {
  */
 export async function getWorkflowDefinition(
   definitionId: string
-): Promise<{ steps: WorkflowStep[] }> {
+): Promise<{ steps: WorkflowStep[]; phases: unknown[]; variables: Record<string, unknown> }> {
   console.log(`Activity: Fetching workflow definition ${definitionId}`);
 
   const [definition] = await db
-    .select({ steps: workflowDefinitions.steps })
+    .select({
+      steps: workflowDefinitions.steps,
+      phases: workflowDefinitions.phases,
+      variables: workflowDefinitions.variables,
+    })
     .from(workflowDefinitions)
     .where(eq(workflowDefinitions.id, definitionId));
 
   if (!definition) {
     console.log(`Activity: Workflow definition ${definitionId} not found`);
-    return { steps: [] };
+    return { steps: [], phases: [], variables: {} };
   }
 
-  return definition.steps as { steps: WorkflowStep[] };
+  const stepsData = definition.steps as { steps: WorkflowStep[] };
+  return {
+    steps: stepsData.steps ?? [],
+    phases: (definition.phases as unknown[]) ?? [],
+    variables: (definition.variables as Record<string, unknown>) ?? {},
+  };
 }

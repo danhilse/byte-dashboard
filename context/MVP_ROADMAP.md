@@ -17,7 +17,7 @@
 | Phase 3: Core CRUD | ✅ **COMPLETE** | Contacts + Workflow Executions CRUD fully implemented. |
 | Phase 4: Tasks & Kanban | ✅ **COMPLETE** | Tasks CRUD, kanban drag-and-drop with workflow signaling, atomic claiming. |
 | Phase 5a: Workflow Builder (Core) | ✅ **COMPLETE** | Definition CRUD, step builder, core step types, generic interpreter. |
-| Phase 5b: Workflow Builder (Advanced) | ⚪ **NEXT** | Phase management, variable system, advanced step types. |
+| Phase 5b: Workflow Builder (Advanced) | 🔵 **IN PROGRESS** | Advanced step types + variable system complete. Phase management deferred. |
 | Phase 6: Dashboard & Reporting | ⚪ Not Started | |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
@@ -27,7 +27,7 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 5b: Phase management, variable system, advanced step types
+1. Phase 5b: Phase management (remaining)
 2. Phase 6: Dashboard & Reporting
 3. Phase 7: Polish & Launch Prep
 
@@ -473,18 +473,22 @@ users (sync from Clerk)
 - [ ] Drag steps between phases
 - [ ] Phase progress indicator in execution view
 
-**Advanced Step Type Components**
-- [ ] Update Task step config (task reference, field updates)
-- [ ] Update Contact step config (field mappings)
-- [ ] Send Email step config (to, subject, template)
-- [ ] Delay step config (duration in days/hours)
+**Advanced Step Type Components** ✅ **COMPLETE (Feb 7, 2026)**
+- [x] Update Task step config (task reference, field updates)
+- [x] Update Contact step config (field mappings)
+- [x] Send Email step config (to, subject, template)
+- [x] Delay step config (duration in days/hours)
+- [x] Generic workflow interpreter cases for all 4 new step types
+- [x] `updateTask` activity added to database activities
+- [x] `getWorkflowDefinition` expanded to return phases + variables
 
-**Variable System**
-- [ ] Variable templating UI (e.g., `{{contact.email}}`)
-- [ ] Variable picker/autocomplete
-- [ ] Variable definitions for workflow
+**Variable System** ✅ **COMPLETE (Feb 7, 2026)**
+- [x] Variable templating UI (e.g., `{{contact.email}}`)
+- [x] Variable picker/autocomplete (popover with contact + step output variables)
+- [x] Variable picker wired into send_email, update_contact, update_task, assign_task, and condition configs
+- [x] Contact variables injected at workflow start (contact.email, contact.firstName, contact.id)
 
-**Deliverable:** Full-featured workflow builder with phase management, variable system, and all step types.
+**Deliverable:** Full-featured workflow builder with variable system and all 10 step types. Phase management deferred to a future phase.
 
 ---
 

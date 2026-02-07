@@ -10,14 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { AssignTaskStep, TaskType, TaskPriority } from "@/types"
+import { VariablePicker } from "../variable-picker"
+import type { AssignTaskStep, TaskType, TaskPriority, WorkflowStep } from "@/types"
 
 interface AssignTaskConfigProps {
   step: AssignTaskStep
+  steps: WorkflowStep[]
   onUpdate: (step: AssignTaskStep) => void
 }
 
-export function AssignTaskConfig({ step, onUpdate }: AssignTaskConfigProps) {
+export function AssignTaskConfig({ step, steps, onUpdate }: AssignTaskConfigProps) {
   const updateConfig = (
     partial: Partial<AssignTaskStep["config"]>
   ) => {
@@ -30,7 +32,14 @@ export function AssignTaskConfig({ step, onUpdate }: AssignTaskConfigProps) {
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
-        <Label htmlFor="task-title">Task Title</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="task-title">Task Title</Label>
+          <VariablePicker
+            steps={steps}
+            currentStepId={step.id}
+            onInsert={(v) => updateConfig({ title: step.config.title + v })}
+          />
+        </div>
         <Input
           id="task-title"
           placeholder="e.g. Review Submission"
@@ -40,7 +49,16 @@ export function AssignTaskConfig({ step, onUpdate }: AssignTaskConfigProps) {
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="task-description">Description (optional)</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="task-description">Description (optional)</Label>
+          <VariablePicker
+            steps={steps}
+            currentStepId={step.id}
+            onInsert={(v) =>
+              updateConfig({ description: (step.config.description ?? "") + v })
+            }
+          />
+        </div>
         <Textarea
           id="task-description"
           placeholder="What should the assignee do?"

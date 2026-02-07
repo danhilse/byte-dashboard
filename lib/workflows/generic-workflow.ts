@@ -19,6 +19,7 @@ import {
   defineSignal,
   setHandler,
   condition,
+  sleep,
 } from "@temporalio/workflow";
 import type * as activities from "../activities";
 import type {
@@ -27,6 +28,10 @@ import type {
   WaitForApprovalStep,
   UpdateStatusStep,
   ConditionStep,
+  SendEmailStep,
+  DelayStep,
+  UpdateContactStep,
+  UpdateTaskStep,
 } from "@/types";
 
 const {
@@ -34,6 +39,9 @@ const {
   setWorkflowStatus,
   setWorkflowProgress,
   getWorkflowDefinition,
+  sendEmail,
+  updateContact,
+  updateTask,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "2 minutes",
   retry: {
@@ -110,6 +118,11 @@ export async function genericWorkflow(
     approvalReceived = true;
     approvalData = data;
   });
+
+  // Inject built-in contact variables
+  variables["contact.email"] = input.contactEmail;
+  variables["contact.firstName"] = input.contactFirstName;
+  variables["contact.id"] = input.contactId;
 
   // Fetch definition steps
   const definition = await getWorkflowDefinition(input.definitionId);
@@ -273,6 +286,50 @@ export async function genericWorkflow(
           }
         }
         // No match and no default — just continue to next step
+        break;
+      }
+
+      case "send_email": {
+        const config = (step as SendEmailStep).config;
+        const to = resolveVariable(config.to);
+        const subject = resolveVariable(config.subject);
+        const body = resolveVariable(config.body);
+        await sendEmail(to, subject, body);
+        break;
+      }
+
+      case "delay": {
+        const config = (step as DelayStep).config;
+        const durationStr = `${config.duration} ${config.unit}`;
+        console.log(`[GenericWorkflow] Sleeping for ${durationStr}`);
+        await sleep(durationStr);
+        break;
+      }
+
+      case "update_contact": {
+        const config = (step as UpdateContactStep).config;
+        const fields: Record<string, string> = {};
+        for (const { field, value } of config.fields) {
+          fields[field] = resolveVariable(value);
+        }
+        await updateContact(input.contactId, fields);
+        break;
+      }
+
+      case "update_task": {
+        const config = (step as UpdateTaskStep).config;
+        const taskId = variables[`${config.taskStepId}.taskId`];
+        if (!taskId) {
+          console.log(
+            `[GenericWorkflow] update_task: no taskId found for step ${config.taskStepId}, skipping`
+          );
+          break;
+        }
+        const fields: Record<string, string> = {};
+        for (const { field, value } of config.fields) {
+          fields[field] = resolveVariable(value);
+        }
+        await updateTask(taskId, fields);
         break;
       }
     }

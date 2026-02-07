@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { VariablePicker } from "../variable-picker"
 import type { ConditionStep, WorkflowStep } from "@/types"
 
 interface ConditionConfigProps {
@@ -63,7 +64,14 @@ export function ConditionConfig({
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
-        <Label htmlFor="condition-field">Field</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="condition-field">Field</Label>
+          <VariablePicker
+            steps={steps}
+            currentStepId={step.id}
+            onInsert={(v) => updateConfig({ field: step.config.field + v })}
+          />
+        </div>
         <Input
           id="condition-field"
           placeholder='e.g. {{step_id.outcome}}'

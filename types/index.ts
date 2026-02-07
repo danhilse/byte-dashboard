@@ -34,6 +34,10 @@ export type StepType =
   | "wait_for_approval"
   | "update_status"
   | "condition"
+  | "send_email"
+  | "delay"
+  | "update_contact"
+  | "update_task"
 
 interface BaseStep {
   id: string
@@ -91,6 +95,38 @@ export interface ConditionStep extends BaseStep {
   }
 }
 
+export interface SendEmailStep extends BaseStep {
+  type: "send_email"
+  config: {
+    to: string
+    subject: string
+    body: string
+  }
+}
+
+export interface DelayStep extends BaseStep {
+  type: "delay"
+  config: {
+    duration: number
+    unit: "hours" | "days"
+  }
+}
+
+export interface UpdateContactStep extends BaseStep {
+  type: "update_contact"
+  config: {
+    fields: { field: string; value: string }[]
+  }
+}
+
+export interface UpdateTaskStep extends BaseStep {
+  type: "update_task"
+  config: {
+    taskStepId: string
+    fields: { field: string; value: string }[]
+  }
+}
+
 export type WorkflowStep =
   | TriggerStep
   | AssignTaskStep
@@ -98,6 +134,10 @@ export type WorkflowStep =
   | WaitForApprovalStep
   | UpdateStatusStep
   | ConditionStep
+  | SendEmailStep
+  | DelayStep
+  | UpdateContactStep
+  | UpdateTaskStep
 
 // ===========================
 // Workflow Definition
