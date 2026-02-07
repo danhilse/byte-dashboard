@@ -3,14 +3,17 @@ import { Connection, Client } from "@temporalio/client";
 /**
  * Temporal Client Configuration
  *
- * For local development: Connect to localhost
- * For production: Connect to Temporal Cloud
+ * Supports three connection modes:
+ * 1. Local development (localhost, no auth)
+ * 2. Temporal Cloud with mTLS (*.tmprl.cloud with client cert/key)
+ * 3. Temporal Cloud with API key (*.aws.api.temporal.io with API key)
  *
  * Environment Variables:
- * - TEMPORAL_ADDRESS: Temporal server address (e.g., namespace.account.tmprl.cloud:7233)
- * - TEMPORAL_NAMESPACE: Temporal namespace (default: 'default')
- * - TEMPORAL_CLIENT_CERT: Client certificate (base64 encoded for Temporal Cloud)
- * - TEMPORAL_CLIENT_KEY: Client private key (base64 encoded for Temporal Cloud)
+ * - TEMPORAL_ADDRESS: Temporal server address
+ * - TEMPORAL_NAMESPACE: Temporal namespace
+ * - TEMPORAL_API_KEY: API key for Temporal Cloud (AWS endpoints)
+ * - TEMPORAL_CLIENT_CERT: Client certificate for mTLS (base64 encoded)
+ * - TEMPORAL_CLIENT_KEY: Client private key for mTLS (base64 encoded)
  */
 
 let client: Client | null = null;
@@ -23,21 +26,22 @@ export async function getTemporalClient(): Promise<Client> {
   const address = process.env.TEMPORAL_ADDRESS || "localhost:7233";
   const namespace = process.env.TEMPORAL_NAMESPACE || "default";
 
-  // Check if we're connecting to Temporal Cloud (requires TLS)
-  const isCloud = address.includes("tmprl.cloud");
-
   let connection: Connection;
 
-  if (isCloud) {
-    // Temporal Cloud connection with mTLS
-    const clientCert = process.env.TEMPORAL_CLIENT_CERT;
-    const clientKey = process.env.TEMPORAL_CLIENT_KEY;
+  // Determine connection type based on address and available credentials
+  const isTmprlCloud = address.includes("tmprl.cloud");
+  const isAwsApiEndpoint = address.includes("aws.api.temporal.io");
+  const hasApiKey = !!process.env.TEMPORAL_API_KEY;
+  const hasMtlsCreds = !!(
+    process.env.TEMPORAL_CLIENT_CERT && process.env.TEMPORAL_CLIENT_KEY
+  );
 
-    if (!clientCert || !clientKey) {
-      throw new Error(
-        "TEMPORAL_CLIENT_CERT and TEMPORAL_CLIENT_KEY are required for Temporal Cloud"
-      );
-    }
+  if (isTmprlCloud && hasMtlsCreds) {
+    // Temporal Cloud with mTLS (*.tmprl.cloud)
+    console.log("Connecting to Temporal Cloud with mTLS...");
+
+    const clientCert = process.env.TEMPORAL_CLIENT_CERT!;
+    const clientKey = process.env.TEMPORAL_CLIENT_KEY!;
 
     // Decode base64-encoded certificates
     const cert = Buffer.from(clientCert, "base64");
@@ -52,11 +56,33 @@ export async function getTemporalClient(): Promise<Client> {
         },
       },
     });
-  } else {
-    // Local development connection (no TLS)
+  } else if (isAwsApiEndpoint && hasApiKey) {
+    // Temporal Cloud with API key (*.aws.api.temporal.io)
+    console.log("Connecting to Temporal Cloud with API key...");
+
+    connection = await Connection.connect({
+      address,
+      tls: true, // Enable TLS
+      metadata: {
+        authorization: `Bearer ${process.env.TEMPORAL_API_KEY}`,
+      },
+    });
+  } else if (address === "localhost:7233" || address.startsWith("127.0.0.1")) {
+    // Local development (no auth)
+    console.log("Connecting to local Temporal server...");
+
     connection = await Connection.connect({
       address,
     });
+  } else {
+    // Unknown configuration
+    throw new Error(
+      `Unable to determine Temporal connection method for address: ${address}. ` +
+        `Please ensure you have either:\n` +
+        `  - TEMPORAL_API_KEY for AWS API endpoints (*.aws.api.temporal.io)\n` +
+        `  - TEMPORAL_CLIENT_CERT and TEMPORAL_CLIENT_KEY for Temporal Cloud (*.tmprl.cloud)\n` +
+        `  - Or use localhost:7233 for local development`
+    );
   }
 
   client = new Client({
