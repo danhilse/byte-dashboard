@@ -50,8 +50,8 @@ Unlike simple CRUD applications, it orchestrates long-running workflows that inv
 - **Technology:** PostgreSQL (Neon or Railway)
 - **ORM:** Drizzle
 - **Responsibilities:**
-  - Application data (contacts, applications, tasks)
-  - Workflow templates (UI metadata)
+  - Business data (contacts, workflow executions, tasks)
+  - Workflow definitions (blueprints with steps)
   - User data (synced from Clerk)
   - Activity logs
   - File metadata
@@ -73,9 +73,11 @@ Unlike simple CRUD applications, it orchestrates long-running workflows that inv
 
 ---
 
-## Data Flow: Application Review Workflow
+## Data Flow: Workflow Execution Example
 
-This diagram shows how an external form submission triggers a multi-day workflow:
+This diagram shows how an external form submission triggers a workflow execution that runs over multiple days:
+
+**Example Use Case:** Applicant onboarding workflow (one example of many possible workflows)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -96,14 +98,14 @@ This diagram shows how an external form submission triggers a multi-day workflow
                              ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    Temporal Workflow Engine                         │
-│           (lib/workflows/application-review.ts)                     │
+│              (lib/workflows/generic-workflow.ts)                    │
 │                                                                     │
 │  ┌────────────────────────────────────────────────────────────┐   │
 │  │ Step 1: Create Contact (Activity: database.createContact) │   │
 │  └──────────────────────────┬─────────────────────────────────┘   │
 │                             │                                      │
 │  ┌────────────────────────────────────────────────────────────┐   │
-│  │ Step 2: Create Application (Activity: database.create...  │   │
+│  │ Step 2: Create Workflow Execution (Activity: database... │   │
 │  └──────────────────────────┬─────────────────────────────────┘   │
 │                             │                                      │
 │  ┌────────────────────────────────────────────────────────────┐   │
@@ -166,7 +168,7 @@ This diagram shows how an external form submission triggers a multi-day workflow
 │  │              Next.js API Routes                              │  │
 │  │                                                              │  │
 │  │  • /api/contacts/* (CRUD)                                   │  │
-│  │  • /api/applications/* (CRUD)                               │  │
+│  │  • /api/workflow-executions/* (CRUD)                               │  │
 │  │  • /api/webhooks/formstack (webhook receiver)               │  │
 │  │  • /api/workflows/start (trigger workflows)                 │  │
 │  │  • /api/workflows/signal (send signals)                     │  │
@@ -180,7 +182,7 @@ This diagram shows how an external form submission triggers a multi-day workflow
 │   PostgreSQL (Neon)     │         │   Temporal.io (Railway)         │
 │                         │         │                                 │
 │  • contacts             │         │  ┌──────────────────────────┐   │
-│  • applications         │         │  │  Temporal Workers        │   │
+│  • workflow_executions         │         │  │  Temporal Workers        │   │
 │  • tasks                │         │  │                          │   │
 │  • workflow_templates   │         │  │  Execute workflows       │   │
 │  • users                │         │  │  Run activities          │   │
@@ -248,7 +250,7 @@ User         Frontend      API Route     Temporal       Activities    Database  
  │              │              │            │               │<───────────┤          │
  │              │              │            │<──────────────┤            │          │
  │              │              │            │               │            │          │
- │              │              │            │ createApplication          │          │
+ │              │              │            │ createWorkflowExecution          │          │
  │              │              │            ├──────────────>│            │          │
  │              │              │            │               │ INSERT     │          │
  │              │              │            │               ├───────────>│          │
@@ -368,7 +370,7 @@ frontend/
 │   │   ├── schema.ts              # Tables
 │   │   └── queries.ts             # Reusable queries
 │   ├── workflows/                 # Temporal workflows
-│   │   ├── application-review.ts
+│   │   ├── onboarding-workflow.ts
 │   │   ├── background-check.ts
 │   │   └── onboarding.ts
 │   ├── activities/                # Temporal activities
@@ -408,6 +410,80 @@ Example: Formstack form submission triggers application review workflow
 Frontend → API Route → Send Signal to Workflow → Workflow Resumes → Activities
 ```
 Example: User completes task, signals workflow to continue to next step
+
+---
+
+## Workflow Builder Architecture
+
+### Linear Step-Based Builder
+
+**UI Concept:** Vertical list of draggable step cards (not a node-based graph)
+
+```
+┌─────────────────────────────────────┐
+│ Applicant Onboarding Workflow       │
+├─────────────────────────────────────┤
+│  1. [≡] Form Submitted          [⚙] │
+│  2. [≡] Assign Review Task      [⚙] │
+│  3. [≡] Wait for Review         [⚙] │
+│  4. [≡] Check Outcome           [⚙] │
+│     ├─ If approved → Step 5         │
+│     └─ If rejected → Step 8         │
+│  5. [≡] Send Approval Email     [⚙] │
+│  6. [≡] Update Status           [⚙] │
+│  [+ Add Step]                       │
+└─────────────────────────────────────┘
+```
+
+**Features:**
+- Drag to reorder steps
+- Click gear icon to edit step configuration
+- Simple conditional branching (if/then within steps)
+- Variable templating (e.g., `{{contact.email}}`, `{{task.outcome}}`)
+
+### Step Types
+
+| Type | Purpose | Configuration |
+|------|---------|---------------|
+| `trigger` | Start the workflow | Trigger type (form_submission, manual, etc.) |
+| `assign_task` | Create and assign task | Title, assignee, description |
+| `wait_for_task` | Wait for task completion | Task ref, timeout |
+| `update_contact` | Update contact fields | Field mappings |
+| `update_status` | Change execution status | Status value |
+| `set_due_date` | Set task/execution due date | Date expression |
+| `send_email` | Send email | To, subject, template |
+| `reminder` | Schedule reminder | Delay, message |
+| `delay` | Wait X days/hours | Duration |
+| `condition` | Branch based on value | Field, branches |
+
+### Execution Flow
+
+1. **User creates workflow definition** via builder UI
+2. **Definition saved** to `workflow_definitions.steps` (JSONB)
+3. **User triggers execution** (form submission, manual, API)
+4. **Generic Temporal workflow** reads definition and executes steps in order
+5. **Conditional branching** handled by evaluating `condition` steps
+6. **Current step tracked** in `workflow_executions.current_step_id`
+
+### Temporal Integration
+
+**Generic Workflow Interpreter** (`lib/workflows/generic-workflow.ts`):
+```typescript
+export async function executeWorkflow(definitionId: string, variables: Record<string, any>) {
+  const definition = await getWorkflowDefinition(definitionId);
+  const steps = definition.steps.steps; // JSONB array
+
+  for (const step of steps.sort((a, b) => a.order - b.order)) {
+    await executeStep(step, variables);
+
+    // Handle conditional branching
+    if (step.type === 'condition') {
+      const nextStep = evaluateCondition(step, variables);
+      // Jump to next step based on condition
+    }
+  }
+}
+```
 
 ---
 
@@ -563,16 +639,27 @@ async function updateStatus(workflowId: string, newStatus: string, signal: objec
 **Rationale:** Workflows require long-running execution, signal/wait patterns, and durability
 **Alternative Rejected:** Simple status transitions (can't wait for external events)
 
-### 2. PostgreSQL for Application Data (Not Temporal)
-**Decision:** Store contacts, applications, tasks in PostgreSQL
+### 2. PostgreSQL for Business Data (Not Temporal)
+**Decision:** Store contacts, workflow executions, tasks in PostgreSQL
 **Rationale:** Temporal is for execution state, not business data
 **Temporal Stores:** Workflow history, timers, signals, execution state
-**PostgreSQL Stores:** Contacts, applications, tasks, notes, audit logs
+**PostgreSQL Stores:** Contacts, workflow executions, tasks, notes, audit logs, workflow definitions
 
-### 3. Workflow Templates for UI Metadata Only
-**Decision:** `workflow_templates` table stores status labels/colors for frontend
-**Rationale:** Temporal handles execution, but UI needs status badges/filters
-**Alternative Rejected:** Storing full workflow definitions in DB (duplicates Temporal)
+### 3. Workflow Definitions in JSONB (Not Separate Tables)
+**Decision:** `workflow_definitions.steps` stores linear workflow steps as JSONB
+**Rationale:** Simple linear builder doesn't need complex normalized schema
+**Alternative Rejected:** 16-table workflow builder (over-engineered for MVP)
+
+**Step Structure:**
+```json
+{
+  "steps": [
+    {"id": "step_1", "order": 1, "type": "trigger", "name": "Form Submitted", "config": {...}},
+    {"id": "step_2", "order": 2, "type": "assign_task", "name": "Assign Review", "config": {...}},
+    {"id": "step_3", "order": 3, "type": "wait_for_task", "name": "Wait for Review", "config": {...}}
+  ]
+}
+```
 
 ### 4. Next.js API Routes for Triggers (Not Direct Temporal Calls)
 **Decision:** Frontend triggers workflows via API routes, not Temporal client directly
