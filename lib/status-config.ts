@@ -25,9 +25,6 @@ export const workflowStatusConfig: Record<WorkflowStatus, { label: string; varia
   timeout: { label: "Timed Out", variant: "destructive" },
 }
 
-// Application status configuration (legacy alias)
-export const applicationStatusConfig: Record<WorkflowStatus, { label: string; variant: BadgeVariant }> = workflowStatusConfig
-
 // Task status configuration
 export const allTaskStatuses: readonly TaskStatus[] = ["backlog", "todo", "in_progress", "done"]
 export const taskStatusConfig: Record<TaskStatus, { label: string; variant: BadgeVariant }> = {
@@ -55,8 +52,6 @@ export const workflowStatusOptions = Object.entries(workflowStatusConfig).map(([
   label,
   value,
 }))
-
-export const applicationStatusOptions = workflowStatusOptions
 
 export const taskStatusOptions = Object.entries(taskStatusConfig).map(([value, { label }]) => ({
   label,

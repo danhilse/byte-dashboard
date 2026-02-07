@@ -38,6 +38,7 @@ export function WorkflowsKanbanBoard({
         <WorkflowKanbanCard
           key={workflow.id}
           workflow={workflow}
+          isDraggable={!workflow.temporalWorkflowId}
           onClick={props?.onClick}
           className={props?.className}
         />

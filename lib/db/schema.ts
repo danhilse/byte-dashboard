@@ -1,7 +1,7 @@
 /**
  * Drizzle ORM Schema for Byte Dashboard MVP
  *
- * This file defines the database schema for application data.
+ * This file defines the database schema for dashboard data.
  * Temporal.io handles workflow execution state separately.
  *
  * Tables:

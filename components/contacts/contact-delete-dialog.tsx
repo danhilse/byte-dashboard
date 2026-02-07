@@ -40,7 +40,7 @@ export function ContactDeleteDialog({
             ? This action cannot be undone.
           </AlertDialogDescription>
           <AlertDialogDescription className="mt-2 text-destructive">
-            Warning: Any applications associated with this contact will also be affected.
+            Warning: Any workflows associated with this contact will also be affected.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

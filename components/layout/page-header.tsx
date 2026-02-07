@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, Sparkles, Plus, Bell, User, CheckSquare, Workflow, Headphones, FileText } from "lucide-react"
+import { Search, Sparkles, Plus, Bell, User, CheckSquare, Workflow, Headphones } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -42,8 +42,8 @@ interface PageHeaderProps {
 const quickAddItems = [
   { label: "Person", icon: User, href: "/people" },
   { label: "Task", icon: CheckSquare, href: "/my-work" },
-  { label: "Application", icon: FileText, href: "/applications" },
-  { label: "Workflow", icon: Workflow, href: "/admin/workflow-builder" },
+  { label: "Workflow Execution", icon: Workflow, href: "/workflows" },
+  { label: "Workflow Definition", icon: Workflow, href: "/admin/workflow-builder" },
   { label: "Support Ticket", icon: Headphones, href: "/support" },
 ]
 

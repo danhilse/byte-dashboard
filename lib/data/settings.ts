@@ -181,7 +181,7 @@ export const users: UserRow[] = [
 export const roles: RoleSummary[] = [
   { name: "Admin", members: 4, permissions: "Full access" },
   { name: "Manager", members: 8, permissions: "Teams + approvals" },
-  { name: "Contributor", members: 21, permissions: "Applications + tasks" },
+  { name: "Contributor", members: 21, permissions: "Workflows + tasks" },
   { name: "Viewer", members: 12, permissions: "Read-only" },
 ]
 

@@ -102,6 +102,7 @@ export function WorkflowDetailDialog({
   const displayName = displayWorkflow.definitionName
     ? `${displayWorkflow.definitionName} - ${displayWorkflow.contactName ?? "Unknown"}`
     : displayWorkflow.contactName ?? "Workflow"
+  const isTemporalManaged = Boolean(displayWorkflow.temporalWorkflowId)
 
   return (
     <>
@@ -143,43 +144,52 @@ export function WorkflowDetailDialog({
               <div className="grid gap-2">
                 <Label className="text-muted-foreground text-xs uppercase">Status</Label>
                 {isEditing ? (
-                  <Select
-                    value={editedWorkflow?.status}
-                    onValueChange={(v) => updateField("status", v as WorkflowStatus)}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(workflowStatusConfig).map(([value, config]) => (
-                        <SelectItem key={value} value={value}>
-                          {config.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  isTemporalManaged ? (
+                    <div className="flex items-center gap-2">
+                      <WorkflowStatusBadge status={displayWorkflow.status} />
+                      <Badge variant="secondary" className="text-xs">Temporal-managed</Badge>
+                    </div>
+                  ) : (
+                    <Select
+                      value={editedWorkflow?.status}
+                      onValueChange={(v) => updateField("status", v as WorkflowStatus)}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(workflowStatusConfig).map(([value, config]) => (
+                          <SelectItem key={value} value={value}>
+                            {config.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )
                 ) : (
                   <div className="flex items-center gap-2 flex-wrap">
                     <WorkflowStatusBadge status={displayWorkflow.status} />
                     {displayWorkflow.temporalWorkflowId && (
                       <Badge variant="secondary" className="text-xs">Temporal-managed</Badge>
                     )}
-                    <div className="flex gap-1 flex-wrap">
-                      {(["draft", "in_review", "pending", "on_hold", "approved", "rejected"] as WorkflowStatus[])
-                        .filter((s) => s !== displayWorkflow.status)
-                        .slice(0, 3)
-                        .map((status) => (
-                          <Button
-                            key={status}
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => handleQuickStatusUpdate(status)}
-                          >
-                            Move to {workflowStatusConfig[status].label}
-                          </Button>
-                        ))}
-                    </div>
+                    {!isTemporalManaged && (
+                      <div className="flex gap-1 flex-wrap">
+                        {(["draft", "in_review", "pending", "on_hold", "approved", "rejected"] as WorkflowStatus[])
+                          .filter((s) => s !== displayWorkflow.status)
+                          .slice(0, 3)
+                          .map((status) => (
+                            <Button
+                              key={status}
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => handleQuickStatusUpdate(status)}
+                            >
+                              Move to {workflowStatusConfig[status].label}
+                            </Button>
+                          ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -293,7 +303,7 @@ export function WorkflowDetailDialog({
                   <Button onClick={handleSave}>Save Changes</Button>
                 </>
               ) : (
-                <Button variant="outline" onClick={handleEdit}>
+                <Button variant="outline" onClick={handleEdit} disabled={isTemporalManaged}>
                   Edit Workflow
                 </Button>
               )}

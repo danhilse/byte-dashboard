@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
+import { workflows, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
 /**
@@ -92,6 +92,32 @@ export async function PATCH(
       completedAt,
     } = body;
 
+    const [existingWorkflow] = await db
+      .select({
+        id: workflows.id,
+        temporalWorkflowId: workflows.temporalWorkflowId,
+      })
+      .from(workflows)
+      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
+
+    if (!existingWorkflow) {
+      return NextResponse.json(
+        { error: "Workflow not found" },
+        { status: 404 }
+      );
+    }
+
+    // Temporal-managed workflows must derive status from workflow signals/activities.
+    if (status !== undefined && existingWorkflow.temporalWorkflowId) {
+      return NextResponse.json(
+        {
+          error:
+            "Status for Temporal-managed workflows cannot be changed directly. Signal the workflow instead.",
+        },
+        { status: 409 }
+      );
+    }
+
     const updateData: Record<string, unknown> = {
       updatedAt: new Date(),
     };
@@ -104,31 +130,11 @@ export async function PATCH(
     if (completedAt !== undefined)
       updateData.completedAt = completedAt ? new Date(completedAt) : null;
 
-    // If updating status manually, mark as not updated by Temporal
-    if (status !== undefined) {
-      // Check if workflow has a Temporal ID — if so, flag manual override
-      const [existing] = await db
-        .select({ temporalWorkflowId: workflows.temporalWorkflowId })
-        .from(workflows)
-        .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
-
-      if (existing?.temporalWorkflowId) {
-        updateData.updatedByTemporal = false;
-      }
-    }
-
     const [workflow] = await db
       .update(workflows)
       .set(updateData)
       .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)))
       .returning();
-
-    if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 }
-      );
-    }
 
     return NextResponse.json({ workflow });
   } catch (error) {
@@ -162,17 +168,37 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [deleted] = await db
-      .delete(workflows)
-      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)))
-      .returning();
+    const [existingWorkflow] = await db
+      .select({ id: workflows.id })
+      .from(workflows)
+      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
 
-    if (!deleted) {
+    if (!existingWorkflow) {
       return NextResponse.json(
         { error: "Workflow not found" },
         { status: 404 }
       );
     }
+
+    const [relatedTask] = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.workflowId, id), eq(tasks.orgId, orgId)))
+      .limit(1);
+
+    if (relatedTask) {
+      return NextResponse.json(
+        {
+          error:
+            "Workflow cannot be deleted while tasks are linked to it. Remove or reassign related tasks first.",
+        },
+        { status: 409 }
+      );
+    }
+
+    await db
+      .delete(workflows)
+      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
 
     return NextResponse.json({ success: true });
   } catch (error) {

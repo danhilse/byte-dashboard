@@ -6,12 +6,10 @@
  *
  * Examples:
  * - getContactById
- * - getApplicationsByOrg
+ * - getWorkflowsByOrg
  * - getTasksByAssignedUser
  * - etc.
  */
-
-import { db } from "./index";
 
 // Query functions will be added as needed during development
 export {};

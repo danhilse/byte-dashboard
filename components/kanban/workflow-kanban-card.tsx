@@ -16,12 +16,14 @@ interface WorkflowKanbanCardProps {
   workflow: Workflow
   onClick?: () => void
   className?: string
+  isDraggable?: boolean
 }
 
 export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
   workflow,
   onClick,
   className,
+  isDraggable = true,
 }: WorkflowKanbanCardProps) {
   const {
     attributes,
@@ -30,7 +32,7 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: workflow.id })
+  } = useSortable({ id: workflow.id, disabled: !isDraggable })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -50,7 +52,7 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
     <Card
       ref={setNodeRef}
       style={style}
-      className={cn("cursor-grab active:cursor-grabbing", className)}
+      className={cn(isDraggable && "cursor-grab active:cursor-grabbing", className)}
       onClick={onClick}
     >
       <CardHeader className="p-3 pb-0">
@@ -60,6 +62,8 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
             {...attributes}
             {...listeners}
             onClick={(e) => e.stopPropagation()}
+            disabled={!isDraggable}
+            aria-label={isDraggable ? "Drag workflow card" : "Workflow card cannot be dragged"}
           >
             <GripVertical className="size-4 text-muted-foreground" />
           </button>

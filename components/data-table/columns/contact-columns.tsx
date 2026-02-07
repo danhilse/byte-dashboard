@@ -26,7 +26,7 @@ export { contactStatusOptions }
 export interface ContactColumnActions {
   onEdit?: (contact: Contact) => void
   onDelete?: (contact: Contact) => void
-  onCreateApplication?: (contact: Contact) => void
+  onCreateWorkflow?: (contact: Contact) => void
 }
 
 export function createContactColumns(actions?: ContactColumnActions): ColumnDef<Contact>[] {
@@ -160,7 +160,7 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
       enableHiding: true,
     },
     {
-      accessorKey: "applicationsCount",
+      accessorKey: "workflowsCount",
       header: ({ column }) => {
         return (
           <Button
@@ -239,11 +239,11 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
-                  actions?.onCreateApplication?.(contact)
+                  actions?.onCreateWorkflow?.(contact)
                 }}
               >
                 <FileText className="mr-2 size-4" />
-                Create application
+                Create workflow
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

@@ -54,7 +54,7 @@ export async function sendWelcomeEmail(
   const subject = "Welcome to the Team!";
   const body = `
     <h1>Congratulations, ${firstName}!</h1>
-    <p>We're excited to welcome you to our team. Your application has been approved.</p>
+    <p>We're excited to welcome you to our team. Your submission has been approved.</p>
     <p>Next steps will be communicated to you shortly.</p>
     <br>
     <p>Best regards,<br>The Team</p>
@@ -75,12 +75,12 @@ export async function sendRejectionEmail(
   firstName: string,
   reason?: string
 ): Promise<void> {
-  const subject = "Application Status Update";
+  const subject = "Workflow Submission Status Update";
   const body = `
-    <h1>Thank you for your application, ${firstName}</h1>
-    <p>We appreciate your interest in joining our team. After careful review, we've decided not to move forward with your application at this time.</p>
+    <h1>Thank you for your submission, ${firstName}</h1>
+    <p>We appreciate your interest in joining our team. After careful review, we've decided not to move forward with this submission at this time.</p>
     ${reason ? `<p>Feedback: ${reason}</p>` : ""}
-    <p>We encourage you to apply for future opportunities that match your qualifications.</p>
+    <p>We encourage you to submit again for future opportunities that match your qualifications.</p>
     <br>
     <p>Best regards,<br>The Team</p>
   `;

@@ -3,7 +3,6 @@ export { EmptyState } from "./empty-state"
 export {
   ContactStatusBadge,
   WorkflowStatusBadge,
-  ApplicationStatusBadge,
   TaskStatusBadge,
   TaskPriorityBadge,
 } from "./status-badge"

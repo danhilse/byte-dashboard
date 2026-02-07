@@ -39,7 +39,7 @@ export default function LandingPage() {
             Manage your business relationships
           </h1>
           <p className="mb-8 text-lg text-muted-foreground">
-            Byte CRM helps you track contacts, manage applications, and stay on
+            Byte CRM helps you track contacts, manage workflows, and stay on
             top of your tasks. All in one place.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">

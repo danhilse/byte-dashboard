@@ -11,7 +11,7 @@
  *
  * Flow:
  * 1. Create contact if needed
- * 2. Assign "Review Application" task to reviewer role
+ * 2. Assign "Review Submission" task to reviewer role
  * 3. Wait for task completion signal (with timeout)
  * 4. Wait for approval signal (approve/reject with comment)
  * 5. Branch on approval outcome
@@ -116,13 +116,13 @@ export async function applicantReviewWorkflow(
   await setWorkflowStatus(input.workflowId, "in_review");
   await setWorkflowProgress(input.workflowId, "step-1-review");
 
-  // Step 2: Create "Review Application" task
+  // Step 2: Create "Review Submission" task
   console.log(`[Workflow] Creating review task`);
   const reviewTaskId = await createTask(input.workflowId, {
     orgId: input.orgId,
     contactId: input.contactId,
-    title: `Review Application - ${input.contactFirstName}`,
-    description: `Review the application for ${input.contactFirstName}. Complete the task when review is done.`,
+    title: `Review Submission - ${input.contactFirstName}`,
+    description: `Review the submitted information for ${input.contactFirstName}. Complete the task when review is done.`,
     taskType: "standard",
     assignedRole: "reviewer", // Role-based assignment
     priority: "high",
@@ -152,7 +152,7 @@ export async function applicantReviewWorkflow(
     orgId: input.orgId,
     contactId: input.contactId,
     title: `Approval Required - ${input.contactFirstName}`,
-    description: `Approve or reject the application for ${input.contactFirstName}. Provide a comment with your decision.`,
+    description: `Approve or reject the submission for ${input.contactFirstName}. Provide a comment with your decision.`,
     taskType: "approval",
     assignedRole: "manager", // Role-based assignment
     priority: "high",
@@ -178,7 +178,7 @@ export async function applicantReviewWorkflow(
   // Step 6: Branch based on approval outcome
   if (approvalData.outcome === "approved") {
     // Approval path
-    console.log(`[Workflow] Application APPROVED`);
+    console.log(`[Workflow] Submission APPROVED`);
     await setWorkflowProgress(input.workflowId, "step-6-approved");
     await setWorkflowStatus(input.workflowId, "approved");
 
@@ -194,7 +194,7 @@ export async function applicantReviewWorkflow(
     };
   } else {
     // Rejection path
-    console.log(`[Workflow] Application REJECTED`);
+    console.log(`[Workflow] Submission REJECTED`);
     await setWorkflowProgress(input.workflowId, "step-8-rejected");
     await setWorkflowStatus(input.workflowId, "rejected");
 

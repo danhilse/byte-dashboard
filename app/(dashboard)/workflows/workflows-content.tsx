@@ -180,7 +180,8 @@ export function WorkflowsContent() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to delete workflow")
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error || "Failed to delete workflow")
       }
 
       setWorkflows((prev) => prev.filter((w) => w.id !== deletingWorkflow.id))
@@ -197,7 +198,7 @@ export function WorkflowsContent() {
       console.error("Error deleting workflow:", error)
       toast({
         title: "Error",
-        description: "Failed to delete workflow. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete workflow. Please try again.",
         variant: "destructive",
       })
     }
@@ -211,6 +212,15 @@ export function WorkflowsContent() {
   const handleStatusChange = async (workflowId: string, newStatus: WorkflowStatus) => {
     const previous = workflows.find((w) => w.id === workflowId)
     if (!previous) return
+
+    if (previous.temporalWorkflowId) {
+      toast({
+        title: "Status is Temporal-managed",
+        description: "Use workflow actions/signals to change status for Temporal-managed workflows.",
+        variant: "destructive",
+      })
+      return
+    }
 
     // Optimistic update
     setWorkflows((prev) =>
@@ -227,7 +237,8 @@ export function WorkflowsContent() {
       })
 
       if (!response.ok) {
-        throw new Error("Failed to update status")
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error || "Failed to update status")
       }
     } catch (error) {
       // Rollback on error
@@ -237,7 +248,7 @@ export function WorkflowsContent() {
       )
       toast({
         title: "Error",
-        description: "Failed to update workflow status.",
+        description: error instanceof Error ? error.message : "Failed to update workflow status.",
         variant: "destructive",
       })
     }

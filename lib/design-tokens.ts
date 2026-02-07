@@ -9,7 +9,7 @@ import type { TaskPriority, Activity } from "@/types"
  *   <div className={priorityColors.background[task.priority]} />
  */
 
-// Priority level colors (for task/application priority indicators)
+// Priority level colors (for task/workflow priority indicators)
 export const priorityColors = {
   background: {
     low: "bg-priority-low",
@@ -28,11 +28,11 @@ export const priorityColors = {
 // Activity type colors (for activity feed icons)
 export const activityColors = {
   contact_created: "text-activity-contact",
-  workflow_submitted: "text-activity-application",
+  workflow_submitted: "text-activity-workflow",
   task_completed: "text-activity-task",
   note_added: "text-activity-note",
   status_changed: "text-activity-status",
-  asset_uploaded: "text-activity-application",
+  asset_uploaded: "text-activity-workflow",
 } as const satisfies Record<Activity["type"], string>
 
 // Trend indicator colors (for stats showing increase/decrease)

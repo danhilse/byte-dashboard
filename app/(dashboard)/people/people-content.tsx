@@ -160,8 +160,8 @@ export function PeopleContent() {
     setDeleteDialogOpen(true)
   }, [])
 
-  const handleCreateApplication = useCallback((contact: Contact) => {
-    router.push(`/applications?contact=${contact.id}`)
+  const handleCreateWorkflow = useCallback((contact: Contact) => {
+    router.push(`/workflows?contactId=${contact.id}`)
   }, [router])
 
   const columns = useMemo(
@@ -169,9 +169,9 @@ export function PeopleContent() {
       createContactColumns({
         onEdit: handleEdit,
         onDelete: handleDelete,
-        onCreateApplication: handleCreateApplication,
+        onCreateWorkflow: handleCreateWorkflow,
       }),
-    [handleEdit, handleDelete, handleCreateApplication]
+    [handleEdit, handleDelete, handleCreateWorkflow]
   )
 
   const table = useReactTable({
@@ -324,19 +324,37 @@ export function PeopleContent() {
     const selectedIds = selectedContacts.map((c) => c.id)
 
     try {
-      await Promise.all(
+      const results = await Promise.all(
         selectedIds.map((id) =>
-          fetch(`/api/contacts/${id}`, { method: "DELETE" })
+          fetch(`/api/contacts/${id}`, { method: "DELETE" }).then((response) => ({
+            id,
+            ok: response.ok,
+          }))
         )
       )
 
-      setContacts((prev) => prev.filter((c) => !selectedIds.includes(c.id)))
+      const deletedIds = results.filter((r) => r.ok).map((r) => r.id)
+      const failedCount = results.length - deletedIds.length
+
+      setContacts((prev) => prev.filter((c) => !deletedIds.includes(c.id)))
       table.resetRowSelection()
 
-      toast({
-        title: "Success",
-        description: `Deleted ${selectedIds.length} contact(s) successfully`,
-      })
+      if (deletedIds.length > 0) {
+        toast({
+          title: failedCount > 0 ? "Partial success" : "Success",
+          description:
+            failedCount > 0
+              ? `Deleted ${deletedIds.length} contact(s). ${failedCount} failed.`
+              : `Deleted ${deletedIds.length} contact(s) successfully`,
+          variant: failedCount > 0 ? "destructive" : "default",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete selected contacts.",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
       console.error("Error deleting contacts:", error)
       toast({
@@ -347,9 +365,9 @@ export function PeopleContent() {
     }
   }
 
-  const handleBulkCreateApplications = () => {
+  const handleBulkCreateWorkflows = () => {
     const selectedContacts = table.getSelectedRowModel().rows.map((row) => row.original)
-    alert(`Creating applications for ${selectedContacts.length} contacts`)
+    alert(`Creating workflows for ${selectedContacts.length} contacts`)
     table.resetRowSelection()
   }
 
@@ -475,10 +493,10 @@ export function PeopleContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleBulkCreateApplications}
+              onClick={handleBulkCreateWorkflows}
             >
               <FileText className="mr-2 size-4" />
-              Create Applications
+              Create Workflows
             </Button>
             <Button
               variant="outline"

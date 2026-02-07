@@ -55,7 +55,7 @@
   --color-status-warning: var(--status-warning);
   --color-status-error: var(--status-error);
   --color-activity-contact: var(--activity-contact);
-  --color-activity-application: var(--activity-application);
+  --color-activity-workflow: var(--activity-workflow);
   --color-activity-task: var(--activity-task);
   --color-activity-note: var(--activity-note);
   --color-activity-status: var(--activity-status);
@@ -131,7 +131,7 @@
 
   /* Semantic: Activity types */
   --activity-contact: oklch(0.60 0.18 260);
-  --activity-application: oklch(0.60 0.17 290);
+  --activity-workflow: oklch(0.60 0.17 290);
   --activity-task: oklch(0.58 0.15 150);
   --activity-note: oklch(0.70 0.14 70);
   --activity-status: oklch(0.64 0.16 40);
@@ -212,7 +212,7 @@
 
   /* Semantic: Activity types for dark */
   --activity-contact: oklch(0.68 0.20 260);
-  --activity-application: oklch(0.68 0.19 295);
+  --activity-workflow: oklch(0.68 0.19 295);
   --activity-task: oklch(0.68 0.17 150);
   --activity-note: oklch(0.78 0.16 75);
   --activity-status: oklch(0.72 0.18 45);

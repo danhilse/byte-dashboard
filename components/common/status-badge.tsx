@@ -2,7 +2,6 @@ import { Badge } from "@/components/ui/badge"
 import {
   contactStatusConfig,
   workflowStatusConfig,
-  applicationStatusConfig,
   taskStatusConfig,
   taskPriorityConfig,
 } from "@/lib/status-config"
@@ -27,11 +26,6 @@ export function WorkflowStatusBadge({ status }: WorkflowStatusBadgeProps) {
   return <Badge variant={config.variant}>{config.label}</Badge>
 }
 
-/** @deprecated Use WorkflowStatusBadge instead */
-export function ApplicationStatusBadge({ status }: WorkflowStatusBadgeProps) {
-  return <WorkflowStatusBadge status={status} />
-}
-
 interface TaskStatusBadgeProps {
   status: TaskStatus
 }
@@ -49,4 +43,3 @@ export function TaskPriorityBadge({ priority }: TaskPriorityBadgeProps) {
   const config = taskPriorityConfig[priority]
   return <Badge variant={config.variant}>{config.label}</Badge>
 }
-
