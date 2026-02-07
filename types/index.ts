@@ -64,15 +64,23 @@ export interface Workflow {
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
-  // Legacy fields for backwards compatibility with mock data
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   title?: string
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   value?: number
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   priority?: "low" | "medium" | "high"
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   notes?: string
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   templateId?: string
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   templateName?: string
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   progress?: number
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   taskCount?: number
+  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
   completedTaskCount?: number
 }
 
@@ -103,9 +111,11 @@ export interface Task {
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
-  // Legacy fields for backwards compatibility
+  /** @deprecated Use `assignedTo` instead. Remove during Phase 4 CRUD rewrite. */
   assignee?: string
+  /** @deprecated Tasks don't have tags in the DB schema. Remove during Phase 4 CRUD rewrite. */
   tags?: string[]
+  /** @deprecated Use `taskType` or check `workflowId` instead. Remove during Phase 4 CRUD rewrite. */
   source?: TaskSource
 }
 

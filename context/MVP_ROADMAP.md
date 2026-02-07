@@ -26,10 +26,9 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 2: Build hardcoded applicant review workflow with Temporal
-2. Validate: wait_for_task, approval branching, external signal flow
-3. Phase 3: Rebuild CRUD with workflow_definitions and workflow_executions
-4. Phase 4: Tasks with atomic claiming and workflow signaling
+1. Phase 3: Complete Workflow Executions CRUD (contacts done)
+2. Phase 4: Tasks with atomic claiming and workflow signaling
+3. Phase 5: Generic workflow builder (informed by Phase 2 learnings)
 
 ---
 
@@ -37,7 +36,7 @@
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 14+ (App Router) |
+| Framework | Next.js 16.1.6 (App Router) |
 | Auth | Clerk (with Organizations for multi-tenant) |
 | Database | PostgreSQL via Neon or Railway |
 | Workflow Engine | Temporal.io (TypeScript SDK) |
@@ -65,22 +64,30 @@ Core entities (~10 tables):
 organizations (via Clerk - no table needed)
 ├── users (via Clerk - synced to local table for app data)
 
-workflows
+workflow_executions (instances of definitions)
 ├── id
 ├── organization_id
+├── workflow_definition_id (FK)
+├── definition_version (frozen at execution time)
 ├── contact_id (FK)
-├── workflow_template_id (FK, nullable)
-├── status
-├── source (formstack, manual, etc.)
+├── current_step_id
+├── current_phase_id
+├── status (presentation-only, Temporal is authoritative)
+├── updated_by_temporal
+├── source (manual, formstack, api)
 ├── source_id (external reference)
-├── submitted_at
+├── started_at
+├── completed_at
+├── temporal_workflow_id
+├── temporal_run_id
+├── variables (JSONB)
 ├── metadata (JSONB)
 ├── created_at
 ├── updated_at
 
 contacts
 ├── id
-├── organization_id
+├── org_id
 ├── first_name
 ├── last_name
 ├── email
@@ -88,52 +95,62 @@ contacts
 ├── company
 ├── role
 ├── status (active, inactive, lead)
+├── avatar_url
+├── last_contacted_at
 ├── address_line_1
 ├── address_line_2
 ├── city
 ├── state
 ├── zip
-├── avatar_url
-├── last_contacted_at
-├── tags (array)
-├── metadata (JSONB)
+├── metadata (JSONB - custom fields)
+├── tags (TEXT[] - simple array)
 ├── created_at
 ├── updated_at
 
 tasks
 ├── id
-├── organization_id
-├── workflow_id (FK, nullable)
+├── org_id
+├── workflow_execution_id (FK, nullable)
 ├── contact_id (FK, nullable)
-├── assigned_to (user_id)
+├── assigned_to (user_id, nullable - specific user if claimed)
+├── assigned_role (nullable - role if role-based assignment)
 ├── title
 ├── description
+├── task_type (standard, approval)
 ├── status (todo, in_progress, done)
 ├── priority (low, medium, high)
-├── position (for ordering)
+├── outcome (approved, rejected, completed, etc.)
+├── outcome_comment (comment from approver)
+├── position (for drag-and-drop ordering)
 ├── due_date
 ├── completed_at
+├── created_by_step_id (which workflow step created this task)
+├── metadata (JSONB)
 ├── created_at
 ├── updated_at
 
-workflow_templates
+workflow_definitions (blueprints)
 ├── id
-├── organization_id
+├── org_id
 ├── name
 ├── description
-├── statuses (JSONB array of status definitions for UI/badges)
+├── version (immutable versioning - edit = clone + increment)
+├── phases (JSONB - array of phase definitions for visual grouping)
+├── steps (JSONB - array of step definitions)
+├── variables (JSONB - variable definitions)
+├── statuses (JSONB - ordered array of status objects for UI)
 ├── is_active
 ├── created_at
 ├── updated_at
 
-**Note:** `workflow_templates` stores UI metadata (status labels, colors, badge variants). Temporal handles actual workflow execution, state, and orchestration.
+**Note:** `workflow_definitions` stores UI metadata (status labels, colors, badge variants) and step definitions. Temporal handles actual workflow execution, state, and orchestration.
 
 activity_log
 ├── id
-├── organization_id
-├── entity_type (workflow, contact, task)
+├── org_id
+├── entity_type (workflow_execution, contact, task)
 ├── entity_id
-├── workflow_id (FK, nullable, indexed)
+├── workflow_execution_id (FK, nullable, indexed)
 ├── contact_id (FK, nullable, indexed)
 ├── task_id (FK, nullable, indexed)
 ├── user_id
@@ -143,10 +160,10 @@ activity_log
 
 notes
 ├── id
-├── organization_id
-├── entity_type (workflow, contact, task)
+├── org_id
+├── entity_type (workflow_execution, contact, task)
 ├── entity_id
-├── workflow_id (FK, nullable, indexed)
+├── workflow_execution_id (FK, nullable, indexed)
 ├── contact_id (FK, nullable, indexed)
 ├── task_id (FK, nullable, indexed)
 ├── user_id
@@ -156,22 +173,22 @@ notes
 
 formstack_config
 ├── id
-├── organization_id (unique)
+├── org_id (unique)
 ├── webhook_secret
 ├── field_mappings (JSONB)
-├── default_workflow_id (FK to workflow_templates)
+├── default_workflow_definition_id (FK to workflow_definitions)
 ├── is_active
 ├── created_at
 ├── updated_at
 
 formstack_submissions
 ├── id
-├── organization_id
+├── org_id
 ├── form_id
-├── submission_id (unique per org)
+├── submission_id (unique per org - prevents duplicate webhooks)
 ├── raw_payload (JSONB)
 ├── processed
-├── workflow_id (FK, nullable)
+├── workflow_execution_id (FK, nullable)
 ├── error
 ├── created_at
 
@@ -181,8 +198,10 @@ users (sync from Clerk)
 ├── email
 ├── first_name
 ├── last_name
-├── role
+├── role (DEPRECATED - use roles)
+├── roles (TEXT[] - admin, reviewer, hr, manager)
 ├── created_at
+├── updated_at
 ```
 
 ---
@@ -507,7 +526,7 @@ For application tracking workflows, configurable per org, but sensible defaults:
 8. On Hold
 ```
 
-**Note:** These map to WorkflowStatus type. Status values come from workflow_templates table.
+**Note:** These map to WorkflowStatus type. Status values come from workflow_definitions table.
 
 ### User Roles
 
@@ -541,9 +560,9 @@ Field mapping config maps Field IDs to contact/workflow fields.
 
 ## Post-MVP Features
 
-These features will be built after the core platform is proven and when specific customer needs arise:
+These features will be built after the core platform is proven and when specific customer needs arise.
 
-### Formstack Integration
+### Formstack Integration (Post-MVP)
 
 **Webhook Ingestion**
 - [ ] API route for Formstack webhook

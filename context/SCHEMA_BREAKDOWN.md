@@ -284,6 +284,11 @@ CREATE TABLE contacts (
   last_name       TEXT NOT NULL,
   email           TEXT,
   phone           TEXT,
+  company         TEXT,
+  role            TEXT,
+  status          TEXT DEFAULT 'active' NOT NULL,  -- active, inactive, lead
+  avatar_url      TEXT,
+  last_contacted_at TIMESTAMPTZ,
   address_line_1  TEXT,
   address_line_2  TEXT,
   city            TEXT,
@@ -298,6 +303,7 @@ CREATE TABLE contacts (
 CREATE INDEX idx_contacts_org ON contacts(org_id);
 CREATE INDEX idx_contacts_email ON contacts(email);
 CREATE INDEX idx_contacts_name ON contacts(last_name, first_name);
+CREATE INDEX idx_contacts_status ON contacts(org_id, status);
 ```
 
 #### `workflow_definitions`
@@ -311,10 +317,11 @@ CREATE TABLE workflow_definitions (
   org_id          TEXT NOT NULL,
   name            TEXT NOT NULL,  -- "Application Review Workflow"
   description     TEXT,
-  version         INTEGER NOT NULL DEFAULT 1,  -- NEW: Immutable version number
+  version         INTEGER NOT NULL DEFAULT 1,  -- Immutable version number
   phases          JSONB DEFAULT '[]',  -- Array of phase definitions for visual grouping
   steps           JSONB NOT NULL DEFAULT '{"steps": []}',  -- Array of step definitions
   variables       JSONB DEFAULT '{}',  -- Variable definitions this workflow needs
+  statuses        JSONB DEFAULT '[]' NOT NULL,  -- Ordered array of status objects for UI
   is_active       BOOLEAN DEFAULT true,  -- false for old versions (keep for history)
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
