@@ -30,7 +30,8 @@ byte-dashboard/
 │   ├── (dashboard)/            # Route group with shared dashboard layout
 │   │   ├── layout.tsx          # Sidebar + top navigation wrapper
 │   │   ├── dashboard/          # Main dashboard view
-│   │   ├── applications/       # Application management
+│   │   ├── workflow-builder/   # Workflow definition builder
+│   │   ├── workflow-executions/# Workflow execution tracking
 │   │   ├── people/             # Contact/people management
 │   │   ├── tasks/              # Task management
 │   │   ├── my-work/            # Personal work view
@@ -60,7 +61,8 @@ byte-dashboard/
 │   │   ├── data-table-toolbar.tsx
 │   │   ├── data-table-pagination.tsx
 │   │   └── columns/            # Column definitions by entity
-│   ├── applications/           # Application-specific components
+│   ├── workflow-builder/       # Workflow builder components
+│   ├── workflow-executions/    # Workflow execution components
 │   ├── contacts/               # Contact-specific components
 │   ├── tasks/                  # Task-specific components
 │   ├── kanban/                 # Kanban board with dnd-kit
@@ -69,7 +71,8 @@ byte-dashboard/
 │   └── common/                 # Shared presentational components
 ├── lib/
 │   ├── data/                   # Mock data for development
-│   │   ├── applications.ts
+│   │   ├── workflow-definitions.ts
+│   │   ├── workflow-executions.ts
 │   │   ├── contacts.ts
 │   │   ├── tasks.ts
 │   │   ├── activity.ts
@@ -79,8 +82,8 @@ byte-dashboard/
 │   │   ├── schema.ts           # Drizzle schema
 │   │   └── queries.ts          # Reusable queries
 │   ├── workflows/              # Temporal workflows
-│   │   ├── application-review.ts
-│   │   └── background-check.ts
+│   │   ├── generic-workflow.ts   # Generic interpreter for user-defined workflows
+│   │   └── onboarding-workflow.ts  # Example: applicant onboarding
 │   ├── activities/             # Temporal activities
 │   │   ├── database.ts         # DB operations
 │   │   ├── email.ts            # Email sending
@@ -147,20 +150,36 @@ workers/                        # Will be added when implementing Temporal
 - Maintain Tailwind class order: layout → spacing → color → state
 
 ### 6. Data & State Management
-- Mock data in `lib/data/*` for development (current state)
-- Application data will be in PostgreSQL via Drizzle (not yet implemented)
-- Workflow state managed by Temporal's persistence layer
+- Mock data in `lib/data/*` for development (current state after rollback)
+- Business data stored in PostgreSQL via Drizzle:
+  - `workflow_definitions` - workflow blueprints (steps in JSONB)
+  - `workflow_executions` - workflow instances/runs
+  - `contacts` - people tracked in workflows
+  - `tasks` - work items assigned to users
+- Workflow execution state managed by Temporal's persistence layer
 - Client state via TanStack React Query (not yet implemented)
 - Use React Server Components where possible; opt into client components with `"use client"`
 
-### 7. Workflow Orchestration
-- **Temporal.io** handles long-running, durable workflows
-- Workflows defined in `lib/workflows/` - orchestration logic only
+### 7. Workflow Architecture
+
+**Terminology:**
+- **Workflow Definition** = Blueprint with steps, conditions, triggers (stored in `workflow_definitions` table)
+- **Workflow Execution** = Instance/run of a workflow definition (stored in `workflow_executions` table)
+- **Example Use Case**: Applicant onboarding is ONE example of a workflow
+
+**Workflow Builder:**
+- Linear step-based builder (not node-graph)
+- Vertical list of draggable step cards
+- Step types: trigger, assign_task, wait_for_task, send_email, update_status, condition, etc.
+- Steps stored in `workflow_definitions.steps` JSONB column
+
+**Temporal Integration:**
+- Generic workflow interpreter (`lib/workflows/generic-workflow.ts`) reads workflow definitions and executes steps
 - Activities defined in `lib/activities/` - actual work (DB, API calls, emails)
 - Workflows started via API routes (`app/api/workflows/`)
 - Workflows signaled from UI (task completion, form submission)
-- Can wait hours/days/weeks for external events (form submissions, webhooks, user actions)
-- `workflow_templates` table stores UI metadata (statuses, colors, labels), Temporal handles execution
+- Can wait hours/days/weeks for external events
+- Temporal handles execution state, Postgres stores business data
 
 ### 8. Path Aliases
 - `@/*` resolves to `frontend/*` (configured in tsconfig.json)
