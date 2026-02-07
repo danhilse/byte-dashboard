@@ -24,6 +24,15 @@ export interface Contact {
 export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected" | "running" | "completed" | "failed" | "timeout"
 
 // ===========================
+// Workflow Phases (Display-Only Grouping)
+// ===========================
+
+export interface WorkflowPhase {
+  id: string
+  label: string
+}
+
+// ===========================
 // Workflow Step Types (Discriminated Union)
 // ===========================
 
@@ -43,6 +52,7 @@ interface BaseStep {
   id: string
   type: StepType
   label: string
+  phaseId?: string
 }
 
 export interface TriggerStep extends BaseStep {
@@ -149,7 +159,7 @@ export interface WorkflowDefinition {
   name: string
   description?: string
   version: number
-  phases: unknown[] // JSONB array of phase definitions
+  phases: WorkflowPhase[]
   steps: { steps: WorkflowStep[] } // JSONB array of step definitions
   variables: Record<string, unknown> // JSONB variable definitions
   statuses: unknown[] // JSONB UI status definitions

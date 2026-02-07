@@ -175,7 +175,7 @@ export async function genericWorkflow(
         `[GenericWorkflow] Executing step ${stepIndex}: ${step.type} (${step.label})`
       );
 
-      await setWorkflowProgress(input.workflowId, step.id);
+      await setWorkflowProgress(input.workflowId, step.id, step.phaseId);
 
       switch (step.type) {
         case "trigger": {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { Trash2, Workflow as WorkflowIcon, Calendar, Zap, Globe } from "lucide-react"
 
@@ -36,11 +36,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { WorkflowStatusBadge } from "@/components/common/status-badge"
+import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
 import { AssetList, AssetUploader, AssetPreviewModal } from "@/components/assets"
 import { workflowStatusConfig } from "@/lib/status-config"
 import { getAssetsByWorkflow } from "@/lib/data/assets"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
-import type { Workflow, WorkflowStatus, Asset } from "@/types"
+import type { Workflow, WorkflowStatus, WorkflowDefinition, WorkflowPhase, WorkflowStep, Asset } from "@/types"
 
 const sourceLabels: Record<string, string> = {
   manual: "Manual",
@@ -81,6 +82,35 @@ export function WorkflowDetailDialog({
   })
 
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null)
+  const [definitionPhases, setDefinitionPhases] = useState<WorkflowPhase[]>([])
+  const [definitionSteps, setDefinitionSteps] = useState<WorkflowStep[]>([])
+
+  // Fetch workflow definition for phase stepper when dialog opens
+  useEffect(() => {
+    if (!open || !workflow?.workflowDefinitionId) {
+      setDefinitionPhases([])
+      setDefinitionSteps([])
+      return
+    }
+
+    let cancelled = false
+    async function fetchDefinition() {
+      try {
+        const res = await fetch(`/api/workflow-definitions/${workflow!.workflowDefinitionId}`)
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        const def = data.definition as WorkflowDefinition | undefined
+        if (!def || cancelled) return
+        setDefinitionPhases((def.phases as WorkflowPhase[]) ?? [])
+        const stepsData = def.steps as { steps: WorkflowStep[] } | null
+        setDefinitionSteps(stepsData?.steps ?? [])
+      } catch {
+        // Silently fail — stepper just won't show
+      }
+    }
+    fetchDefinition()
+    return () => { cancelled = true }
+  }, [open, workflow?.workflowDefinitionId])
 
   const handleAssetUpload = async (files: File[]) => {
     console.log("Assets uploaded:", files)
@@ -221,7 +251,17 @@ export function WorkflowDetailDialog({
                 </div>
               </div>
 
-              {(displayWorkflow.currentStepId || displayWorkflow.currentPhaseId) && (
+              {definitionPhases.length > 0 ? (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs uppercase">Phase Progress</Label>
+                  <PhaseProgressStepper
+                    phases={definitionPhases}
+                    steps={definitionSteps}
+                    currentStepId={displayWorkflow.currentStepId}
+                    workflowStatus={displayWorkflow.status as WorkflowStatus}
+                  />
+                </div>
+              ) : (displayWorkflow.currentStepId || displayWorkflow.currentPhaseId) ? (
                 <div className="grid grid-cols-2 gap-4">
                   {displayWorkflow.currentStepId && (
                     <div className="space-y-1">
@@ -236,7 +276,7 @@ export function WorkflowDetailDialog({
                     </div>
                   )}
                 </div>
-              )}
+              ) : null}
 
               <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
                 <div className="flex items-center gap-1">

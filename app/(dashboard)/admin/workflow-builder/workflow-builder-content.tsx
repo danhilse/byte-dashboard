@@ -84,6 +84,7 @@ export function WorkflowBuilderContent() {
               name: updated.name,
               description: updated.description,
               steps: updated.steps,
+              phases: updated.phases,
             }),
           }
         )

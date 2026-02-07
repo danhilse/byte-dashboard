@@ -17,7 +17,8 @@ import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { workflowStatusConfig } from "@/lib/status-config"
 import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
-import type { WorkflowStatus } from "@/types"
+import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
+import type { WorkflowStatus, WorkflowPhase, WorkflowStep } from "@/types"
 
 interface WorkflowDetailPageProps {
   params: Promise<{ id: string }>
@@ -37,6 +38,8 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
       workflow: workflows,
       contact: contacts,
       definitionName: workflowDefinitions.name,
+      definitionPhases: workflowDefinitions.phases,
+      definitionSteps: workflowDefinitions.steps,
     })
     .from(workflows)
     .leftJoin(contacts, eq(workflows.contactId, contacts.id))
@@ -50,7 +53,9 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
     notFound()
   }
 
-  const { workflow, contact, definitionName } = result
+  const { workflow, contact, definitionName, definitionPhases, definitionSteps } = result
+  const parsedPhases = (definitionPhases as WorkflowPhase[] | null) ?? []
+  const parsedSteps = (definitionSteps as { steps: WorkflowStep[] } | null)?.steps ?? []
   const contactName = contact
     ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()
     : "Unknown Contact"
@@ -140,19 +145,36 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                       </div>
                     </div>
                   )}
-                  {workflow.currentStepId && (
-                    <InfoField
-                      icon={WorkflowIcon}
-                      label="Current Step"
-                      value={workflow.currentStepId}
-                    />
-                  )}
-                  {workflow.currentPhaseId && (
-                    <InfoField
-                      icon={WorkflowIcon}
-                      label="Current Phase"
-                      value={workflow.currentPhaseId}
-                    />
+                  {parsedPhases.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <WorkflowIcon className="size-4 text-muted-foreground" />
+                        Phase Progress
+                      </p>
+                      <PhaseProgressStepper
+                        phases={parsedPhases}
+                        steps={parsedSteps}
+                        currentStepId={workflow.currentStepId}
+                        workflowStatus={workflow.status as WorkflowStatus}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      {workflow.currentStepId && (
+                        <InfoField
+                          icon={WorkflowIcon}
+                          label="Current Step"
+                          value={workflow.currentStepId}
+                        />
+                      )}
+                      {workflow.currentPhaseId && (
+                        <InfoField
+                          icon={WorkflowIcon}
+                          label="Current Phase"
+                          value={workflow.currentPhaseId}
+                        />
+                      )}
+                    </>
                   )}
                   <InfoField
                     icon={Calendar}

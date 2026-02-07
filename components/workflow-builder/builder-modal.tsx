@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { StepList } from "./step-list"
 import { StepConfigPanel } from "./step-config-panel"
-import type { WorkflowDefinition, WorkflowStep } from "@/types"
+import type { WorkflowDefinition, WorkflowStep, WorkflowPhase } from "@/types"
 
 interface BuilderModalProps {
   definition: WorkflowDefinition | null
@@ -28,14 +28,16 @@ export function BuilderModal({
   onSave,
 }: BuilderModalProps) {
   const [steps, setSteps] = useState<WorkflowStep[]>([])
+  const [phases, setPhases] = useState<WorkflowPhase[]>([])
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
 
-  // Sync steps from definition when it changes
+  // Sync steps and phases from definition when it changes
   useEffect(() => {
     if (definition) {
       const stepsData = definition.steps as { steps: WorkflowStep[] } | null
       setSteps(stepsData?.steps ?? [])
+      setPhases((definition.phases as WorkflowPhase[]) ?? [])
       setSelectedStepId(null)
       setIsDirty(false)
     }
@@ -45,6 +47,11 @@ export function BuilderModal({
 
   const handleStepsChange = useCallback((newSteps: WorkflowStep[]) => {
     setSteps(newSteps)
+    setIsDirty(true)
+  }, [])
+
+  const handlePhasesChange = useCallback((newPhases: WorkflowPhase[]) => {
+    setPhases(newPhases)
     setIsDirty(true)
   }, [])
 
@@ -74,6 +81,7 @@ export function BuilderModal({
     onSave({
       ...definition,
       steps: { steps },
+      phases,
     })
     setIsDirty(false)
   }
@@ -99,9 +107,11 @@ export function BuilderModal({
           <div className="w-[40%] border-r overflow-y-auto p-4">
             <StepList
               steps={steps}
+              phases={phases}
               selectedStepId={selectedStepId}
               onSelectStep={setSelectedStepId}
               onStepsChange={handleStepsChange}
+              onPhasesChange={handlePhasesChange}
               onDeleteStep={handleDeleteStep}
             />
           </div>

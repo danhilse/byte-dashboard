@@ -17,7 +17,7 @@
 | Phase 3: Core CRUD | ✅ **COMPLETE** | Contacts + Workflow Executions CRUD fully implemented. |
 | Phase 4: Tasks & Kanban | ✅ **COMPLETE** | Tasks CRUD, kanban drag-and-drop with workflow signaling, atomic claiming. |
 | Phase 5a: Workflow Builder (Core) | ✅ **COMPLETE** | Definition CRUD, step builder, core step types, generic interpreter. |
-| Phase 5b: Workflow Builder (Advanced) | 🔵 **IN PROGRESS** | Advanced step types + variable system complete. Phase management deferred. |
+| Phase 5b: Workflow Builder (Advanced) | ✅ **COMPLETE** | Advanced step types, variable system, and phase management all complete. |
 | Phase 6: Dashboard & Reporting | ⚪ Not Started | |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
@@ -27,9 +27,8 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 5b: Phase management (remaining)
-2. Phase 6: Dashboard & Reporting
-3. Phase 7: Polish & Launch Prep
+1. Phase 6: Dashboard & Reporting
+2. Phase 7: Polish & Launch Prep
 
 ---
 
@@ -467,11 +466,11 @@ users (sync from Clerk)
 
 **Note:** Enhances the builder with phase grouping, variable templating, and additional step types. Builds on the core builder from Phase 5a.
 
-**Phase Management UI**
-- [ ] Phase grouping in step list (collapsible sections)
-- [ ] Add/edit/delete phases
-- [ ] Drag steps between phases
-- [ ] Phase progress indicator in execution view
+**Phase Management UI** ✅ **COMPLETE (Feb 7, 2026)**
+- [x] Phase grouping in step list (collapsible sections)
+- [x] Add/edit/delete phases
+- [x] Drag steps between phases
+- [x] Phase progress indicator in execution view
 
 **Advanced Step Type Components** ✅ **COMPLETE (Feb 7, 2026)**
 - [x] Update Task step config (task reference, field updates)
@@ -488,7 +487,9 @@ users (sync from Clerk)
 - [x] Variable picker wired into send_email, update_contact, update_task, assign_task, and condition configs
 - [x] Contact variables injected at workflow start (contact.email, contact.firstName, contact.id)
 
-**Deliverable:** Full-featured workflow builder with variable system and all 10 step types. Phase management deferred to a future phase.
+✅ **PHASE 5b COMPLETE (Feb 7, 2026)** — Advanced step types, variable system, and phase management (grouping, DnD, stepper) all implemented.
+
+**Deliverable:** Full-featured workflow builder with variable system, all 10 step types, and phase grouping with progress stepper.
 
 ---
 
