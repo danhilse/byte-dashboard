@@ -5,10 +5,8 @@ import {
   applicationStatusConfig,
   taskStatusConfig,
   taskPriorityConfig,
-  workflowPriorityConfig,
-  applicationPriorityConfig,
 } from "@/lib/status-config"
-import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority, Workflow } from "@/types"
+import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority } from "@/types"
 
 interface ContactStatusBadgeProps {
   status: ContactStatus
@@ -52,12 +50,3 @@ export function TaskPriorityBadge({ priority }: TaskPriorityBadgeProps) {
   return <Badge variant={config.variant}>{config.label}</Badge>
 }
 
-interface ApplicationPriorityBadgeProps {
-  priority: NonNullable<Workflow["priority"]>
-}
-
-/** @deprecated Use workflow-specific priority badge instead */
-export function ApplicationPriorityBadge({ priority }: ApplicationPriorityBadgeProps) {
-  const config = applicationPriorityConfig[priority]
-  return <Badge variant={config.variant}>{config.label}</Badge>
-}

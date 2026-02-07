@@ -8,15 +8,16 @@ import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { workflowColumns, workflowStatusOptions } from "@/components/data-table/columns/workflow-columns"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
+import { workflowColumns, workflowStatusOptions } from "@/components/data-table/columns/workflow-columns"
 import { StatusFilter } from "@/components/common/status-filter"
 import { WorkflowCreateDialog } from "@/components/workflows/workflow-create-dialog"
 import { WorkflowDetailDialog } from "@/components/workflows/workflow-detail-dialog"
+import { WorkflowDeleteDialog } from "@/components/workflows/workflow-delete-dialog"
 import { allWorkflowStatuses, workflowStatusConfig } from "@/lib/status-config"
+import { useToast } from "@/hooks/use-toast"
 import type { Workflow, WorkflowStatus } from "@/types"
 
 const WorkflowsKanbanBoard = dynamic(
@@ -38,6 +39,7 @@ type ViewType = "table" | "kanban" | "grid"
 export function WorkflowsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { toast } = useToast()
 
   const view = (searchParams.get("view") as ViewType) || "kanban"
   const [workflows, setWorkflows] = useState<Workflow[]>([])
@@ -46,6 +48,8 @@ export function WorkflowsContent() {
   const [selectedStatuses, setSelectedStatuses] = useState<WorkflowStatus[]>([])
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [deletingWorkflow, setDeletingWorkflow] = useState<Workflow | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const filteredWorkflows = useMemo(() => {
     if (selectedStatuses.length === 0) return workflows
@@ -85,27 +89,118 @@ export function WorkflowsContent() {
     fetchWorkflows()
   }, [])
 
-  const handleCreateWorkflow = (workflowData: Omit<Workflow, "id" | "createdAt" | "updatedAt">) => {
-    const newWorkflow: Workflow = {
-      ...workflowData,
-      id: `w${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  const handleCreateWorkflow = async (data: {
+    contactId: string
+    workflowDefinitionId?: string
+    status: WorkflowStatus
+  }) => {
+    try {
+      const response = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create workflow")
+      }
+
+      const { workflow } = await response.json()
+      setWorkflows((prev) => [workflow, ...prev])
+
+      toast({
+        title: "Success",
+        description: "Workflow created successfully",
+      })
+    } catch (error) {
+      console.error("Error creating workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create workflow. Please try again.",
+        variant: "destructive",
+      })
     }
-    setWorkflows((prev) => [newWorkflow, ...prev])
   }
 
-  const handleUpdateWorkflow = (updatedWorkflow: Workflow) => {
-    setWorkflows((prev) =>
-      prev.map((w) =>
-        w.id === updatedWorkflow.id ? { ...updatedWorkflow, updatedAt: new Date().toISOString() } : w
+  const handleUpdateWorkflow = async (updatedWorkflow: Workflow) => {
+    try {
+      const response = await fetch(`/api/workflows/${updatedWorkflow.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedWorkflow),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update workflow")
+      }
+
+      const { workflow } = await response.json()
+      // Merge the API response with joined fields from the local state
+      const existing = workflows.find((w) => w.id === workflow.id)
+      const merged = {
+        ...workflow,
+        contactName: existing?.contactName ?? updatedWorkflow.contactName,
+        contactAvatarUrl: existing?.contactAvatarUrl ?? updatedWorkflow.contactAvatarUrl,
+        definitionName: existing?.definitionName ?? updatedWorkflow.definitionName,
+      }
+
+      setWorkflows((prev) =>
+        prev.map((w) => (w.id === merged.id ? merged : w))
       )
-    )
-    setSelectedWorkflow(updatedWorkflow)
+      setSelectedWorkflow(merged)
+
+      toast({
+        title: "Success",
+        description: "Workflow updated successfully",
+      })
+    } catch (error) {
+      console.error("Error updating workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update workflow. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDeleteWorkflow = (workflowId: string) => {
-    setWorkflows((prev) => prev.filter((w) => w.id !== workflowId))
+    const workflow = workflows.find((w) => w.id === workflowId)
+    if (workflow) {
+      setDeletingWorkflow(workflow)
+      setDeleteDialogOpen(true)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deletingWorkflow) return
+
+    try {
+      const response = await fetch(`/api/workflows/${deletingWorkflow.id}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete workflow")
+      }
+
+      setWorkflows((prev) => prev.filter((w) => w.id !== deletingWorkflow.id))
+      setDeleteDialogOpen(false)
+      setDeletingWorkflow(null)
+      setDetailOpen(false)
+      setSelectedWorkflow(null)
+
+      toast({
+        title: "Success",
+        description: "Workflow deleted successfully",
+      })
+    } catch (error) {
+      console.error("Error deleting workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete workflow. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleWorkflowClick = (workflow: Workflow) => {
@@ -113,12 +208,39 @@ export function WorkflowsContent() {
     setDetailOpen(true)
   }
 
-  const handleStatusChange = (workflowId: string, newStatus: WorkflowStatus) => {
+  const handleStatusChange = async (workflowId: string, newStatus: WorkflowStatus) => {
+    const previous = workflows.find((w) => w.id === workflowId)
+    if (!previous) return
+
+    // Optimistic update
     setWorkflows((prev) =>
       prev.map((w) =>
         w.id === workflowId ? { ...w, status: newStatus, updatedAt: new Date().toISOString() } : w
       )
     )
+
+    try {
+      const response = await fetch(`/api/workflows/${workflowId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update status")
+      }
+    } catch (error) {
+      // Rollback on error
+      console.error("Error updating workflow status:", error)
+      setWorkflows((prev) =>
+        prev.map((w) => (w.id === workflowId ? previous : w))
+      )
+      toast({
+        title: "Error",
+        description: "Failed to update workflow status.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -185,7 +307,7 @@ export function WorkflowsContent() {
           <DataTable
             columns={workflowColumns}
             data={filteredWorkflows}
-            searchKey="title"
+            searchKey="contactName"
             searchPlaceholder="Search workflows..."
             filterColumn="status"
             filterOptions={workflowStatusOptions}
@@ -214,6 +336,13 @@ export function WorkflowsContent() {
         onUpdateWorkflow={handleUpdateWorkflow}
         onDeleteWorkflow={handleDeleteWorkflow}
       />
+
+      <WorkflowDeleteDialog
+        workflow={deletingWorkflow}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }
@@ -234,6 +363,10 @@ function WorkflowsGridView({ workflows, onWorkflowClick }: WorkflowsGridViewProp
           .join("")
           .toUpperCase()
 
+        const displayName = workflow.definitionName
+          ? `${workflow.definitionName}`
+          : "Manual Workflow"
+
         return (
           <Card
             key={workflow.id}
@@ -247,30 +380,22 @@ function WorkflowsGridView({ workflows, onWorkflowClick }: WorkflowsGridViewProp
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <CardTitle className="text-base line-clamp-1">{workflow.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground truncate">{workflow.contactName}</p>
+                  <CardTitle className="text-base line-clamp-1">{workflow.contactName ?? "Unknown"}</CardTitle>
+                  <p className="text-sm text-muted-foreground truncate">{displayName}</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between">
                 <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
-                {workflow.templateName && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                    {workflow.templateName}
-                  </span>
-                )}
+                <Badge variant="secondary" className="text-xs">
+                  {workflow.source === "manual" ? "Manual" : workflow.source === "formstack" ? "Formstack" : "API"}
+                </Badge>
               </div>
-              {workflow.progress !== undefined && (
-                <div className="space-y-1">
-                  <Progress value={workflow.progress} className="h-1.5" />
-                  <p className="text-xs text-muted-foreground">
-                    {workflow.completedTaskCount ?? 0}/{workflow.taskCount ?? 0} tasks
-                  </p>
-                </div>
-              )}
-              {workflow.notes && (
-                <CardDescription className="mt-2 line-clamp-2">{workflow.notes}</CardDescription>
+              {workflow.startedAt && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Started {new Date(workflow.startedAt).toLocaleDateString()}
+                </p>
               )}
             </CardContent>
           </Card>

@@ -1,21 +1,22 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { User, Calendar, AlertCircle, FileText } from "lucide-react"
+import { User, Calendar, Zap, Globe, Workflow as WorkflowIcon } from "lucide-react"
+import { auth } from "@clerk/nextjs/server"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
 import { ActivityFeed } from "@/components/detail/activity-feed"
 import { NotesSection } from "@/components/detail/notes-section"
 import { InfoField } from "@/components/common/info-field"
-import { ApplicationPriorityBadge } from "@/components/common/status-badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { getWorkflowById } from "@/lib/data/workflows"
-import { getContactById } from "@/lib/data/contacts"
-import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
+import { Badge } from "@/components/ui/badge"
+import { db } from "@/lib/db"
+import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema"
+import { eq, and } from "drizzle-orm"
 import { workflowStatusConfig } from "@/lib/status-config"
+import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
 import type { WorkflowStatus } from "@/types"
 
 interface WorkflowDetailPageProps {
@@ -23,40 +24,67 @@ interface WorkflowDetailPageProps {
 }
 
 export default async function WorkflowDetailPage({ params }: WorkflowDetailPageProps) {
+  const { userId, orgId } = await auth()
   const { id } = await params
-  const workflow = getWorkflowById(id)
 
-  if (!workflow) {
+  if (!userId || !orgId) {
     notFound()
   }
 
-  const contact = getContactById(workflow.contactId)
+  // Fetch workflow with joins
+  const [result] = await db
+    .select({
+      workflow: workflows,
+      contact: contacts,
+      definitionName: workflowDefinitions.name,
+    })
+    .from(workflows)
+    .leftJoin(contacts, eq(workflows.contactId, contacts.id))
+    .leftJoin(
+      workflowDefinitions,
+      eq(workflows.workflowDefinitionId, workflowDefinitions.id)
+    )
+    .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)))
+
+  if (!result) {
+    notFound()
+  }
+
+  const { workflow, contact, definitionName } = result
+  const contactName = contact
+    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()
+    : "Unknown Contact"
+  const statusConfig = workflowStatusConfig[workflow.status as WorkflowStatus]
+  const displayTitle = definitionName
+    ? `${definitionName} - ${contactName}`
+    : contactName
+
+  // TODO: Replace with DB queries when notes/activity CRUD is implemented (Phase 6)
   const activities = getActivitiesByEntity("workflow", id)
   const notes = getNotesByEntity("workflow", id)
-  const statusConfig = workflowStatusConfig[workflow.status as WorkflowStatus]
+
+  const sourceLabels: Record<string, string> = {
+    manual: "Manual",
+    formstack: "Formstack",
+    api: "API",
+  }
 
   return (
     <>
       <PageHeader
         breadcrumbs={[
           { label: "Workflows", href: "/workflows" },
-          { label: workflow.title ?? "Workflow Execution" },
+          { label: displayTitle },
         ]}
       />
       <div className="flex flex-1 flex-col gap-6 p-4">
         <DetailHeader
-          title={workflow.title ?? "Workflow Execution"}
-          subtitle={`Contact: ${workflow.contactName ?? "Unknown"}`}
+          title={displayTitle}
+          subtitle={`Contact: ${contactName}`}
           badge={statusConfig ? {
             label: statusConfig.label,
             variant: statusConfig.variant,
           } : undefined}
-          actions={
-            <Button>
-              <FileText className="mr-2 size-4" />
-              Update Status
-            </Button>
-          }
         />
 
         <Tabs defaultValue="overview" className="space-y-4">
@@ -73,31 +101,76 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                   <CardTitle>Workflow Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {workflow.priority && (
+                  {definitionName && (
                     <div className="flex items-center gap-3">
-                      <AlertCircle className="size-4 text-muted-foreground" />
+                      <WorkflowIcon className="size-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium">Priority</p>
-                        <ApplicationPriorityBadge priority={workflow.priority} />
+                        <p className="text-sm font-medium">Definition</p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{definitionName}</Badge>
+                          {workflow.definitionVersion && (
+                            <span className="text-xs text-muted-foreground">v{workflow.definitionVersion}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <Globe className="size-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Source</p>
+                      <Badge variant="secondary">
+                        {sourceLabels[workflow.source] ?? workflow.source}
+                      </Badge>
+                    </div>
+                  </div>
+                  {workflow.temporalWorkflowId && (
+                    <div className="flex items-center gap-3">
+                      <Zap className="size-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Temporal</p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {workflow.temporalWorkflowId}
+                        </p>
+                        {workflow.temporalRunId && (
+                          <p className="text-xs text-muted-foreground font-mono">
+                            Run: {workflow.temporalRunId}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {workflow.currentStepId && (
+                    <InfoField
+                      icon={WorkflowIcon}
+                      label="Current Step"
+                      value={workflow.currentStepId}
+                    />
+                  )}
+                  {workflow.currentPhaseId && (
+                    <InfoField
+                      icon={WorkflowIcon}
+                      label="Current Phase"
+                      value={workflow.currentPhaseId}
+                    />
                   )}
                   <InfoField
                     icon={Calendar}
                     label="Started"
-                    value={format(new Date(workflow.startedAt ?? workflow.createdAt), "MMMM d, yyyy")}
+                    value={format(new Date(workflow.startedAt), "MMMM d, yyyy")}
                   />
+                  {workflow.completedAt && (
+                    <InfoField
+                      icon={Calendar}
+                      label="Completed"
+                      value={format(new Date(workflow.completedAt), "MMMM d, yyyy")}
+                    />
+                  )}
                   <InfoField
                     icon={Calendar}
                     label="Last Updated"
                     value={format(new Date(workflow.updatedAt), "MMMM d, yyyy")}
                   />
-                  {workflow.notes && (
-                    <div className="pt-2 border-t">
-                      <p className="text-sm font-medium mb-1">Internal Notes</p>
-                      <p className="text-sm text-muted-foreground">{workflow.notes}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
@@ -118,10 +191,18 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                         <p className="font-medium">
                           {contact.firstName} {contact.lastName}
                         </p>
-                        <p className="text-sm text-muted-foreground">{contact.role}</p>
-                        <p className="text-sm text-muted-foreground">{contact.company}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{contact.email}</p>
-                        <p className="text-sm text-muted-foreground">{contact.phone}</p>
+                        {contact.role && (
+                          <p className="text-sm text-muted-foreground">{contact.role}</p>
+                        )}
+                        {contact.company && (
+                          <p className="text-sm text-muted-foreground">{contact.company}</p>
+                        )}
+                        {contact.email && (
+                          <p className="mt-2 text-sm text-muted-foreground">{contact.email}</p>
+                        )}
+                        {contact.phone && (
+                          <p className="text-sm text-muted-foreground">{contact.phone}</p>
+                        )}
                       </div>
                     </Link>
                   ) : (

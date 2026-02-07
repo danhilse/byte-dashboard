@@ -3,12 +3,11 @@
 import { memo } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, Workflow as WorkflowIcon, CheckCircle2 } from "lucide-react"
+import { GripVertical, Workflow as WorkflowIcon } from "lucide-react"
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
 import { workflowStatusConfig } from "@/lib/status-config"
 import { cn } from "@/lib/utils"
 import type { Workflow } from "@/types"
@@ -71,38 +70,27 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium leading-tight truncate">{workflow.title}</p>
-                <p className="text-xs text-muted-foreground truncate">{workflow.contactName}</p>
+                <p className="text-sm font-medium leading-tight truncate">
+                  {workflow.contactName ?? "Unknown"}
+                </p>
+                {workflow.definitionName && (
+                  <p className="text-xs text-muted-foreground truncate">{workflow.definitionName}</p>
+                )}
               </div>
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-3 pt-2">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between">
           <Badge variant={statusConfig.variant} className="text-[10px]">
             {statusConfig.label}
           </Badge>
-          {workflow.templateName && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <WorkflowIcon className="size-3" />
-              <span className="truncate max-w-[80px]">{workflow.templateName}</span>
-            </div>
-          )}
-        </div>
-
-        {workflow.progress !== undefined && workflow.taskCount !== undefined && workflow.taskCount > 0 && (
-          <div className="space-y-1">
-            <Progress value={workflow.progress} className="h-1.5" />
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <CheckCircle2 className="size-3" />
-                <span>{workflow.completedTaskCount ?? 0}/{workflow.taskCount} tasks</span>
-              </div>
-              <span>{workflow.progress}%</span>
-            </div>
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <WorkflowIcon className="size-3" />
+            <span>{workflow.source === "manual" ? "Manual" : workflow.source === "formstack" ? "Formstack" : "API"}</span>
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   )

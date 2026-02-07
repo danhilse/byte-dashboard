@@ -45,6 +45,7 @@ export interface Workflow {
   contactName?: string // Joined from contact
   contactAvatarUrl?: string // Joined from contact
   workflowDefinitionId?: string
+  definitionName?: string // Joined from workflow_definitions
   definitionVersion?: number // Snapshot of definition version at execution time
   currentStepId?: string
   currentPhaseId?: string
@@ -60,24 +61,6 @@ export interface Workflow {
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  title?: string
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  value?: number
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  priority?: "low" | "medium" | "high"
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  notes?: string
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  templateId?: string
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  templateName?: string
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  progress?: number
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  taskCount?: number
-  /** @deprecated Legacy mock data field. Remove during Phase 3 CRUD rewrite. */
-  completedTaskCount?: number
 }
 
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"

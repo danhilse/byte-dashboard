@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { format } from "date-fns"
-import { Trash2, Workflow as WorkflowIcon, DollarSign, CheckCircle2, FileText } from "lucide-react"
+import { Trash2, Workflow as WorkflowIcon, Calendar, Zap, Globe } from "lucide-react"
 
 import {
   Dialog,
@@ -14,11 +14,8 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Select,
@@ -38,13 +35,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common/status-badge"
+import { WorkflowStatusBadge } from "@/components/common/status-badge"
 import { AssetList, AssetUploader, AssetPreviewModal } from "@/components/assets"
-import { workflowStatusConfig, workflowPriorityConfig } from "@/lib/status-config"
+import { workflowStatusConfig } from "@/lib/status-config"
 import { getAssetsByWorkflow } from "@/lib/data/assets"
-import { formatCurrency } from "@/lib/utils"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
 import type { Workflow, WorkflowStatus, Asset } from "@/types"
+
+const sourceLabels: Record<string, string> = {
+  manual: "Manual",
+  formstack: "Formstack",
+  api: "API",
+}
 
 interface WorkflowDetailDialogProps {
   workflow: Workflow | null
@@ -81,16 +83,15 @@ export function WorkflowDetailDialog({
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null)
 
   const handleAssetUpload = async (files: File[]) => {
-    // Handle asset upload - in a real app, this would update the backend
     console.log("Assets uploaded:", files)
   }
 
   const handleAssetDelete = (assetId: string) => {
-    // Handle asset deletion - in a real app, this would update the backend
     console.log("Asset deleted:", assetId)
   }
 
   if (!workflow || !displayWorkflow) return null
+
   const initials = (displayWorkflow.contactName ?? "")
     .split(" ")
     .map((n) => n[0])
@@ -98,6 +99,9 @@ export function WorkflowDetailDialog({
     .toUpperCase()
 
   const workflowAssets = workflow ? getAssetsByWorkflow(workflow.id) : []
+  const displayName = displayWorkflow.definitionName
+    ? `${displayWorkflow.definitionName} - ${displayWorkflow.contactName ?? "Unknown"}`
+    : displayWorkflow.contactName ?? "Workflow"
 
   return (
     <>
@@ -111,19 +115,18 @@ export function WorkflowDetailDialog({
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div>
-                  {isEditing ? (
-                    <Input
-                      value={editedWorkflow?.title ?? ""}
-                      onChange={(e) => updateField("title", e.target.value)}
-                      className="text-lg font-semibold"
-                    />
-                  ) : (
-                    <DialogTitle className="text-lg">{displayWorkflow.title}</DialogTitle>
-                  )}
+                  <DialogTitle className="text-lg">{displayName}</DialogTitle>
                   <p className="text-sm text-muted-foreground">{displayWorkflow.contactName}</p>
                 </div>
               </div>
-              {displayWorkflow.priority && <ApplicationPriorityBadge priority={displayWorkflow.priority} />}
+              <div className="flex items-center gap-2">
+                {displayWorkflow.temporalWorkflowId && (
+                  <Badge variant="outline" className="gap-1">
+                    <Zap className="size-3" />
+                    Temporal
+                  </Badge>
+                )}
+              </div>
             </div>
             <DialogDescription className="sr-only">
               Workflow details and actions
@@ -157,7 +160,10 @@ export function WorkflowDetailDialog({
                   </Select>
                 ) : (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <ApplicationStatusBadge status={displayWorkflow.status} />
+                    <WorkflowStatusBadge status={displayWorkflow.status} />
+                    {displayWorkflow.temporalWorkflowId && (
+                      <Badge variant="secondary" className="text-xs">Temporal-managed</Badge>
+                    )}
                     <div className="flex gap-1 flex-wrap">
                       {(["draft", "in_review", "pending", "on_hold", "approved", "rejected"] as WorkflowStatus[])
                         .filter((s) => s !== displayWorkflow.status)
@@ -179,67 +185,58 @@ export function WorkflowDetailDialog({
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                    <DollarSign className="size-3" />
-                    Value
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      type="number"
-                      value={editedWorkflow?.value ?? 0}
-                      onChange={(e) => updateField("value", parseFloat(e.target.value) || 0)}
-                    />
-                  ) : (
-                    <p className="text-lg font-semibold">{formatCurrency(displayWorkflow.value ?? 0)}</p>
-                  )}
-                </div>
-
-                {displayWorkflow.templateName && (
+                {displayWorkflow.definitionName && (
                   <div className="space-y-1">
                     <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
                       <WorkflowIcon className="size-3" />
-                      Template
+                      Definition
                     </Label>
-                    <Badge variant="outline">{displayWorkflow.templateName}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{displayWorkflow.definitionName}</Badge>
+                      {displayWorkflow.definitionVersion && (
+                        <span className="text-xs text-muted-foreground">v{displayWorkflow.definitionVersion}</span>
+                      )}
+                    </div>
                   </div>
                 )}
+
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
+                    <Globe className="size-3" />
+                    Source
+                  </Label>
+                  <Badge variant="secondary">
+                    {sourceLabels[displayWorkflow.source] ?? displayWorkflow.source}
+                  </Badge>
+                </div>
               </div>
 
-              {displayWorkflow.progress !== undefined && displayWorkflow.taskCount !== undefined && displayWorkflow.taskCount > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
-                    <CheckCircle2 className="size-3" />
-                    Progress
-                  </Label>
-                  <div className="space-y-1">
-                    <Progress value={displayWorkflow.progress} className="h-2" />
-                    <p className="text-sm text-muted-foreground">
-                      {displayWorkflow.completedTaskCount ?? 0} of {displayWorkflow.taskCount} tasks completed
-                    </p>
-                  </div>
+              {(displayWorkflow.currentStepId || displayWorkflow.currentPhaseId) && (
+                <div className="grid grid-cols-2 gap-4">
+                  {displayWorkflow.currentStepId && (
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-xs uppercase">Current Step</Label>
+                      <p className="text-sm">{displayWorkflow.currentStepId}</p>
+                    </div>
+                  )}
+                  {displayWorkflow.currentPhaseId && (
+                    <div className="space-y-1">
+                      <Label className="text-muted-foreground text-xs uppercase">Current Phase</Label>
+                      <p className="text-sm">{displayWorkflow.currentPhaseId}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <Label className="text-muted-foreground text-xs uppercase">Notes</Label>
-                {isEditing ? (
-                  <Textarea
-                    value={editedWorkflow?.notes ?? ""}
-                    onChange={(e) => updateField("notes", e.target.value || undefined)}
-                    placeholder="Add notes..."
-                    rows={3}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {displayWorkflow.notes || "No notes provided."}
-                  </p>
+              <div className="text-xs text-muted-foreground pt-2 border-t space-y-1">
+                <div className="flex items-center gap-1">
+                  <Calendar className="size-3" />
+                  Started {format(new Date(displayWorkflow.startedAt ?? displayWorkflow.createdAt), "MMM d, yyyy")}
+                </div>
+                {displayWorkflow.completedAt && (
+                  <div>Completed {format(new Date(displayWorkflow.completedAt), "MMM d, yyyy")}</div>
                 )}
-              </div>
-
-              <div className="text-xs text-muted-foreground pt-2 border-t">
-                Started {format(new Date(displayWorkflow.startedAt ?? displayWorkflow.createdAt), "MMM d, yyyy")} &bull; Updated{" "}
-                {format(new Date(displayWorkflow.updatedAt), "MMM d, yyyy")}
+                <div>Updated {format(new Date(displayWorkflow.updatedAt), "MMM d, yyyy")}</div>
               </div>
             </TabsContent>
 
@@ -268,9 +265,15 @@ export function WorkflowDetailDialog({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Workflow</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete &quot;{workflow.title}&quot;? This action cannot be
-                    undone.
+                    Are you sure you want to delete this workflow for{" "}
+                    <span className="font-medium text-foreground">{displayWorkflow.contactName}</span>?
+                    This action cannot be undone.
                   </AlertDialogDescription>
+                  {workflow.temporalWorkflowId && (
+                    <AlertDialogDescription className="mt-2 text-destructive">
+                      Warning: This workflow is managed by Temporal. The Temporal execution will not be affected.
+                    </AlertDialogDescription>
+                  )}
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>

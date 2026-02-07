@@ -1,14 +1,14 @@
 "use client"
 
 import { type ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal } from "lucide-react"
+import { MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,8 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ApplicationStatusBadge, ApplicationPriorityBadge } from "@/components/common/status-badge"
-import { formatCurrency } from "@/lib/utils"
+import { WorkflowStatusBadge } from "@/components/common/status-badge"
 import { workflowStatusOptions } from "@/lib/status-config"
 import type { Workflow } from "@/types"
 
@@ -71,17 +70,14 @@ export const workflowColumns: ColumnDef<Workflow>[] = [
     },
   },
   {
-    accessorKey: "title",
+    accessorKey: "definitionName",
     header: "Workflow",
     cell: ({ row }) => {
       const workflow = row.original
       return (
-        <div>
-          <span className="font-medium">{workflow.title}</span>
-          {workflow.templateName && (
-            <p className="text-xs text-muted-foreground">{workflow.templateName}</p>
-          )}
-        </div>
+        <span className="font-medium">
+          {workflow.definitionName ?? "Manual"}
+        </span>
       )
     },
   },
@@ -90,55 +86,23 @@ export const workflowColumns: ColumnDef<Workflow>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as Workflow["status"]
-      return <ApplicationStatusBadge status={status} />
+      return <WorkflowStatusBadge status={status} />
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
     },
   },
   {
-    accessorKey: "progress",
-    header: "Progress",
+    accessorKey: "source",
+    header: "Source",
     cell: ({ row }) => {
-      const workflow = row.original
-      if (workflow.progress === undefined || !workflow.taskCount) {
-        return <span className="text-muted-foreground text-sm">-</span>
+      const source = row.getValue("source") as string
+      const labels: Record<string, string> = {
+        manual: "Manual",
+        formstack: "Formstack",
+        api: "API",
       }
-      return (
-        <div className="w-[120px] space-y-1">
-          <Progress value={workflow.progress} className="h-1.5" />
-          <p className="text-xs text-muted-foreground">
-            {workflow.completedTaskCount ?? 0}/{workflow.taskCount} tasks
-          </p>
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "priority",
-    header: "Priority",
-    cell: ({ row }) => {
-      const priority = row.getValue("priority") as Workflow["priority"]
-      if (!priority) return <span className="text-muted-foreground">—</span>
-      return <ApplicationPriorityBadge priority={priority} />
-    },
-  },
-  {
-    accessorKey: "value",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Value
-          <ArrowUpDown className="ml-2 size-4" />
-        </Button>
-      )
-    },
-    cell: ({ row }) => {
-      const value = row.getValue("value") as number
-      return <span className="font-medium">{formatCurrency(value)}</span>
+      return <Badge variant="secondary">{labels[source] ?? source}</Badge>
     },
   },
   {

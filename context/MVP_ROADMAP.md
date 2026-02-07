@@ -8,14 +8,14 @@
 
 ---
 
-## Current Status (Updated: Feb 6, 2026)
+## Current Status (Updated: Feb 7, 2026)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 1: Foundation | ✅ **COMPLETE** | Auth, DB, basic Temporal setup done. Code rolled back to clean state. |
 | Phase 2: Hardcoded Workflow E2E | ✅ **COMPLETE** | Hardcoded applicant review workflow validates Temporal architecture end-to-end. |
-| Phase 3: Core CRUD | ⚪ **NEXT** | Contacts + Workflow Executions (rebuild with correct architecture). |
-| Phase 4: Tasks & Kanban | ⚪ Not Started | Task management with workflow signaling. |
+| Phase 3: Core CRUD | ✅ **COMPLETE** | Contacts + Workflow Executions CRUD fully implemented. |
+| Phase 4: Tasks & Kanban | ⚪ **NEXT** | Task management with workflow signaling. |
 | Phase 5: Workflow Builder | ⚪ Not Started | Generic builder (now informed by real workflow experience). |
 | Phase 6: Dashboard & Reporting | ⚪ Not Started | |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
@@ -26,9 +26,9 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 3: Complete Workflow Executions CRUD (contacts done)
-2. Phase 4: Tasks with atomic claiming and workflow signaling
-3. Phase 5: Generic workflow builder (informed by Phase 2 learnings)
+1. Phase 4: Tasks with atomic claiming and workflow signaling
+2. Phase 5: Generic workflow builder (informed by Phase 2 learnings)
+3. Phase 6: Dashboard & Reporting
 
 ---
 
@@ -331,16 +331,22 @@ users (sync from Clerk)
 - [x] Delete contact
 - [x] Contact API routes (GET, POST, PATCH, DELETE)
 
-**Workflow Executions** *(instances of workflow definitions)*
-- [ ] Workflow execution list page (table with filters)
-- [ ] Workflow execution detail page with timeline
-- [ ] Trigger workflow execution (manual trigger form)
-- [ ] Link execution to contact
-- [ ] Display current step and phase in execution
-- [ ] Workflow execution API routes (GET, POST, PATCH, DELETE)
-- [ ] Status display (from Temporal workflow state)
+**Workflow Executions** ✅ **COMPLETE (Feb 7, 2026)**
+- [x] Workflow execution list page (table/kanban/grid with filters)
+- [x] Workflow execution detail page (DB query with joined contact/definition)
+- [x] Create workflow dialog (contact picker + definition picker)
+- [x] Edit workflow (detail dialog with useDetailDialogEdit hook)
+- [x] Delete workflow (with Temporal warning)
+- [x] Workflow execution API routes (GET, POST, PATCH, DELETE)
+- [x] Status display with all 10 statuses in kanban
+- [x] Optimistic status updates via kanban drag-and-drop
+- [x] Workflow definitions API route (GET for definition picker)
+- [x] Removed 9 deprecated mock fields from Workflow type
+- [x] Deleted mock workflows data file
 
-**Deliverable:** User can manage contacts and trigger/view workflow executions
+✅ **PHASE 3 COMPLETE (Feb 7, 2026)** — Contacts + Workflow Executions CRUD fully implemented with real DB queries.
+
+**Deliverable:** User can manage contacts and create/view/edit/delete workflow executions
 
 ---
 

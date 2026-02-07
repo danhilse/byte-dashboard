@@ -1,7 +1,4 @@
-import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority, Workflow } from "@/types"
-
-/** @deprecated Use WorkflowStatus instead */
-type ApplicationStatus = WorkflowStatus
+import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority } from "@/types"
 
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
 
@@ -29,7 +26,7 @@ export const workflowStatusConfig: Record<WorkflowStatus, { label: string; varia
 }
 
 // Application status configuration (legacy alias)
-export const applicationStatusConfig: Record<ApplicationStatus, { label: string; variant: BadgeVariant }> = workflowStatusConfig
+export const applicationStatusConfig: Record<WorkflowStatus, { label: string; variant: BadgeVariant }> = workflowStatusConfig
 
 // Task status configuration
 export const allTaskStatuses: readonly TaskStatus[] = ["backlog", "todo", "in_progress", "done"]
@@ -47,16 +44,6 @@ export const taskPriorityConfig: Record<TaskPriority, { label: string; variant: 
   high: { label: "High", variant: "default" },
   urgent: { label: "Urgent", variant: "destructive" },
 }
-
-// Workflow priority configuration
-export const workflowPriorityConfig: Record<NonNullable<Workflow["priority"]>, { label: string; variant: BadgeVariant }> = {
-  low: { label: "Low", variant: "outline" },
-  medium: { label: "Medium", variant: "secondary" },
-  high: { label: "High", variant: "destructive" },
-}
-
-/** @deprecated Use workflowPriorityConfig instead */
-export const applicationPriorityConfig = workflowPriorityConfig
 
 // Filter options for data tables
 export const contactStatusOptions = Object.entries(contactStatusConfig).map(([value, { label }]) => ({

@@ -6,7 +6,6 @@ export {
   ApplicationStatusBadge,
   TaskStatusBadge,
   TaskPriorityBadge,
-  ApplicationPriorityBadge,
 } from "./status-badge"
 export { ViewToggle, type ViewOption } from "./view-toggle"
 export { StatusFilter } from "./status-filter"

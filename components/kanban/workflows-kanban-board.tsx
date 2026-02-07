@@ -17,6 +17,10 @@ const columns: KanbanColumn<WorkflowStatus>[] = [
   { id: "on_hold", title: "On Hold", color: "border-t-orange-500" },
   { id: "approved", title: "Approved", color: "border-t-green-500" },
   { id: "rejected", title: "Rejected", color: "border-t-red-500" },
+  { id: "running", title: "Running", color: "border-t-cyan-500" },
+  { id: "completed", title: "Completed", color: "border-t-emerald-500" },
+  { id: "failed", title: "Failed", color: "border-t-rose-500" },
+  { id: "timeout", title: "Timed Out", color: "border-t-amber-500" },
 ]
 
 export function WorkflowsKanbanBoard({
@@ -41,7 +45,7 @@ export function WorkflowsKanbanBoard({
       renderOverlayCard={(workflow) => <WorkflowKanbanCard workflow={workflow} />}
       onStatusChange={onStatusChange}
       onItemClick={onWorkflowClick}
-      gridClassName="grid h-[calc(100vh-14rem)] grid-cols-6 gap-4"
+      gridClassName="grid h-[calc(100vh-14rem)] auto-cols-[minmax(180px,1fr)] grid-flow-col gap-4 overflow-x-auto"
       emptyStateText="Drop workflows here"
     />
   )

@@ -1,12 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Plus } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Loader2 } from "lucide-react"
 
 import { FormDialog } from "@/components/common/form-dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -15,58 +13,73 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { workflowStatusConfig, workflowPriorityConfig } from "@/lib/status-config"
-import type { Workflow, WorkflowStatus } from "@/types"
+import { workflowStatusConfig } from "@/lib/status-config"
+import type { WorkflowStatus } from "@/types"
+
+interface ContactOption {
+  id: string
+  firstName: string
+  lastName: string
+  email?: string | null
+}
+
+interface DefinitionOption {
+  id: string
+  name: string
+  description?: string | null
+  version: number
+}
 
 interface WorkflowCreateDialogProps {
-  onCreateWorkflow?: (workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt">) => void
+  onCreateWorkflow?: (data: {
+    contactId: string
+    workflowDefinitionId?: string
+    status: WorkflowStatus
+  }) => void
   trigger?: React.ReactNode
 }
 
 export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCreateDialogProps) {
   const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState("")
-  const [contactName, setContactName] = useState("")
   const [contactId, setContactId] = useState("")
+  const [workflowDefinitionId, setWorkflowDefinitionId] = useState("")
   const [status, setStatus] = useState<WorkflowStatus>("draft")
-  const [priority, setPriority] = useState<Workflow["priority"]>("medium")
-  const [value, setValue] = useState("")
-  const [notes, setNotes] = useState("")
-  const [templateName, setTemplateName] = useState("")
+
+  const [contacts, setContacts] = useState<ContactOption[]>([])
+  const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
+  const [loadingContacts, setLoadingContacts] = useState(false)
+  const [loadingDefinitions, setLoadingDefinitions] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+
+    setLoadingContacts(true)
+    fetch("/api/contacts")
+      .then((res) => res.json())
+      .then((data) => setContacts(data.contacts || []))
+      .catch(console.error)
+      .finally(() => setLoadingContacts(false))
+
+    setLoadingDefinitions(true)
+    fetch("/api/workflow-definitions")
+      .then((res) => res.json())
+      .then((data) => setDefinitions(data.definitions || []))
+      .catch(console.error)
+      .finally(() => setLoadingDefinitions(false))
+  }, [open])
 
   const resetForm = () => {
-    setTitle("")
-    setContactName("")
     setContactId("")
+    setWorkflowDefinitionId("")
     setStatus("draft")
-    setPriority("medium")
-    setValue("")
-    setNotes("")
-    setTemplateName("")
   }
 
   const handleSubmit = () => {
-    const newWorkflow: Omit<Workflow, "id" | "createdAt" | "updatedAt"> = {
-      orgId: "",
-      title,
-      contactName,
-      contactId: contactId || `c${Date.now()}`,
+    onCreateWorkflow?.({
+      contactId,
+      workflowDefinitionId: workflowDefinitionId || undefined,
       status,
-      updatedByTemporal: false,
-      source: "manual",
-      startedAt: new Date().toISOString(),
-      variables: {},
-      metadata: {},
-      priority,
-      value: value ? parseFloat(value) : 0,
-      notes: notes || undefined,
-      templateName: templateName || undefined,
-      progress: 0,
-      taskCount: 0,
-      completedTaskCount: 0,
-    }
-
-    onCreateWorkflow?.(newWorkflow)
+    })
     resetForm()
     setOpen(false)
   }
@@ -81,109 +94,82 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   return (
     <FormDialog
       title="Create New Workflow"
-      description="Add a new workflow to your pipeline."
+      description="Start a new workflow execution for a contact."
       trigger={trigger ?? defaultTrigger}
       open={open}
       onOpenChange={setOpen}
       onSubmit={handleSubmit}
       onCancel={resetForm}
       submitLabel="Create Workflow"
-      submitDisabled={!title.trim() || !contactName.trim()}
+      submitDisabled={!contactId}
     >
       <div className="grid gap-2">
-        <Label htmlFor="title">Workflow Title</Label>
-        <Input
-          id="title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Enter workflow title"
-          required
-        />
+        <Label htmlFor="contact">Contact *</Label>
+        {loadingContacts ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
+            <Loader2 className="size-4 animate-spin" />
+            Loading contacts...
+          </div>
+        ) : (
+          <Select value={contactId} onValueChange={setContactId}>
+            <SelectTrigger id="contact" className="w-full">
+              <SelectValue placeholder="Select a contact" />
+            </SelectTrigger>
+            <SelectContent>
+              {contacts.map((contact) => (
+                <SelectItem key={contact.id} value={contact.id}>
+                  {contact.firstName} {contact.lastName}
+                  {contact.email ? ` (${contact.email})` : ""}
+                </SelectItem>
+              ))}
+              {contacts.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground">No contacts found</div>
+              )}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="contactName">Contact Name</Label>
-        <Input
-          id="contactName"
-          value={contactName}
-          onChange={(e) => setContactName(e.target.value)}
-          placeholder="Enter contact name"
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="status">Status</Label>
-          <Select value={status} onValueChange={(v) => setStatus(v as WorkflowStatus)}>
-            <SelectTrigger id="status" className="w-full">
-              <SelectValue />
+        <Label htmlFor="definition">Workflow Definition (optional)</Label>
+        {loadingDefinitions ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
+            <Loader2 className="size-4 animate-spin" />
+            Loading definitions...
+          </div>
+        ) : (
+          <Select value={workflowDefinitionId} onValueChange={setWorkflowDefinitionId}>
+            <SelectTrigger id="definition" className="w-full">
+              <SelectValue placeholder="None (manual workflow)" />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(workflowStatusConfig).map(([value, config]) => (
-                <SelectItem key={value} value={value}>
-                  {config.label}
+              {definitions.map((def) => (
+                <SelectItem key={def.id} value={def.id}>
+                  {def.name} (v{def.version})
                 </SelectItem>
               ))}
+              {definitions.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground">No definitions found</div>
+              )}
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="priority">Priority</Label>
-          <Select value={priority} onValueChange={(v) => setPriority(v as Workflow["priority"])}>
-            <SelectTrigger id="priority" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(workflowPriorityConfig).map(([value, config]) => (
-                <SelectItem key={value} value={value}>
-                  {config.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="value">Value ($)</Label>
-          <Input
-            id="value"
-            type="number"
-            min="0"
-            step="0.01"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="template">Template (optional)</Label>
-          <Select value={templateName} onValueChange={setTemplateName}>
-            <SelectTrigger id="template" className="w-full">
-              <SelectValue placeholder="Select template" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Enterprise Onboarding">Enterprise Onboarding</SelectItem>
-              <SelectItem value="Partnership Review">Partnership Review</SelectItem>
-              <SelectItem value="Standard Approval">Standard Approval</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        )}
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="notes">Notes</Label>
-        <Textarea
-          id="notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Additional notes (optional)"
-          rows={3}
-        />
+        <Label htmlFor="status">Initial Status</Label>
+        <Select value={status} onValueChange={(v) => setStatus(v as WorkflowStatus)}>
+          <SelectTrigger id="status" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(workflowStatusConfig).map(([value, config]) => (
+              <SelectItem key={value} value={value}>
+                {config.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </FormDialog>
   )
