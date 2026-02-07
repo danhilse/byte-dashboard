@@ -1,4 +1,7 @@
-import type { ContactStatus, ApplicationStatus, WorkflowStatus, TaskStatus, TaskPriority, Application, Workflow } from "@/types"
+import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority, Workflow } from "@/types"
+
+/** @deprecated Use WorkflowStatus instead */
+type ApplicationStatus = WorkflowStatus
 
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
 
@@ -11,7 +14,7 @@ export const contactStatusConfig: Record<ContactStatus, { label: string; variant
 }
 
 // Workflow status configuration
-export const allWorkflowStatuses: readonly WorkflowStatus[] = ["draft", "in_review", "pending", "on_hold", "approved", "rejected"]
+export const allWorkflowStatuses: readonly WorkflowStatus[] = ["draft", "in_review", "pending", "on_hold", "approved", "rejected", "running", "completed", "failed", "timeout"]
 export const workflowStatusConfig: Record<WorkflowStatus, { label: string; variant: BadgeVariant }> = {
   draft: { label: "Draft", variant: "outline" },
   in_review: { label: "In Review", variant: "default" },
@@ -19,6 +22,10 @@ export const workflowStatusConfig: Record<WorkflowStatus, { label: string; varia
   on_hold: { label: "On Hold", variant: "secondary" },
   approved: { label: "Approved", variant: "default" },
   rejected: { label: "Rejected", variant: "destructive" },
+  running: { label: "Running", variant: "default" },
+  completed: { label: "Completed", variant: "default" },
+  failed: { label: "Failed", variant: "destructive" },
+  timeout: { label: "Timed Out", variant: "destructive" },
 }
 
 // Application status configuration (legacy alias)
@@ -42,14 +49,14 @@ export const taskPriorityConfig: Record<TaskPriority, { label: string; variant: 
 }
 
 // Workflow priority configuration
-export const workflowPriorityConfig: Record<Workflow["priority"], { label: string; variant: BadgeVariant }> = {
+export const workflowPriorityConfig: Record<NonNullable<Workflow["priority"]>, { label: string; variant: BadgeVariant }> = {
   low: { label: "Low", variant: "outline" },
   medium: { label: "Medium", variant: "secondary" },
   high: { label: "High", variant: "destructive" },
 }
 
-// Application priority configuration (legacy alias)
-export const applicationPriorityConfig: Record<Application["priority"], { label: string; variant: BadgeVariant }> = workflowPriorityConfig
+/** @deprecated Use workflowPriorityConfig instead */
+export const applicationPriorityConfig = workflowPriorityConfig
 
 // Filter options for data tables
 export const contactStatusOptions = Object.entries(contactStatusConfig).map(([value, { label }]) => ({

@@ -2,6 +2,7 @@ export { InfoField } from "./info-field"
 export { EmptyState } from "./empty-state"
 export {
   ContactStatusBadge,
+  WorkflowStatusBadge,
   ApplicationStatusBadge,
   TaskStatusBadge,
   TaskPriorityBadge,

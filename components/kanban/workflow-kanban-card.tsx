@@ -39,7 +39,7 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
     opacity: isDragging ? 0.5 : 1,
   }
 
-  const initials = workflow.contactName
+  const initials = (workflow.contactName ?? "")
     .split(" ")
     .map((n) => n[0])
     .join("")

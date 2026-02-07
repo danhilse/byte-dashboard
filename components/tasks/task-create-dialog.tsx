@@ -45,10 +45,14 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
 
   const handleSubmit = () => {
     const newTask: Omit<Task, "id" | "createdAt" | "updatedAt"> = {
+      orgId: "",
       title,
       description: description || undefined,
+      taskType: "standard",
       status,
       priority,
+      position: 0,
+      metadata: {},
       assignee: assignee || undefined,
       dueDate: dueDate || undefined,
       tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],

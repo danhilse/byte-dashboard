@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { User, Calendar, DollarSign, AlertCircle, FileText } from "lucide-react"
+import { User, Calendar, AlertCircle, FileText } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
@@ -12,46 +12,45 @@ import { ApplicationPriorityBadge } from "@/components/common/status-badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { getApplicationById } from "@/lib/data/applications"
+import { getWorkflowById } from "@/lib/data/workflows"
 import { getContactById } from "@/lib/data/contacts"
 import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
-import { applicationStatusConfig } from "@/lib/status-config"
-import { formatCurrency } from "@/lib/utils"
-import type { ApplicationStatus } from "@/types"
+import { workflowStatusConfig } from "@/lib/status-config"
+import type { WorkflowStatus } from "@/types"
 
-interface ApplicationDetailPageProps {
+interface WorkflowDetailPageProps {
   params: Promise<{ id: string }>
 }
 
-export default async function ApplicationDetailPage({ params }: ApplicationDetailPageProps) {
+export default async function WorkflowDetailPage({ params }: WorkflowDetailPageProps) {
   const { id } = await params
-  const application = getApplicationById(id)
+  const workflow = getWorkflowById(id)
 
-  if (!application) {
+  if (!workflow) {
     notFound()
   }
 
-  const contact = getContactById(application.contactId)
+  const contact = getContactById(workflow.contactId)
   const activities = getActivitiesByEntity("workflow", id)
   const notes = getNotesByEntity("workflow", id)
-  const statusConfig = applicationStatusConfig[application.status as ApplicationStatus]
+  const statusConfig = workflowStatusConfig[workflow.status as WorkflowStatus]
 
   return (
     <>
       <PageHeader
         breadcrumbs={[
-          { label: "Applications", href: "/applications" },
-          { label: application.title },
+          { label: "Workflows", href: "/workflows" },
+          { label: workflow.title ?? "Workflow Execution" },
         ]}
       />
       <div className="flex flex-1 flex-col gap-6 p-4">
         <DetailHeader
-          title={application.title}
-          subtitle={`Contact: ${application.contactName}`}
-          badge={{
+          title={workflow.title ?? "Workflow Execution"}
+          subtitle={`Contact: ${workflow.contactName ?? "Unknown"}`}
+          badge={statusConfig ? {
             label: statusConfig.label,
             variant: statusConfig.variant,
-          }}
+          } : undefined}
           actions={
             <Button>
               <FileText className="mr-2 size-4" />
@@ -71,35 +70,32 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
             <div className="grid gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Application Details</CardTitle>
+                  <CardTitle>Workflow Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <InfoField
-                    icon={DollarSign}
-                    label="Value"
-                    value={formatCurrency(application.value)}
-                  />
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="size-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">Priority</p>
-                      <ApplicationPriorityBadge priority={application.priority} />
+                  {workflow.priority && (
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="size-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Priority</p>
+                        <ApplicationPriorityBadge priority={workflow.priority} />
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <InfoField
                     icon={Calendar}
-                    label="Submitted"
-                    value={format(new Date(application.submittedAt), "MMMM d, yyyy")}
+                    label="Started"
+                    value={format(new Date(workflow.startedAt ?? workflow.createdAt), "MMMM d, yyyy")}
                   />
                   <InfoField
                     icon={Calendar}
                     label="Last Updated"
-                    value={format(new Date(application.updatedAt), "MMMM d, yyyy")}
+                    value={format(new Date(workflow.updatedAt), "MMMM d, yyyy")}
                   />
-                  {application.notes && (
+                  {workflow.notes && (
                     <div className="pt-2 border-t">
                       <p className="text-sm font-medium mb-1">Internal Notes</p>
-                      <p className="text-sm text-muted-foreground">{application.notes}</p>
+                      <p className="text-sm text-muted-foreground">{workflow.notes}</p>
                     </div>
                   )}
                 </CardContent>

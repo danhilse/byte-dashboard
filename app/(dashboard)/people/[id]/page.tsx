@@ -70,7 +70,6 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
           title={fullName}
           subtitle={contact.role && contact.company ? `${contact.role} at ${contact.company}` : contact.company || contact.role || "No company or role"}
           avatarText={getInitials(fullName)}
-          avatarUrl={contact.avatarUrl || undefined}
           badge={{
             label: statusConfig.label,
             variant: statusConfig.variant,

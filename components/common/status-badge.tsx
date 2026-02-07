@@ -1,12 +1,14 @@
 import { Badge } from "@/components/ui/badge"
 import {
   contactStatusConfig,
+  workflowStatusConfig,
   applicationStatusConfig,
   taskStatusConfig,
   taskPriorityConfig,
+  workflowPriorityConfig,
   applicationPriorityConfig,
 } from "@/lib/status-config"
-import type { ContactStatus, ApplicationStatus, TaskStatus, TaskPriority, Application } from "@/types"
+import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority, Workflow } from "@/types"
 
 interface ContactStatusBadgeProps {
   status: ContactStatus
@@ -17,13 +19,19 @@ export function ContactStatusBadge({ status }: ContactStatusBadgeProps) {
   return <Badge variant={config.variant}>{config.label}</Badge>
 }
 
-interface ApplicationStatusBadgeProps {
-  status: ApplicationStatus
+interface WorkflowStatusBadgeProps {
+  status: WorkflowStatus
 }
 
-export function ApplicationStatusBadge({ status }: ApplicationStatusBadgeProps) {
-  const config = applicationStatusConfig[status]
+export function WorkflowStatusBadge({ status }: WorkflowStatusBadgeProps) {
+  const config = workflowStatusConfig[status]
+  if (!config) return <Badge variant="outline">{status}</Badge>
   return <Badge variant={config.variant}>{config.label}</Badge>
+}
+
+/** @deprecated Use WorkflowStatusBadge instead */
+export function ApplicationStatusBadge({ status }: WorkflowStatusBadgeProps) {
+  return <WorkflowStatusBadge status={status} />
 }
 
 interface TaskStatusBadgeProps {
@@ -45,9 +53,10 @@ export function TaskPriorityBadge({ priority }: TaskPriorityBadgeProps) {
 }
 
 interface ApplicationPriorityBadgeProps {
-  priority: Application["priority"]
+  priority: NonNullable<Workflow["priority"]>
 }
 
+/** @deprecated Use workflow-specific priority badge instead */
 export function ApplicationPriorityBadge({ priority }: ApplicationPriorityBadgeProps) {
   const config = applicationPriorityConfig[priority]
   return <Badge variant={config.variant}>{config.label}</Badge>

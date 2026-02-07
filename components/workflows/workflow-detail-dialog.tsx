@@ -91,7 +91,7 @@ export function WorkflowDetailDialog({
   }
 
   if (!workflow || !displayWorkflow) return null
-  const initials = displayWorkflow.contactName
+  const initials = (displayWorkflow.contactName ?? "")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -123,7 +123,7 @@ export function WorkflowDetailDialog({
                   <p className="text-sm text-muted-foreground">{displayWorkflow.contactName}</p>
                 </div>
               </div>
-              <ApplicationPriorityBadge priority={displayWorkflow.priority} />
+              {displayWorkflow.priority && <ApplicationPriorityBadge priority={displayWorkflow.priority} />}
             </div>
             <DialogDescription className="sr-only">
               Workflow details and actions
@@ -191,7 +191,7 @@ export function WorkflowDetailDialog({
                       onChange={(e) => updateField("value", parseFloat(e.target.value) || 0)}
                     />
                   ) : (
-                    <p className="text-lg font-semibold">{formatCurrency(displayWorkflow.value)}</p>
+                    <p className="text-lg font-semibold">{formatCurrency(displayWorkflow.value ?? 0)}</p>
                   )}
                 </div>
 
@@ -238,7 +238,7 @@ export function WorkflowDetailDialog({
               </div>
 
               <div className="text-xs text-muted-foreground pt-2 border-t">
-                Submitted {format(new Date(displayWorkflow.submittedAt), "MMM d, yyyy")} &bull; Updated{" "}
+                Started {format(new Date(displayWorkflow.startedAt ?? displayWorkflow.createdAt), "MMM d, yyyy")} &bull; Updated{" "}
                 {format(new Date(displayWorkflow.updatedAt), "MMM d, yyyy")}
               </div>
             </TabsContent>

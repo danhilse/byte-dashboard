@@ -60,11 +60,11 @@ export function WorkflowsContent() {
     [searchParams, router]
   )
 
-  const handleCreateWorkflow = (workflowData: Omit<Workflow, "id" | "submittedAt" | "updatedAt">) => {
+  const handleCreateWorkflow = (workflowData: Omit<Workflow, "id" | "createdAt" | "updatedAt">) => {
     const newWorkflow: Workflow = {
       ...workflowData,
       id: `w${Date.now()}`,
-      submittedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
     setWorkflows((prev) => [newWorkflow, ...prev])
@@ -191,7 +191,7 @@ function WorkflowsGridView({ workflows, onWorkflowClick }: WorkflowsGridViewProp
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {workflows.map((workflow) => {
         const statusConfig = workflowStatusConfig[workflow.status]
-        const initials = workflow.contactName
+        const initials = (workflow.contactName ?? "")
           .split(" ")
           .map((n) => n[0])
           .join("")

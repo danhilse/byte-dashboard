@@ -53,7 +53,7 @@ export const workflowColumns: ColumnDef<Workflow>[] = [
     header: "Contact",
     cell: ({ row }) => {
       const workflow = row.original
-      const initials = workflow.contactName
+      const initials = (workflow.contactName ?? "")
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -119,6 +119,7 @@ export const workflowColumns: ColumnDef<Workflow>[] = [
     header: "Priority",
     cell: ({ row }) => {
       const priority = row.getValue("priority") as Workflow["priority"]
+      if (!priority) return <span className="text-muted-foreground">—</span>
       return <ApplicationPriorityBadge priority={priority} />
     },
   },
@@ -141,10 +142,10 @@ export const workflowColumns: ColumnDef<Workflow>[] = [
     },
   },
   {
-    accessorKey: "submittedAt",
-    header: "Submitted",
+    accessorKey: "startedAt",
+    header: "Started",
     cell: ({ row }) => {
-      const date = row.getValue("submittedAt") as string
+      const date = row.getValue("startedAt") as string
       return <span className="text-muted-foreground">{format(new Date(date), "MMM d, yyyy")}</span>
     },
   },

@@ -19,7 +19,7 @@ import { workflowStatusConfig, workflowPriorityConfig } from "@/lib/status-confi
 import type { Workflow, WorkflowStatus } from "@/types"
 
 interface WorkflowCreateDialogProps {
-  onCreateWorkflow?: (workflow: Omit<Workflow, "id" | "submittedAt" | "updatedAt">) => void
+  onCreateWorkflow?: (workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt">) => void
   trigger?: React.ReactNode
 }
 
@@ -46,11 +46,17 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   }
 
   const handleSubmit = () => {
-    const newWorkflow: Omit<Workflow, "id" | "submittedAt" | "updatedAt"> = {
+    const newWorkflow: Omit<Workflow, "id" | "createdAt" | "updatedAt"> = {
+      orgId: "",
       title,
       contactName,
       contactId: contactId || `c${Date.now()}`,
       status,
+      updatedByTemporal: false,
+      source: "manual",
+      startedAt: new Date().toISOString(),
+      variables: {},
+      metadata: {},
       priority,
       value: value ? parseFloat(value) : 0,
       notes: notes || undefined,
