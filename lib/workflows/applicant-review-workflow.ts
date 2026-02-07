@@ -24,7 +24,6 @@ import {
   defineSignal,
   setHandler,
   condition,
-  sleep,
 } from "@temporalio/workflow";
 import type * as activities from "../activities";
 
@@ -35,7 +34,6 @@ const {
   setWorkflowProgress,
   sendWelcomeEmail,
   sendRejectionEmail,
-  getTask,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "2 minutes",
   retry: {

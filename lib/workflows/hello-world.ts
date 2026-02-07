@@ -16,7 +16,7 @@ import { proxyActivities } from "@temporalio/workflow";
 import type * as activities from "../activities/hello";
 
 // Create activity proxies with default timeout
-const { greet, sendWelcomeEmail } = proxyActivities<typeof activities>({
+const { greet, sendHelloEmail } = proxyActivities<typeof activities>({
   startToCloseTimeout: "1 minute",
 });
 
@@ -49,7 +49,7 @@ export async function helloWorldWorkflow(
   // Send welcome email if email provided
   let emailSent = false;
   if (input.email) {
-    await sendWelcomeEmail(input.email, input.name);
+    await sendHelloEmail(input.email, input.name);
     emailSent = true;
   }
 

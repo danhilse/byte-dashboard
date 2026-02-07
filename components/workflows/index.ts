@@ -1,2 +1,4 @@
 export { WorkflowCreateDialog } from "./workflow-create-dialog"
 export { WorkflowDetailDialog } from "./workflow-detail-dialog"
+export { WorkflowTriggerDialog } from "./workflow-trigger-dialog"
+export { WorkflowExecutionCard } from "./workflow-execution-card"

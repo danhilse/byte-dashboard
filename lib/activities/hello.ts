@@ -12,12 +12,12 @@ export async function greet(name: string): Promise<string> {
   return `Hello, ${name}!`;
 }
 
-export async function sendWelcomeEmail(
+export async function sendHelloEmail(
   email: string,
   name: string
 ): Promise<void> {
-  console.log(`Activity: Sending welcome email to ${email}`);
-  // In a real app, this would call an email service
+  console.log(`Activity: Sending hello email to ${email}`);
+  // Phase 1 hello-world stub - not used by workflows
   await new Promise((resolve) => setTimeout(resolve, 100));
-  console.log(`Activity: Welcome email sent to ${email}`);
+  console.log(`Activity: Hello email sent to ${email}`);
 }

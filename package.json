@@ -12,7 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "worker:dev": "tsx --env-file=.env.local lib/temporal/worker.ts",
-    "worker:start": "node -r dotenv/config lib/temporal/worker.ts"
+    "worker:start": "tsx -r dotenv/config lib/temporal/worker.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.1",

@@ -58,6 +58,13 @@ export async function PATCH(
       );
     }
 
+    if (task.status === "done") {
+      return NextResponse.json(
+        { error: "Task already completed", outcome: task.outcome },
+        { status: 409 }
+      );
+    }
+
     // Update task with rejection outcome
     const now = new Date();
     await db

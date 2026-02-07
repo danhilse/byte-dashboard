@@ -13,7 +13,7 @@ import type { TaskCompletedSignal } from "@/lib/workflows/applicant-review-workf
  *
  * Request body:
  * {
- *   "status": "todo" | "in_progress" | "done"
+ *   "status": "backlog" | "todo" | "in_progress" | "done"
  * }
  *
  * Returns:
@@ -40,7 +40,7 @@ export async function PATCH(
     const body = await req.json();
     const { status } = body;
 
-    if (!status || !["todo", "in_progress", "done"].includes(status)) {
+    if (!status || !["backlog", "todo", "in_progress", "done"].includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 

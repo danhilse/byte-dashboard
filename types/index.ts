@@ -25,7 +25,7 @@ export interface Contact {
   workflowsCount?: number
 }
 
-export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected" | "running" | "completed" | "failed"
+export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected" | "running" | "completed" | "failed" | "timeout"
 
 export interface WorkflowDefinition {
   id: string
