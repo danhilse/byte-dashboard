@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
 import { tasks, workflows } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { ApprovalSignal } from "@/lib/workflows/applicant-review-workflow";
 
 /**
@@ -40,15 +40,14 @@ export async function PATCH(
     const body = await req.json();
     const { comment } = body;
 
-    // Get the task
-    const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+    // Scope by org to avoid leaking resource existence across tenants
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
-    }
-
-    if (task.orgId !== orgId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (task.taskType !== "approval") {
@@ -58,16 +57,9 @@ export async function PATCH(
       );
     }
 
-    if (task.status === "done") {
-      return NextResponse.json(
-        { error: "Task already completed", outcome: task.outcome },
-        { status: 409 }
-      );
-    }
-
-    // Update task with approval outcome
+    // Atomically transition from non-done -> done to avoid concurrent approve/reject races
     const now = new Date();
-    await db
+    const [updatedTask] = await db
       .update(tasks)
       .set({
         status: "done",
@@ -76,18 +68,60 @@ export async function PATCH(
         completedAt: now,
         updatedAt: now,
       })
-      .where(eq(tasks.id, taskId));
+      .where(
+        and(
+          eq(tasks.id, taskId),
+          eq(tasks.orgId, orgId),
+          eq(tasks.taskType, "approval"),
+          ne(tasks.status, "done")
+        )
+      )
+      .returning({
+        workflowId: tasks.workflowId,
+      });
+
+    if (!updatedTask) {
+      const [latestTask] = await db
+        .select({
+          status: tasks.status,
+          outcome: tasks.outcome,
+          taskType: tasks.taskType,
+        })
+        .from(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
+
+      if (!latestTask) {
+        return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      }
+
+      if (latestTask.taskType !== "approval") {
+        return NextResponse.json(
+          { error: "Task is not an approval task" },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Task already completed", outcome: latestTask.outcome },
+        { status: 409 }
+      );
+    }
 
     let workflowSignaled = false;
 
     // Signal the workflow if associated
-    if (task.workflowId) {
+    if (updatedTask.workflowId) {
       try {
         // Get workflow execution to find Temporal workflow ID
         const [workflowExecution] = await db
           .select()
           .from(workflows)
-          .where(eq(workflows.id, task.workflowId));
+          .where(
+            and(
+              eq(workflows.id, updatedTask.workflowId),
+              eq(workflows.orgId, orgId)
+            )
+          );
 
         if (workflowExecution && workflowExecution.temporalWorkflowId) {
           const client = await getTemporalClient();

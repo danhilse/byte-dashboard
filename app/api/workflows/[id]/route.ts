@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflows, contacts } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 /**
  * GET /api/workflows/[id]
@@ -38,7 +38,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get workflow execution with contact details
+    // Get workflow execution with contact details (org scoped)
     const [workflowExecution] = await db
       .select({
         workflow: workflows,
@@ -46,17 +46,13 @@ export async function GET(
       })
       .from(workflows)
       .leftJoin(contacts, eq(workflows.contactId, contacts.id))
-      .where(eq(workflows.id, id));
+      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
 
     if (!workflowExecution) {
       return NextResponse.json(
         { error: "Workflow not found" },
         { status: 404 }
       );
-    }
-
-    if (workflowExecution.workflow.orgId !== orgId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json({

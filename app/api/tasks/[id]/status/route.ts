@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
 import { tasks, workflows } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { TaskCompletedSignal } from "@/lib/workflows/applicant-review-workflow";
 
 /**
@@ -44,38 +44,79 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    // Get the task
-    const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+    // Scope by org to avoid leaking resource existence across tenants
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    if (task.orgId !== orgId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Approval tasks must be completed via /approve or /reject to preserve outcome semantics
+    if (task.taskType === "approval" && status === "done") {
+      return NextResponse.json(
+        {
+          error:
+            "Approval tasks cannot be marked done via /status. Use /approve or /reject.",
+        },
+        { status: 400 }
+      );
     }
-
-    // Update task status
-    const now = new Date();
-    await db
-      .update(tasks)
-      .set({
-        status,
-        completedAt: status === "done" ? now : null,
-        updatedAt: now,
-      })
-      .where(eq(tasks.id, taskId));
 
     let workflowSignaled = false;
 
-    // If task is done and associated with a workflow, signal the workflow
-    if (status === "done" && task.workflowId) {
+    // Handle completion as an idempotent transition to prevent duplicate signals
+    if (status === "done") {
+      const now = new Date();
+      const [updatedTask] = await db
+        .update(tasks)
+        .set({
+          status,
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(tasks.id, taskId),
+            eq(tasks.orgId, orgId),
+            ne(tasks.status, "done")
+          )
+        )
+        .returning({
+          workflowId: tasks.workflowId,
+        });
+
+      // Already complete (or completed concurrently): return idempotent success
+      if (!updatedTask) {
+        return NextResponse.json({
+          taskId,
+          status,
+          workflowSignaled,
+        });
+      }
+
+      // If task is associated with a workflow, signal the workflow
+      if (!updatedTask.workflowId) {
+        return NextResponse.json({
+          taskId,
+          status,
+          workflowSignaled,
+        });
+      }
+
       try {
         // Get workflow execution to find Temporal workflow ID
         const [workflowExecution] = await db
           .select()
           .from(workflows)
-          .where(eq(workflows.id, task.workflowId));
+          .where(
+            and(
+              eq(workflows.id, updatedTask.workflowId),
+              eq(workflows.orgId, orgId)
+            )
+          );
 
         if (workflowExecution && workflowExecution.temporalWorkflowId) {
           const client = await getTemporalClient();
@@ -101,7 +142,24 @@ export async function PATCH(
         // Don't fail the request if signaling fails
         // Task status is already updated
       }
+
+      return NextResponse.json({
+        taskId,
+        status,
+        workflowSignaled,
+      });
     }
+
+    // Non-terminal state updates
+    const now = new Date();
+    await db
+      .update(tasks)
+      .set({
+        status,
+        completedAt: null,
+        updatedAt: now,
+      })
+      .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
     return NextResponse.json({
       taskId,

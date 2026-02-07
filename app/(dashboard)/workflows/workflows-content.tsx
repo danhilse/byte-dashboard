@@ -2,14 +2,13 @@
 
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useCallback, useState, useMemo } from "react"
+import { useCallback, useState, useMemo, useEffect } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { workflowColumns, workflowStatusOptions } from "@/components/data-table/columns/workflow-columns"
-import { workflows as initialWorkflows } from "@/lib/data/workflows"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -41,7 +40,9 @@ export function WorkflowsContent() {
   const router = useRouter()
 
   const view = (searchParams.get("view") as ViewType) || "kanban"
-  const [workflows, setWorkflows] = useState<Workflow[]>(initialWorkflows)
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedStatuses, setSelectedStatuses] = useState<WorkflowStatus[]>([])
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -59,6 +60,30 @@ export function WorkflowsContent() {
     },
     [searchParams, router]
   )
+
+  useEffect(() => {
+    async function fetchWorkflows() {
+      setIsLoading(true)
+      setLoadError(null)
+
+      try {
+        const response = await fetch("/api/workflows")
+        if (!response.ok) {
+          throw new Error("Failed to load workflows")
+        }
+
+        const data = await response.json()
+        setWorkflows(data.workflows ?? [])
+      } catch (error) {
+        console.error("Error fetching workflows:", error)
+        setLoadError("Unable to load workflow executions.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchWorkflows()
+  }, [])
 
   const handleCreateWorkflow = (workflowData: Omit<Workflow, "id" | "createdAt" | "updatedAt">) => {
     const newWorkflow: Workflow = {
@@ -144,7 +169,19 @@ export function WorkflowsContent() {
       />
 
       <div className="flex-1">
-        {view === "table" && (
+        {isLoading && (
+          <div className="grid h-[calc(100vh-14rem)] auto-cols-fr grid-flow-col gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-full rounded-lg" />
+            ))}
+          </div>
+        )}
+        {!isLoading && loadError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && view === "table" && (
           <DataTable
             columns={workflowColumns}
             data={filteredWorkflows}
@@ -155,14 +192,14 @@ export function WorkflowsContent() {
             onRowClick={(row) => handleWorkflowClick(row.original)}
           />
         )}
-        {view === "kanban" && (
+        {!isLoading && !loadError && view === "kanban" && (
           <WorkflowsKanbanBoard
             workflows={filteredWorkflows}
             onStatusChange={handleStatusChange}
             onWorkflowClick={handleWorkflowClick}
           />
         )}
-        {view === "grid" && (
+        {!isLoading && !loadError && view === "grid" && (
           <WorkflowsGridView
             workflows={filteredWorkflows}
             onWorkflowClick={handleWorkflowClick}
