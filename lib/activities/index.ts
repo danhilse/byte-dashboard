@@ -5,3 +5,5 @@
  */
 
 export * from "./hello";
+export * from "./database";
+export * from "./email";

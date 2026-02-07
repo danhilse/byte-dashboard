@@ -25,19 +25,49 @@ export interface Contact {
   workflowsCount?: number
 }
 
-export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected"
+export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected" | "running" | "completed" | "failed"
+
+export interface WorkflowDefinition {
+  id: string
+  orgId: string
+  name: string
+  description?: string
+  version: number
+  phases: unknown[] // JSONB array of phase definitions
+  steps: { steps: unknown[] } // JSONB array of step definitions
+  variables: Record<string, unknown> // JSONB variable definitions
+  statuses: unknown[] // JSONB UI status definitions
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 export interface Workflow {
   id: string
-  title: string
+  orgId: string
   contactId: string
-  contactName: string
-  contactAvatarUrl?: string
+  contactName?: string // Joined from contact
+  contactAvatarUrl?: string // Joined from contact
+  workflowDefinitionId?: string
+  definitionVersion?: number // Snapshot of definition version at execution time
+  currentStepId?: string
+  currentPhaseId?: string
   status: WorkflowStatus
-  submittedAt: string
+  updatedByTemporal: boolean // Flag to prevent race conditions
+  source: "manual" | "formstack" | "api"
+  sourceId?: string
+  startedAt: string
+  completedAt?: string
+  temporalWorkflowId?: string
+  temporalRunId?: string
+  variables: Record<string, unknown>
+  metadata: Record<string, unknown>
+  createdAt: string
   updatedAt: string
-  value: number
-  priority: "low" | "medium" | "high"
+  // Legacy fields for backwards compatibility with mock data
+  title?: string
+  value?: number
+  priority?: "low" | "medium" | "high"
   notes?: string
   templateId?: string
   templateName?: string
@@ -49,20 +79,34 @@ export interface Workflow {
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "done"
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
 export type TaskSource = "manual" | "workflow"
+export type TaskType = "standard" | "approval"
+export type TaskOutcome = "approved" | "rejected" | "completed" | null
 
 export interface Task {
   id: string
+  orgId: string
+  workflowId?: string
+  contactId?: string
+  assignedTo?: string // Specific user if claimed
+  assignedRole?: string // Role if role-based assignment
   title: string
   description?: string
+  taskType: TaskType
   status: TaskStatus
   priority: TaskPriority
-  assignee?: string
+  outcome?: TaskOutcome
+  outcomeComment?: string // Comment from approver
+  position: number // For drag-and-drop ordering
   dueDate?: string
+  completedAt?: string
+  createdByStepId?: string // Which workflow step created this task
+  metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
-  tags: string[]
-  source: TaskSource
-  workflowId?: string
+  // Legacy fields for backwards compatibility
+  assignee?: string
+  tags?: string[]
+  source?: TaskSource
 }
 
 export interface Activity {

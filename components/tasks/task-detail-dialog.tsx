@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { format } from "date-fns"
-import { Calendar, User, Tag, Trash2, Workflow } from "lucide-react"
+import { Calendar, User, Tag, Trash2, Workflow, CheckCircle2, XCircle } from "lucide-react"
 
 import {
   Dialog,
@@ -45,6 +46,8 @@ interface TaskDetailDialogProps {
   onOpenChange: (open: boolean) => void
   onUpdateTask?: (task: Task) => void
   onDeleteTask?: (taskId: string) => void
+  onApprove?: (taskId: string, comment?: string) => Promise<void>
+  onReject?: (taskId: string, comment?: string) => Promise<void>
 }
 
 export function TaskDetailDialog({
@@ -53,7 +56,13 @@ export function TaskDetailDialog({
   onOpenChange,
   onUpdateTask,
   onDeleteTask,
+  onApprove,
+  onReject,
 }: TaskDetailDialogProps) {
+  const [approvalComment, setApprovalComment] = useState("")
+  const [isApproving, setIsApproving] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
+
   const {
     isEditing,
     editedItem: editedTask,
@@ -71,7 +80,38 @@ export function TaskDetailDialog({
     onClose: () => onOpenChange(false),
   })
 
+  const handleApprove = async () => {
+    if (!task || !onApprove) return
+    setIsApproving(true)
+    try {
+      await onApprove(task.id, approvalComment || undefined)
+      setApprovalComment("")
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error approving task:", error)
+    } finally {
+      setIsApproving(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!task || !onReject) return
+    setIsRejecting(true)
+    try {
+      await onReject(task.id, approvalComment || undefined)
+      setApprovalComment("")
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error rejecting task:", error)
+    } finally {
+      setIsRejecting(false)
+    }
+  }
+
   if (!task || !displayTask) return null
+
+  const isApprovalTask = displayTask.taskType === "approval"
+  const isApprovalPending = isApprovalTask && !displayTask.outcome
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -209,7 +249,7 @@ export function TaskDetailDialog({
             </div>
           )}
 
-          {displayTask.tags.length > 0 && (
+          {displayTask.tags && displayTask.tags.length > 0 && (
             <div className="grid gap-2">
               <Label className="text-muted-foreground text-xs uppercase flex items-center gap-1">
                 <Tag className="size-3" />
@@ -222,6 +262,63 @@ export function TaskDetailDialog({
                   </Badge>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isApprovalTask && (
+            <div className="grid gap-3 rounded-lg border p-4 bg-muted/50">
+              <Label className="text-xs uppercase font-semibold">Approval Decision</Label>
+              {displayTask.outcome ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {displayTask.outcome === "approved" ? (
+                      <Badge className="gap-1 bg-green-500">
+                        <CheckCircle2 className="size-3" />
+                        Approved
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive" className="gap-1">
+                        <XCircle className="size-3" />
+                        Rejected
+                      </Badge>
+                    )}
+                  </div>
+                  {displayTask.outcomeComment && (
+                    <div className="text-sm">
+                      <span className="font-medium">Comment: </span>
+                      {displayTask.outcomeComment}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Textarea
+                    value={approvalComment}
+                    onChange={(e) => setApprovalComment(e.target.value)}
+                    placeholder="Add a comment (optional)..."
+                    rows={2}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleApprove}
+                      disabled={isApproving || isRejecting}
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle2 className="mr-2 size-4" />
+                      {isApproving ? "Approving..." : "Approve"}
+                    </Button>
+                    <Button
+                      onClick={handleReject}
+                      disabled={isApproving || isRejecting}
+                      variant="destructive"
+                      className="flex-1"
+                    >
+                      <XCircle className="mr-2 size-4" />
+                      {isRejecting ? "Rejecting..." : "Reject"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -265,9 +362,11 @@ export function TaskDetailDialog({
                 <Button onClick={handleSave}>Save Changes</Button>
               </>
             ) : (
-              <Button variant="outline" onClick={handleEdit}>
-                Edit Task
-              </Button>
+              !isApprovalPending && (
+                <Button variant="outline" onClick={handleEdit}>
+                  Edit Task
+                </Button>
+              )
             )}
           </div>
         </DialogFooter>

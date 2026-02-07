@@ -103,6 +103,7 @@ export const workflowDefinitions = pgTable(
     orgId: text("org_id").notNull(),
     name: text("name").notNull(),
     description: text("description"),
+    version: integer("version").default(1).notNull(), // Immutable versioning (edit = clone + increment)
     phases: jsonb("phases").default([]).notNull(), // Array of phase definitions
     steps: jsonb("steps").default({ steps: [] }).notNull(), // Array of step definitions
     variables: jsonb("variables").default({}).notNull(), // Variable definitions
@@ -139,9 +140,11 @@ export const workflows = pgTable(
     workflowDefinitionId: uuid("workflow_definition_id").references(
       () => workflowDefinitions.id
     ),
+    definitionVersion: integer("definition_version"), // Snapshot of definition version at execution time
     currentStepId: text("current_step_id"), // Which step is currently executing
     currentPhaseId: text("current_phase_id"), // Track current phase for UI
     status: text("status").default("running").notNull(), // Presentation-only (Temporal is authoritative)
+    updatedByTemporal: boolean("updated_by_temporal").default(false).notNull(), // Flag to prevent race conditions
     source: text("source").default("manual").notNull(), // manual, formstack, api
     sourceId: text("source_id"), // external reference ID
     startedAt: timestamp("started_at", { withTimezone: true })
@@ -150,8 +153,8 @@ export const workflows = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
     temporalWorkflowId: text("temporal_workflow_id"), // Temporal workflow execution ID
     temporalRunId: text("temporal_run_id"), // Temporal run ID
-    variables: jsonb("variables").default({}).notNull(), // Runtime variables
-    metadata: jsonb("metadata").default({}).notNull(),
+    variables: jsonb("variables").default(sql`'{}'::jsonb`).notNull(), // Runtime variables
+    metadata: jsonb("metadata").default(sql`'{}'::jsonb`).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

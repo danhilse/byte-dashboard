@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useCallback, useState, useMemo } from "react"
+import * as React from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -14,8 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
+import { WorkflowTriggerDialog } from "@/components/workflows/workflow-trigger-dialog"
 import { StatusFilter } from "@/components/common/status-filter"
 import { allTaskStatuses, taskStatusConfig } from "@/lib/status-config"
+import { useToast } from "@/hooks/use-toast"
 import type { Task, TaskStatus } from "@/types"
 
 const KanbanBoard = dynamic(
@@ -37,17 +40,38 @@ type ViewType = "table" | "kanban" | "grid"
 export function MyWorkContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { toast } = useToast()
 
   const view = (searchParams.get("view") as ViewType) || "kanban"
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([])
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [contacts, setContacts] = useState<Array<{ id: string; firstName: string; lastName: string; email?: string }>>([])
+  const [isLoadingContacts, setIsLoadingContacts] = useState(true)
 
   const filteredTasks = useMemo(() => {
     if (selectedStatuses.length === 0) return tasks
     return tasks.filter((task) => selectedStatuses.includes(task.status))
   }, [tasks, selectedStatuses])
+
+  // Fetch contacts on mount
+  React.useEffect(() => {
+    async function fetchContacts() {
+      try {
+        const response = await fetch("/api/contacts")
+        if (response.ok) {
+          const data = await response.json()
+          setContacts(data.contacts || [])
+        }
+      } catch (error) {
+        console.error("Error fetching contacts:", error)
+      } finally {
+        setIsLoadingContacts(false)
+      }
+    }
+    fetchContacts()
+  }, [])
 
   const updateView = useCallback(
     (newView: string) => {
@@ -86,6 +110,127 @@ export function MyWorkContent() {
     setDetailOpen(true)
   }
 
+  const handleApprove = async (taskId: string, comment?: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/approve`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to approve task")
+      }
+
+      const result = await response.json()
+
+      // Update local state
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                status: "done",
+                outcome: "approved",
+                outcomeComment: comment,
+                completedAt: new Date().toISOString(),
+              }
+            : t
+        )
+      )
+
+      toast({
+        title: "Task Approved",
+        description: result.workflowSignaled
+          ? "Workflow has been notified and will continue."
+          : "Task approved successfully.",
+      })
+    } catch (error) {
+      console.error("Error approving task:", error)
+      toast({
+        title: "Error",
+        description: "Failed to approve task. Please try again.",
+        variant: "destructive",
+      })
+      throw error
+    }
+  }
+
+  const handleReject = async (taskId: string, comment?: string) => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/reject`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to reject task")
+      }
+
+      const result = await response.json()
+
+      // Update local state
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                status: "done",
+                outcome: "rejected",
+                outcomeComment: comment,
+                completedAt: new Date().toISOString(),
+              }
+            : t
+        )
+      )
+
+      toast({
+        title: "Task Rejected",
+        description: result.workflowSignaled
+          ? "Workflow has been notified and will continue."
+          : "Task rejected successfully.",
+      })
+    } catch (error) {
+      console.error("Error rejecting task:", error)
+      toast({
+        title: "Error",
+        description: "Failed to reject task. Please try again.",
+        variant: "destructive",
+      })
+      throw error
+    }
+  }
+
+  const handleTriggerWorkflow = async (contactId: string) => {
+    try {
+      const response = await fetch("/api/workflows/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to trigger workflow")
+      }
+
+      const result = await response.json()
+
+      toast({
+        title: "Workflow Started",
+        description: `Applicant review workflow started for contact. Workflow ID: ${result.workflowId}`,
+      })
+    } catch (error) {
+      console.error("Error triggering workflow:", error)
+      toast({
+        title: "Error",
+        description: "Failed to start workflow. Please try again.",
+        variant: "destructive",
+      })
+      throw error
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
@@ -96,6 +241,12 @@ export function MyWorkContent() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {!isLoadingContacts && contacts.length > 0 && (
+            <WorkflowTriggerDialog
+              contacts={contacts}
+              onTriggerWorkflow={handleTriggerWorkflow}
+            />
+          )}
           <TaskCreateDialog onCreateTask={handleCreateTask} />
           <div className="flex items-center gap-1 rounded-lg border p-1">
             <Button
@@ -157,6 +308,8 @@ export function MyWorkContent() {
         onOpenChange={setDetailOpen}
         onUpdateTask={handleUpdateTask}
         onDeleteTask={handleDeleteTask}
+        onApprove={handleApprove}
+        onReject={handleReject}
       />
     </div>
   )
