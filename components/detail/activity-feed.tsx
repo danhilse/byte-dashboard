@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { UserPlus, FileText, MessageSquare, RefreshCw, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,24 +45,40 @@ export function ActivityFeed({ entityType, entityId }: ActivityFeedProps) {
   const [activities, setActivities] = useState<ActivityLogRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchActivities = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/activity?entityType=${entityType}&entityId=${entityId}&limit=20`
-      )
-      if (!res.ok) return
-      const data = await res.json()
-      setActivities(data.activities)
-    } catch (error) {
-      console.error("Failed to fetch activity:", error)
-    } finally {
-      setIsLoading(false)
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchActivities() {
+      setIsLoading(true)
+      setActivities([])
+
+      try {
+        const res = await fetch(
+          `/api/activity?entityType=${entityType}&entityId=${entityId}&limit=20`
+        )
+        if (!res.ok) {
+          if (!cancelled) setActivities([])
+          return
+        }
+
+        const data = await res.json()
+        if (!cancelled) {
+          setActivities(data.activities ?? [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch activity:", error)
+        if (!cancelled) setActivities([])
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    fetchActivities()
+
+    return () => {
+      cancelled = true
     }
   }, [entityType, entityId])
-
-  useEffect(() => {
-    fetchActivities()
-  }, [fetchActivities])
 
   if (isLoading) {
     return (

@@ -26,9 +26,17 @@ export async function GET(req: Request) {
     const entityType = url.searchParams.get("entityType");
     const entityId = url.searchParams.get("entityId");
     const limitParam = url.searchParams.get("limit");
-    const limit = limitParam
-      ? Math.min(Math.max(parseInt(limitParam, 10), 1), 100)
-      : 20;
+    let limit = 20;
+    if (limitParam !== null) {
+      if (!/^\d+$/.test(limitParam)) {
+        return NextResponse.json(
+          { error: "limit must be a positive integer" },
+          { status: 400 }
+        );
+      }
+
+      limit = Math.min(Math.max(Number.parseInt(limitParam, 10), 1), 100);
+    }
 
     const conditions = [eq(activityLog.orgId, orgId)];
 

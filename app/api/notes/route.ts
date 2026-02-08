@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { notes, users } from "@/lib/db/schema";
+import { contacts, notes, tasks, users, workflows } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/notes?entityType=workflow&entityId={uuid}
@@ -119,6 +122,59 @@ export async function POST(req: Request) {
         { error: "content must be a non-empty string" },
         { status: 400 }
       );
+    }
+
+    if (typeof entityId !== "string" || !UUID_REGEX.test(entityId)) {
+      return NextResponse.json(
+        { error: "entityId must be a valid UUID" },
+        { status: 400 }
+      );
+    }
+
+    // Enforce org-scoped ownership before attaching notes to entity soft FKs.
+    switch (entityType) {
+      case "workflow": {
+        const [workflow] = await db
+          .select({ id: workflows.id })
+          .from(workflows)
+          .where(and(eq(workflows.id, entityId), eq(workflows.orgId, orgId)));
+
+        if (!workflow) {
+          return NextResponse.json(
+            { error: "Workflow not found" },
+            { status: 404 }
+          );
+        }
+        break;
+      }
+      case "contact": {
+        const [contact] = await db
+          .select({ id: contacts.id })
+          .from(contacts)
+          .where(and(eq(contacts.id, entityId), eq(contacts.orgId, orgId)));
+
+        if (!contact) {
+          return NextResponse.json(
+            { error: "Contact not found" },
+            { status: 404 }
+          );
+        }
+        break;
+      }
+      case "task": {
+        const [task] = await db
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(and(eq(tasks.id, entityId), eq(tasks.orgId, orgId)));
+
+        if (!task) {
+          return NextResponse.json(
+            { error: "Task not found" },
+            { status: 404 }
+          );
+        }
+        break;
+      }
     }
 
     // Set the correct soft FK based on entityType

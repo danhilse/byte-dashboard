@@ -166,13 +166,29 @@ export async function updateContact(
 ): Promise<void> {
   console.log(`Activity: Updating contact ${contactId}`);
 
-  await db
+  const [updatedContact] = await db
     .update(contacts)
     .set({
       ...fields,
       updatedAt: new Date(),
     })
-    .where(eq(contacts.id, contactId));
+    .where(eq(contacts.id, contactId))
+    .returning({ orgId: contacts.orgId });
+
+  if (updatedContact) {
+    const updatedFields = Object.entries(fields)
+      .filter(([, value]) => value !== undefined)
+      .map(([key]) => key);
+
+    await logActivity({
+      orgId: updatedContact.orgId,
+      userId: null, // System-generated (Temporal)
+      entityType: "contact",
+      entityId: contactId,
+      action: "updated",
+      details: { source: "workflow", fields: updatedFields },
+    });
+  }
 
   console.log(`Activity: Contact updated`);
 }

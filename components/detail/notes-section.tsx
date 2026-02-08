@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -22,24 +22,40 @@ export function NotesSection({ entityType, entityId }: NotesSectionProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [content, setContent] = useState("")
 
-  const fetchNotes = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/notes?entityType=${entityType}&entityId=${entityId}`
-      )
-      if (!res.ok) return
-      const data = await res.json()
-      setNotes(data.notes)
-    } catch (error) {
-      console.error("Failed to fetch notes:", error)
-    } finally {
-      setIsLoading(false)
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchNotes() {
+      setIsLoading(true)
+      setNotes([])
+
+      try {
+        const res = await fetch(
+          `/api/notes?entityType=${entityType}&entityId=${entityId}`
+        )
+        if (!res.ok) {
+          if (!cancelled) setNotes([])
+          return
+        }
+
+        const data = await res.json()
+        if (!cancelled) {
+          setNotes(data.notes ?? [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch notes:", error)
+        if (!cancelled) setNotes([])
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    fetchNotes()
+
+    return () => {
+      cancelled = true
     }
   }, [entityType, entityId])
-
-  useEffect(() => {
-    fetchNotes()
-  }, [fetchNotes])
 
   const handleSave = async () => {
     if (!content.trim()) return

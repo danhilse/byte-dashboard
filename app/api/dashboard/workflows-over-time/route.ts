@@ -18,7 +18,16 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const daysParam = url.searchParams.get("days");
-    const days = daysParam ? Math.min(Math.max(parseInt(daysParam, 10), 1), 90) : 30;
+    let days = 30;
+    if (daysParam !== null) {
+      if (!/^\d+$/.test(daysParam)) {
+        return NextResponse.json(
+          { error: "days must be a positive integer" },
+          { status: 400 }
+        );
+      }
+      days = Math.min(Math.max(Number.parseInt(daysParam, 10), 1), 90);
+    }
 
     const data = await getWorkflowsOverTime(orgId, days);
 

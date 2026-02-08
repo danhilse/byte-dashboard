@@ -4,6 +4,7 @@ import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
 import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
+import { logActivity } from "@/lib/db/log-activity";
 import type { ApplicantReviewWorkflowInput } from "@/lib/workflows/applicant-review-workflow";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
 
@@ -92,13 +93,22 @@ export async function POST(req: Request) {
       })
       .returning();
 
+    const contactName = `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim();
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "workflow",
+      entityId: workflowExecution.id,
+      action: "created",
+      details: { contactName, definitionName, source: "trigger_api" },
+    });
+
     try {
       const client = await getTemporalClient();
 
       // Decide which workflow to start
       const useGeneric = Boolean(workflowDefinitionId);
-      const contactName =
-        `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim();
 
       if (useGeneric) {
         const genericDefinitionId = workflowDefinitionId as string;
