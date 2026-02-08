@@ -104,6 +104,7 @@ export function canMutateTask(
   context: TaskAccessContext,
   task: TaskAccessTarget
 ): boolean {
+  if (context.orgRole === "admin") return true;
   return task.assignedTo === context.userId;
 }
 

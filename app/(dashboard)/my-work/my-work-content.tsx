@@ -7,6 +7,14 @@ import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 import { parseISO } from "date-fns"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
@@ -14,10 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
-import { WorkflowTriggerDialog } from "@/components/workflows/workflow-trigger-dialog"
 import { AvailableTaskCard } from "@/components/tasks/available-task-card"
-import { StatusFilter } from "@/components/common/status-filter"
-import { allTaskStatuses, taskStatusConfig } from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
 import type { Task, TaskStatus } from "@/types"
 
@@ -46,17 +51,31 @@ export function MyWorkContent() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [availableTasks, setAvailableTasks] = useState<Task[]>([])
-  const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([])
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [contacts, setContacts] = useState<Array<{ id: string; firstName: string; lastName: string; email?: string }>>([])
-  const [isLoadingContacts, setIsLoadingContacts] = useState(true)
 
   const filteredTasks = useMemo(() => {
-    if (selectedStatuses.length === 0) return tasks
-    return tasks.filter((task) => selectedStatuses.includes(task.status))
-  }, [tasks, selectedStatuses])
+    let result = tasks
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter((task) =>
+        task.title.toLowerCase().includes(query) ||
+        task.description?.toLowerCase().includes(query)
+      )
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      result = result.filter((task) => task.status === statusFilter)
+    }
+
+    return result
+  }, [tasks, searchQuery, statusFilter])
 
   // Fetch tasks on mount
   useEffect(() => {
@@ -100,23 +119,6 @@ export function MyWorkContent() {
     fetchAvailableTasks()
   }, [])
 
-  // Fetch contacts on mount
-  useEffect(() => {
-    async function fetchContacts() {
-      try {
-        const response = await fetch("/api/contacts")
-        if (response.ok) {
-          const data = await response.json()
-          setContacts(data.contacts || [])
-        }
-      } catch (error) {
-        console.error("Error fetching contacts:", error)
-      } finally {
-        setIsLoadingContacts(false)
-      }
-    }
-    fetchContacts()
-  }, [])
 
   const updateView = useCallback(
     (newView: string) => {
@@ -437,87 +439,70 @@ export function MyWorkContent() {
     }
   }
 
-  const handleTriggerWorkflow = async (contactId: string) => {
-    try {
-      const response = await fetch("/api/workflows/trigger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to trigger workflow")
-      }
-
-      const result = await response.json()
-
-      toast({
-        title: "Workflow Started",
-        description: `Applicant review workflow started for contact. Workflow ID: ${result.workflowId}`,
-      })
-    } catch (error) {
-      console.error("Error triggering workflow:", error)
-      toast({
-        title: "Error",
-        description: "Failed to start workflow. Please try again.",
-        variant: "destructive",
-      })
-      throw error
-    }
-  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Work</h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Manage your tasks and track your progress.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {!isLoadingContacts && contacts.length > 0 && (
-            <WorkflowTriggerDialog
-              contacts={contacts}
-              onTriggerWorkflow={handleTriggerWorkflow}
-            />
-          )}
-          <TaskCreateDialog onCreateTask={handleCreateTask} />
-          <div className="flex items-center gap-1 rounded-lg border p-1">
-            <Button
-              variant={view === "table" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => updateView("table")}
-            >
-              <List className="mr-2 size-4" />
-              Table
-            </Button>
-            <Button
-              variant={view === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => updateView("kanban")}
-            >
-              <LayoutGrid className="mr-2 size-4" />
-              Kanban
-            </Button>
-            <Button
-              variant={view === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => updateView("grid")}
-            >
-              <Grid3X3 className="mr-2 size-4" />
-              Grid
-            </Button>
-          </div>
-        </div>
+        <TaskCreateDialog onCreateTask={handleCreateTask} />
       </div>
 
-      <StatusFilter
-        allStatuses={allTaskStatuses}
-        statusConfig={taskStatusConfig}
-        selectedStatuses={selectedStatuses}
-        onStatusChange={setSelectedStatuses}
-      />
+      {/* Search, filters, and view toggle */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-[200px] lg:w-[300px]"
+          />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {taskStatusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border p-1">
+          <Button
+            variant={view === "table" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => updateView("table")}
+          >
+            <List className="mr-2 size-4" />
+            Table
+          </Button>
+          <Button
+            variant={view === "kanban" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => updateView("kanban")}
+          >
+            <LayoutGrid className="mr-2 size-4" />
+            Kanban
+          </Button>
+          <Button
+            variant={view === "grid" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => updateView("grid")}
+          >
+            <Grid3X3 className="mr-2 size-4" />
+            Grid
+          </Button>
+        </div>
+      </div>
 
       {availableTasks.length > 0 && (
         <div className="space-y-2">
@@ -553,10 +538,6 @@ export function MyWorkContent() {
           <DataTable
             columns={taskColumns}
             data={filteredTasks}
-            searchKey="title"
-            searchPlaceholder="Search tasks..."
-            filterColumn="status"
-            filterOptions={taskStatusOptions}
             onRowClick={(row) => handleTaskClick(row.original)}
           />
         )}

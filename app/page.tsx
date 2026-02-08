@@ -17,10 +17,10 @@ export default function LandingPage() {
           </div>
           <nav className="flex items-center gap-4">
             <SignedOut>
-              <SignInButton mode="modal">
+              <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <Button variant="ghost">Sign In</Button>
               </SignInButton>
-              <SignUpButton mode="modal">
+              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <Button>Get Started</Button>
               </SignUpButton>
             </SignedOut>
@@ -44,10 +44,10 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <SignedOut>
-              <SignUpButton mode="modal">
+              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <Button size="lg">Start for Free</Button>
               </SignUpButton>
-              <SignInButton mode="modal">
+              <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <Button size="lg" variant="outline">
                   Sign In
                 </Button>

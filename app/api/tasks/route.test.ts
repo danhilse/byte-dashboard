@@ -203,6 +203,25 @@ describe("app/api/tasks/route", () => {
     expect(await res.json()).toEqual({ error: "Contact not found" });
   });
 
+  it("auto-assigns task to creator when no assignedTo is provided", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    const insertQuery = createInsertQuery([
+      { id: "task_1", title: "My task", assignedTo: "user_1" },
+    ]);
+    mocks.insert.mockReturnValue({ values: insertQuery.values });
+
+    await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title: "My task" }),
+      })
+    );
+
+    expect(insertQuery.values).toHaveBeenCalledWith(
+      expect.objectContaining({ assignedTo: "user_1" })
+    );
+  });
+
   it("creates a task and logs activity", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
     mocks.select

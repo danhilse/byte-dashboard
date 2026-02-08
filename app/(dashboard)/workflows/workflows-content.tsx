@@ -6,17 +6,24 @@ import { useCallback, useState, useMemo, useEffect } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { workflowColumns, workflowStatusOptions } from "@/components/data-table/columns/workflow-columns"
-import { StatusFilter } from "@/components/common/status-filter"
 import { WorkflowCreateDialog } from "@/components/workflows/workflow-create-dialog"
 import { WorkflowDetailDialog } from "@/components/workflows/workflow-detail-dialog"
 import { WorkflowDeleteDialog } from "@/components/workflows/workflow-delete-dialog"
-import { allWorkflowStatuses, workflowStatusConfig } from "@/lib/status-config"
+import { workflowStatusConfig } from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
 import type { Workflow, WorkflowStatus } from "@/types"
 
@@ -45,16 +52,32 @@ export function WorkflowsContent() {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [selectedStatuses, setSelectedStatuses] = useState<WorkflowStatus[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [deletingWorkflow, setDeletingWorkflow] = useState<Workflow | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const filteredWorkflows = useMemo(() => {
-    if (selectedStatuses.length === 0) return workflows
-    return workflows.filter((workflow) => selectedStatuses.includes(workflow.status))
-  }, [workflows, selectedStatuses])
+    let result = workflows
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter((workflow) =>
+        (workflow.contactName?.toLowerCase().includes(query)) ||
+        (workflow.definitionName?.toLowerCase().includes(query))
+      )
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      result = result.filter((workflow) => workflow.status === statusFilter)
+    }
+
+    return result
+  }, [workflows, searchQuery, statusFilter])
 
   const updateView = useCallback(
     (newView: string) => {
@@ -276,50 +299,67 @@ export function WorkflowsContent() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Workflows</h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Track and manage your workflow instances.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <WorkflowCreateDialog onCreateWorkflow={handleCreateWorkflow} />
-          <div className="flex items-center gap-1 rounded-lg border p-1">
-            <Button
-              variant={view === "table" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => updateView("table")}
-            >
-              <List className="mr-2 size-4" />
-              Table
-            </Button>
-            <Button
-              variant={view === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => updateView("kanban")}
-            >
-              <LayoutGrid className="mr-2 size-4" />
-              Kanban
-            </Button>
-            <Button
-              variant={view === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => updateView("grid")}
-            >
-              <Grid3X3 className="mr-2 size-4" />
-              Grid
-            </Button>
-          </div>
-        </div>
+        <WorkflowCreateDialog onCreateWorkflow={handleCreateWorkflow} />
       </div>
 
-      <StatusFilter
-        allStatuses={allWorkflowStatuses}
-        statusConfig={workflowStatusConfig}
-        selectedStatuses={selectedStatuses}
-        onStatusChange={setSelectedStatuses}
-      />
+      {/* Search, filters, and view toggle */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search workflows..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-[200px] lg:w-[300px]"
+          />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {workflowStatusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border p-1">
+          <Button
+            variant={view === "table" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => updateView("table")}
+          >
+            <List className="mr-2 size-4" />
+            Table
+          </Button>
+          <Button
+            variant={view === "kanban" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => updateView("kanban")}
+          >
+            <LayoutGrid className="mr-2 size-4" />
+            Kanban
+          </Button>
+          <Button
+            variant={view === "grid" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => updateView("grid")}
+          >
+            <Grid3X3 className="mr-2 size-4" />
+            Grid
+          </Button>
+        </div>
+      </div>
 
       <div className="flex-1">
         {isLoading && (
@@ -338,10 +378,6 @@ export function WorkflowsContent() {
           <DataTable
             columns={workflowColumns}
             data={filteredWorkflows}
-            searchKey="contactName"
-            searchPlaceholder="Search workflows..."
-            filterColumn="status"
-            filterOptions={workflowStatusOptions}
             onRowClick={(row) => handleWorkflowClick(row.original)}
           />
         )}

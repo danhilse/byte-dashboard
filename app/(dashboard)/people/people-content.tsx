@@ -30,15 +30,13 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableColumnToggle } from "@/components/data-table/data-table-column-toggle"
 import { DataTableBulkActions } from "@/components/data-table/data-table-bulk-actions"
 import { ViewToggle, type ViewOption } from "@/components/common/view-toggle"
-import { StatusFilter } from "@/components/common/status-filter"
 import { ContactFormDialog } from "@/components/contacts/contact-form-dialog"
 import { ContactDeleteDialog } from "@/components/contacts/contact-delete-dialog"
 import { ContactCard } from "@/components/contacts/contact-card"
 import { CSVImportDialog } from "@/components/contacts/csv-import-dialog"
 import { ContactFiltersDialog, type ContactFilters } from "@/components/contacts/contact-filters-dialog"
 import { createContactColumns, contactStatusOptions } from "@/components/data-table/columns/contact-columns"
-import { allContactStatuses, contactStatusConfig } from "@/lib/status-config"
-import type { Contact, ContactStatus } from "@/types"
+import type { Contact } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 
 type ViewType = "table" | "card"
@@ -63,7 +61,6 @@ export function PeopleContent() {
   const view = (searchParams.get("view") as ViewType) || "table"
   const [contacts, setContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedStatuses, setSelectedStatuses] = useState<ContactStatus[]>([])
   const [advancedFilters, setAdvancedFilters] = useState<ContactFilters>(defaultAdvancedFilters)
 
   // Dialog states
@@ -118,11 +115,6 @@ export function PeopleContent() {
   const filteredContacts = useMemo(() => {
     let result = contacts
 
-    // Apply status filters (from badge toggles)
-    if (selectedStatuses.length > 0) {
-      result = result.filter((contact) => selectedStatuses.includes(contact.status))
-    }
-
     // Apply advanced filters
     if (advancedFilters.statuses.length > 0) {
       result = result.filter((contact) => advancedFilters.statuses.includes(contact.status))
@@ -147,7 +139,7 @@ export function PeopleContent() {
     }
 
     return result
-  }, [contacts, selectedStatuses, advancedFilters])
+  }, [contacts, advancedFilters])
 
   // Column actions handlers
   const handleEdit = useCallback((contact: Contact) => {
@@ -384,44 +376,37 @@ export function PeopleContent() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contacts</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight">People</h1>
+          <p className="text-sm text-muted-foreground">
             Manage your contacts and their information.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <CSVImportDialog onImport={handleCSVImport} />
+        <ContactFormDialog mode="create" onSubmit={handleCreateContact} />
+      </div>
+
+      {/* Table controls */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
           <ContactFiltersDialog
             filters={advancedFilters}
             onApply={setAdvancedFilters}
           />
           {view === "table" && <DataTableColumnToggle table={table} />}
-          <ContactFormDialog mode="create" onSubmit={handleCreateContact} />
-          <ViewToggle views={viewOptions} value={view} onChange={updateView} />
+          <DataTableToolbar
+            table={table}
+            searchKey="firstName"
+            searchPlaceholder="Search contacts..."
+          />
         </div>
+        <ViewToggle views={viewOptions} value={view} onChange={updateView} />
       </div>
-
-      {/* Status filters */}
-      <StatusFilter
-        allStatuses={allContactStatuses}
-        statusConfig={contactStatusConfig}
-        selectedStatuses={selectedStatuses}
-        onStatusChange={setSelectedStatuses}
-      />
 
       {/* Content */}
       <div className="relative flex-1">
         {view === "table" && (
           <div className="space-y-4">
-            <DataTableToolbar
-              table={table}
-              searchKey="firstName"
-              searchPlaceholder="Search contacts..."
-              filterColumn="status"
-              filterOptions={contactStatusOptions}
-            />
             <div className="rounded-md border">
               <Table>
                 <TableHeader>

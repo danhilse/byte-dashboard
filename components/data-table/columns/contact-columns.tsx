@@ -98,7 +98,7 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
       cell: ({ row }) => {
         const contact = row.original
         return (
-          <div>
+          <div className="px-4">
             <p className="font-medium">{contact.company}</p>
             <p className="text-xs text-muted-foreground">{contact.role}</p>
           </div>
@@ -174,7 +174,7 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
       },
       cell: ({ row }) => {
         const count = row.original.workflowsCount ?? 0
-        return <span className="text-center">{count}</span>
+        return <div className="px-4">{count}</div>
       },
       enableHiding: true,
     },
@@ -193,7 +193,7 @@ export function createContactColumns(actions?: ContactColumnActions): ColumnDef<
       },
       cell: ({ row }) => {
         const date = new Date(row.original.createdAt)
-        return <span>{date.toLocaleDateString()}</span>
+        return <div className="px-4">{date.toLocaleDateString()}</div>
       },
       enableHiding: true,
     },

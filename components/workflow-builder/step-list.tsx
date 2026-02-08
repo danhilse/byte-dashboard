@@ -194,6 +194,10 @@ export function StepList({
 
   const handleAddStep = (type: StepType) => {
     const newStep = createDefaultStep(type)
+    // If phases exist, assign new step to the last phase so it appears at the bottom
+    if (phases.length > 0) {
+      newStep.phaseId = phases[phases.length - 1].id
+    }
     onStepsChange([...steps, newStep])
     onSelectStep(newStep.id)
     setAddStepPopoverOpen(false)

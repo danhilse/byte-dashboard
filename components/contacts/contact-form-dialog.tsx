@@ -152,6 +152,10 @@ export function ContactFormDialog({
       onSubmit(contactData)
     }
 
+    // Close dialog and reset form after submission
+    if (mode === "create") {
+      handleDialogOpenChange(false)
+    }
     resetForm()
   }
 
@@ -182,7 +186,9 @@ export function ContactFormDialog({
     >
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="firstName">First Name</Label>
+          <Label htmlFor="firstName">
+            First Name <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="firstName"
             value={firstName}
@@ -192,7 +198,9 @@ export function ContactFormDialog({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="lastName">Last Name</Label>
+          <Label htmlFor="lastName">
+            Last Name <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="lastName"
             value={lastName}
@@ -205,7 +213,9 @@ export function ContactFormDialog({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">
+            Email <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="email"
             type="email"

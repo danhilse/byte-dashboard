@@ -72,10 +72,12 @@ export function StepCard({
       </Badge>
 
       <Button
+        type="button"
         variant="ghost"
         size="icon"
         className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
         onClick={(e) => {
+          e.preventDefault()
           e.stopPropagation()
           onDelete()
         }}

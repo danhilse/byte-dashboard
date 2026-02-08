@@ -89,13 +89,23 @@ export function createDefinitionColumns(opts: {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => opts.onEdit(def)}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  opts.onEdit(def)
+                }}
+              >
                 Edit blueprint
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => opts.onDelete(def)}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  opts.onDelete(def)
+                }}
               >
                 Delete blueprint
               </DropdownMenuItem>

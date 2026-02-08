@@ -187,7 +187,7 @@ export async function POST(req: Request) {
         status: status || "todo",
         priority: priority || "medium",
         taskType: taskType || "standard",
-        assignedTo: assignedTo || null,
+        assignedTo: assignedTo || userId,
         assignedRole: assignedRole || null,
         workflowId: workflowId || null,
         contactId: contactId || null,
