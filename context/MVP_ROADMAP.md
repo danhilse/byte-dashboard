@@ -619,6 +619,9 @@ Field mapping config maps Field IDs to contact/workflow fields.
 
 These features will be built after the core platform is proven and when specific customer needs arise.
 
+### tbd
+- [ ] copy/paste system for steps and workflows
+
 ### Formstack Integration (Post-MVP)
 
 **Webhook Ingestion**
