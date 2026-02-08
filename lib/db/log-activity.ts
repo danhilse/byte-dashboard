@@ -36,22 +36,27 @@ export async function logActivity({
   details = {},
 }: LogActivityParams): Promise<void> {
   try {
+    // Skip soft FK for delete actions — the referenced row is already gone
+    // and inserting it would violate the foreign key constraint.
+    // entityType + entityId still record what was deleted.
     const softFks: {
       workflowId?: string;
       contactId?: string;
       taskId?: string;
     } = {};
 
-    switch (entityType) {
-      case "workflow":
-        softFks.workflowId = entityId;
-        break;
-      case "contact":
-        softFks.contactId = entityId;
-        break;
-      case "task":
-        softFks.taskId = entityId;
-        break;
+    if (action !== "deleted") {
+      switch (entityType) {
+        case "workflow":
+          softFks.workflowId = entityId;
+          break;
+        case "contact":
+          softFks.contactId = entityId;
+          break;
+        case "task":
+          softFks.taskId = entityId;
+          break;
+      }
     }
 
     await db.insert(activityLog).values({

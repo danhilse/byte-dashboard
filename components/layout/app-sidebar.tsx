@@ -57,11 +57,11 @@ const primaryNavItems = [
     href: "/workflows",
     icon: FileText,
   },
-  {
-    title: "Calendar",
-    href: "/calendar",
-    icon: Calendar,
-  },
+  // {
+  //   title: "Calendar",
+  //   href: "/calendar",
+  //   icon: Calendar,
+  // },
   {
     title: "People",
     href: "/people",
