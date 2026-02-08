@@ -16,7 +16,7 @@ export async function sendHelloEmail(
   email: string,
   name: string
 ): Promise<void> {
-  console.log(`Activity: Sending hello email to ${email}`);
+  console.log(`Activity: Sending hello email to ${email} for ${name}`);
   // Phase 1 hello-world stub - not used by workflows
   await new Promise((resolve) => setTimeout(resolve, 100));
   console.log(`Activity: Hello email sent to ${email}`);

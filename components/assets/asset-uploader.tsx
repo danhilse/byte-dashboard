@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Upload, X, File } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -28,6 +28,12 @@ export function AssetUploader({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const targetLabel = useMemo(() => {
+    if (workflowId) return "workflow"
+    if (contactId) return "contact"
+    if (taskId) return "task"
+    return null
+  }, [workflowId, contactId, taskId])
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -39,16 +45,19 @@ export function AssetUploader({
     }
   }, [])
 
-  const validateFile = (file: File): string | null => {
-    const fileExtension = file.name.split(".").pop()?.toLowerCase()
-    if (!fileExtension || !allowedTypes.includes(fileExtension)) {
-      return `File type .${fileExtension} is not allowed`
-    }
-    if (file.size > maxSize) {
-      return `File size exceeds ${(maxSize / 1024 / 1024).toFixed(0)}MB limit`
-    }
-    return null
-  }
+  const validateFile = useCallback(
+    (file: File): string | null => {
+      const fileExtension = file.name.split(".").pop()?.toLowerCase()
+      if (!fileExtension || !allowedTypes.includes(fileExtension)) {
+        return `File type .${fileExtension} is not allowed`
+      }
+      if (file.size > maxSize) {
+        return `File size exceeds ${(maxSize / 1024 / 1024).toFixed(0)}MB limit`
+      }
+      return null
+    },
+    [allowedTypes, maxSize]
+  )
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -77,7 +86,7 @@ export function AssetUploader({
         setSelectedFiles((prev) => [...prev, ...validFiles])
       }
     },
-    [maxSize, allowedTypes]
+    [validateFile]
   )
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,6 +183,11 @@ export function AssetUploader({
             <p className="text-xs text-muted-foreground mt-1">
               Allowed: {allowedTypes.join(", ")} (Max {(maxSize / 1024 / 1024).toFixed(0)}MB)
             </p>
+            {targetLabel && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Files will be linked to this {targetLabel}.
+              </p>
+            )}
           </div>
           <Button variant="outline" onClick={() => document.getElementById("file-input")?.click()}>
             Select Files

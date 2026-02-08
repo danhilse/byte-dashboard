@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Asset } from "@/types"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -66,9 +67,12 @@ export function AssetPreviewModal({
         <div className="flex-1 overflow-auto">
           {isImage ? (
             <div className="flex items-center justify-center p-4 bg-muted/50 rounded-lg">
-              <img
+              <Image
                 src={asset.storageUrl}
                 alt={asset.fileName}
+                width={1200}
+                height={800}
+                unoptimized
                 className="max-w-full max-h-[60vh] object-contain"
               />
             </div>

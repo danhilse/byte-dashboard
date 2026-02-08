@@ -1,7 +1,7 @@
 "use client"
 
 import { formatDistanceToNow } from "date-fns"
-import { UserPlus, FileText, CheckCircle2, MessageSquare, RefreshCw } from "lucide-react"
+import { UserPlus, FileText, MessageSquare, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { activityColors } from "@/lib/design-tokens"

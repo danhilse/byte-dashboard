@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, Download, Trash2, Eye, File, Image, FileSpreadsheet } from "lucide-react"
+import { FileText, Download, Trash2, Eye, File, ImageIcon, FileSpreadsheet } from "lucide-react"
 import { Asset } from "@/types"
 import { formatFileSize } from "@/lib/data/assets"
 import { Button } from "@/components/ui/button"
@@ -49,7 +49,7 @@ function getFileIcon(fileType: string) {
     case "png":
     case "gif":
     case "svg":
-      return <Image className="size-4 text-purple-500" />
+      return <ImageIcon className="size-4 text-purple-500" />
     default:
       return <File className="size-4 text-gray-500" />
   }

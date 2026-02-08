@@ -11,6 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:clear": "tsx --env-file=.env.local scripts/clear-test-data.ts",
     "worker:dev": "tsx --env-file=.env.local lib/temporal/worker.ts",
     "worker:start": "tsx -r dotenv/config lib/temporal/worker.ts"
   },

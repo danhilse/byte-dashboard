@@ -9,14 +9,13 @@ import {
   Users,
   HelpCircle,
   GitBranch,
-  Workflow,
   FileEdit,
   Settings,
   LogOut,
   ChevronUp,
   FileText,
 } from "lucide-react"
-import { useUser, useClerk, useOrganization } from "@clerk/nextjs"
+import { useUser, useClerk } from "@clerk/nextjs"
 import { useIsAdmin } from "@/hooks/use-org-role"
 
 import {

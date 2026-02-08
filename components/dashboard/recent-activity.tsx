@@ -28,7 +28,7 @@ export function RecentActivity({ activities }: RecentActivityProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {activities.map((activity, index) => {
+          {activities.map((activity) => {
             const Icon = activityIcons[activity.type]
             const colorClass = activityColors[activity.type]
 
