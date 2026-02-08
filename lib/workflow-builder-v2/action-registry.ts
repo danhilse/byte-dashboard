@@ -10,6 +10,7 @@ import {
   Flag,
   Edit,
   UserPlus,
+  Variable,
   type LucideIcon,
 } from "lucide-react"
 
@@ -111,6 +112,21 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
       config: {
         contactType: "reference",
         fields: [],
+      },
+    },
+  },
+  set_variable: {
+    type: "set_variable",
+    label: "Set Variable",
+    icon: Variable,
+    description: "Set or update a custom variable value",
+    category: "data",
+    defaultConfig: {
+      type: "set_variable",
+      id: "",
+      config: {
+        variableId: "",
+        value: "",
       },
     },
   },

@@ -6,7 +6,383 @@ import type { WorkflowDefinitionV2 } from "@/app/builder-test/types/workflow-v2"
 
 export const mockWorkflowsV2: WorkflowDefinitionV2[] = [
   // ============================================================================
-  // 1. Simple Approval Workflow
+  // 1. Conditional Branching Demo
+  // ============================================================================
+  {
+    id: "wf-conditional-demo",
+    name: "Conditional Approval Demo",
+    description: "Demonstrates conditional branching with collapsible tracks",
+    trigger: { type: "manual" },
+    contactRequired: true,
+    phases: [],
+    steps: [
+      {
+        id: "step-1",
+        name: "Submit Application",
+        actions: [
+          {
+            type: "send_email",
+            id: "email-1",
+            config: {
+              to: "var-contact.email",
+              subject: "Application Received",
+              body: "Thank you for submitting your application. We'll review it shortly.",
+            },
+          },
+          {
+            type: "create_task",
+            id: "task-1",
+            config: {
+              title: "Review Application",
+              taskType: "approval",
+              assignTo: { type: "role", role: "reviewer" },
+              priority: "high",
+              dueDays: 3,
+            },
+          },
+        ],
+        advancementCondition: {
+          type: "when_task_completed",
+          config: { taskActionId: "task-1" },
+        },
+      },
+      {
+        id: "branch-1",
+        name: "Review Decision",
+        stepType: "branch" as const,
+        condition: {
+          variableRef: "var-action-task-1.outcome", // Reference the approval task's outcome
+          operator: "equals" as const,
+          compareValue: "approved",
+        },
+        tracks: [
+          {
+            id: "track-approved",
+            label: "Approved",
+            steps: [
+              {
+                id: "step-2a",
+                name: "Send Approval Email",
+                actions: [
+                  {
+                    type: "send_email",
+                    id: "email-2a",
+                    config: {
+                      to: "var-contact.email",
+                      subject: "Application Approved!",
+                      body: "Congratulations! Your application has been approved.",
+                    },
+                  },
+                ],
+                advancementCondition: { type: "automatic" },
+              },
+              {
+                id: "step-2b",
+                name: "Create Onboarding Task",
+                actions: [
+                  {
+                    type: "create_task",
+                    id: "task-2b",
+                    config: {
+                      title: "Complete Onboarding",
+                      taskType: "standard",
+                      assignTo: { type: "role", role: "onboarding_coordinator" },
+                      priority: "medium",
+                      dueDays: 7,
+                    },
+                  },
+                ],
+                advancementCondition: { type: "automatic" },
+              },
+            ],
+          },
+          {
+            id: "track-rejected",
+            label: "Rejected",
+            steps: [
+              {
+                id: "step-2c",
+                name: "Send Rejection Email",
+                actions: [
+                  {
+                    type: "send_email",
+                    id: "email-2c",
+                    config: {
+                      to: "var-contact.email",
+                      subject: "Application Status",
+                      body: "Thank you for your interest. Unfortunately, we cannot move forward at this time.",
+                    },
+                  },
+                ],
+                advancementCondition: { type: "automatic" },
+              },
+            ],
+          },
+        ],
+        actions: [],
+        advancementCondition: { type: "automatic" },
+      },
+      {
+        id: "step-3",
+        name: "Update Status",
+        actions: [
+          {
+            type: "update_status",
+            id: "status-1",
+            config: {
+              status: "complete",
+            },
+          },
+        ],
+        advancementCondition: { type: "automatic" },
+      },
+    ],
+    statuses: [
+      { id: "pending", label: "Pending Review", color: "#f59e0b", order: 0 },
+      { id: "in_review", label: "In Review", color: "#3b82f6", order: 1 },
+      { id: "approved", label: "Approved", color: "#10b981", order: 2 },
+      { id: "rejected", label: "Rejected", color: "#ef4444", order: 3 },
+      { id: "complete", label: "Complete", color: "#6366f1", order: 4 },
+    ],
+    variables: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ============================================================================
+  // 2. Variable-Based Branching Demo
+  // ============================================================================
+  {
+    id: "wf-variable-branch-demo",
+    name: "Variable-Based Branch Demo",
+    description: "Demonstrates branching based on variable values",
+    trigger: { type: "manual" },
+    contactRequired: true,
+    phases: [],
+    steps: [
+      {
+        id: "step-1",
+        name: "Collect Information",
+        actions: [
+          {
+            type: "send_email",
+            id: "email-1",
+            config: {
+              to: "var-contact.email",
+              subject: "Please Update Your Status",
+              body: "Please let us know your current employment status.",
+            },
+          },
+          {
+            type: "create_task",
+            id: "task-1",
+            config: {
+              title: "Update Contact Status",
+              taskType: "standard",
+              assignTo: { type: "role", role: "coordinator" },
+              priority: "medium",
+              dueDays: 5,
+            },
+          },
+        ],
+        advancementCondition: {
+          type: "when_task_completed",
+          config: { taskActionId: "task-1" },
+        },
+      },
+      {
+        id: "branch-1",
+        name: "Status-Based Routing",
+        stepType: "branch" as const,
+        description: "Route based on contact status field",
+        condition: {
+          variableRef: "var-contact.status",
+          operator: "equals" as const,
+          compareValue: "active",
+        },
+        tracks: [
+          {
+            id: "track-active",
+            label: "Active",
+            steps: [
+              {
+                id: "step-2a",
+                name: "Send Active Welcome",
+                actions: [
+                  {
+                    type: "send_email",
+                    id: "email-2a",
+                    config: {
+                      to: "var-contact.email",
+                      subject: "Welcome Active Member!",
+                      body: "Great to have you as an active member.",
+                    },
+                  },
+                  {
+                    type: "update_contact",
+                    id: "update-2a",
+                    config: {
+                      fields: [
+                        { field: "membershipLevel", value: "premium" },
+                      ],
+                    },
+                  },
+                ],
+                advancementCondition: { type: "automatic" },
+              },
+            ],
+          },
+          {
+            id: "track-inactive",
+            label: "Inactive",
+            steps: [
+              {
+                id: "step-2b",
+                name: "Send Reactivation Offer",
+                actions: [
+                  {
+                    type: "send_email",
+                    id: "email-2b",
+                    config: {
+                      to: "var-contact.email",
+                      subject: "We'd Love to Have You Back",
+                      body: "Special offer to reactivate your membership!",
+                    },
+                  },
+                ],
+                advancementCondition: { type: "automatic" },
+              },
+            ],
+          },
+        ],
+        actions: [],
+        advancementCondition: { type: "automatic" },
+      },
+      {
+        id: "step-3",
+        name: "Complete",
+        actions: [
+          {
+            type: "update_status",
+            id: "status-1",
+            config: {
+              status: "processed",
+            },
+          },
+        ],
+        advancementCondition: { type: "automatic" },
+      },
+    ],
+    statuses: [
+      { id: "new", label: "New Contact", color: "#8b5cf6", order: 0 },
+      { id: "active", label: "Active Member", color: "#10b981", order: 1 },
+      { id: "inactive", label: "Inactive", color: "#f59e0b", order: 2 },
+      { id: "processed", label: "Processed", color: "#6366f1", order: 3 },
+    ],
+    variables: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ============================================================================
+  // 3. Set Variable Demo
+  // ============================================================================
+  {
+    id: "wf-set-variable-demo",
+    name: "Set Variable Demo",
+    description: "Demonstrates using custom variables to store and use values",
+    trigger: { type: "manual" },
+    contactRequired: true,
+    phases: [],
+    steps: [
+      {
+        id: "step-1",
+        name: "Calculate Score",
+        description: "Store a calculated score in a custom variable",
+        actions: [
+          {
+            type: "set_variable",
+            id: "var-action-1",
+            config: {
+              variableId: "custom-var-score",
+              value: "85", // In real workflow, this could be calculated
+            },
+          },
+          {
+            type: "set_variable",
+            id: "var-action-2",
+            config: {
+              variableId: "custom-var-reviewer",
+              value: "var-contact.email", // Copy from contact email
+            },
+          },
+        ],
+        advancementCondition: { type: "automatic" },
+      },
+      {
+        id: "step-2",
+        name: "Use Stored Values",
+        description: "Reference the custom variables in later actions",
+        actions: [
+          {
+            type: "send_email",
+            id: "email-1",
+            config: {
+              to: "var-custom-var-reviewer",
+              subject: "Score Report",
+              body: "The calculated score is: var-custom-var-score",
+            },
+          },
+          {
+            type: "create_task",
+            id: "task-1",
+            config: {
+              title: "Review Score: var-custom-var-score",
+              taskType: "standard",
+              assignTo: { type: "role", role: "manager" },
+              priority: "medium",
+              dueDays: 3,
+            },
+          },
+        ],
+        advancementCondition: { type: "automatic" },
+      },
+    ],
+    statuses: [
+      { id: "calculating", label: "Calculating", color: "#3b82f6", order: 0 },
+      { id: "in_review", label: "In Review", color: "#f59e0b", order: 1 },
+      { id: "complete", label: "Complete", color: "#10b981", order: 2 },
+    ],
+    variables: [
+      {
+        id: "custom-var-score",
+        name: "Application Score",
+        type: "custom",
+        dataType: "number",
+        source: {
+          type: "custom",
+          value: 0,
+        },
+        readOnly: false,
+      },
+      {
+        id: "custom-var-reviewer",
+        name: "Assigned Reviewer",
+        type: "custom",
+        dataType: "email",
+        source: {
+          type: "custom",
+          value: "",
+        },
+        readOnly: false,
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+
+  // ============================================================================
+  // 4. Simple Approval Workflow
   // ============================================================================
   {
     id: "wf-simple-approval",
@@ -93,6 +469,7 @@ export const mockWorkflowsV2: WorkflowDefinitionV2[] = [
         },
       },
     ],
+    statuses: [],
     variables: [], // Variables auto-detected from trigger and actions
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -263,6 +640,7 @@ export const mockWorkflowsV2: WorkflowDefinitionV2[] = [
         },
       },
     ],
+    statuses: [],
     variables: [], // Variables auto-detected from trigger and actions
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -418,6 +796,7 @@ export const mockWorkflowsV2: WorkflowDefinitionV2[] = [
         },
       },
     ],
+    statuses: [],
     variables: [], // Variables auto-detected from trigger and actions
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -434,6 +813,16 @@ export const mockWorkflowsV2: WorkflowDefinitionV2[] = [
     trigger: { type: "manual" }, // Later: form_submission when form integration is ready
     contactRequired: true,
     phases: [],
+    statuses: [
+      { id: "pending", label: "Pending", color: "#94a3b8", order: 0 },
+      { id: "in_review", label: "In Review", color: "#3b82f6", order: 1 },
+      { id: "background_check", label: "Background Check", color: "#8b5cf6", order: 2 },
+      { id: "interview", label: "Interview", color: "#f59e0b", order: 3 },
+      { id: "final_review", label: "Final Review", color: "#14b8a6", order: 4 },
+      { id: "complete", label: "Complete", color: "#6366f1", order: 5 },
+      { id: "approved", label: "Approved", color: "#10b981", order: 6 },
+      { id: "rejected", label: "Rejected", color: "#ef4444", order: 7 },
+    ],
     steps: [
       // ========================================================================
       // Step 1: Review Application for Completeness

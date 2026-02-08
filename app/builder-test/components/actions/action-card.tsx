@@ -1,6 +1,6 @@
 "use client"
 
-import type { WorkflowAction, WorkflowVariable } from "../../types/workflow-v2"
+import type { WorkflowAction, WorkflowVariable, WorkflowStatus } from "../../types/workflow-v2"
 import { getActionMetadata } from "@/lib/workflow-builder-v2/action-registry"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react"
@@ -11,10 +11,12 @@ import { UpdateContactConfig } from "./action-config/update-contact-config"
 import { UpdateStatusConfig } from "./action-config/update-status-config"
 import { UpdateTaskConfig } from "./action-config/update-task-config"
 import { CreateContactConfig } from "./action-config/create-contact-config"
+import { SetVariableConfig } from "./action-config/set-variable-config"
 
 interface ActionCardProps {
   action: WorkflowAction
   variables: WorkflowVariable[]
+  statuses: WorkflowStatus[]
   isExpanded: boolean
   onToggle: () => void
   onUpdate: (action: WorkflowAction) => void
@@ -24,6 +26,7 @@ interface ActionCardProps {
 export function ActionCard({
   action,
   variables,
+  statuses,
   isExpanded,
   onToggle,
   onUpdate,
@@ -47,6 +50,10 @@ export function ActionCard({
         return `Update task from action ${action.config.taskActionId}`
       case "create_contact":
         return `Type: ${action.config.contactType}, ${action.config.fields.length} field${action.config.fields.length === 1 ? "" : "s"}`
+      case "set_variable": {
+        const varName = variables.find((v) => v.id === action.config.variableId)?.name || "(variable)"
+        return `${varName} = ${action.config.value || "(not set)"}`
+      }
       default:
         return ""
     }
@@ -101,13 +108,16 @@ export function ActionCard({
             <UpdateContactConfig action={action} variables={variables} onChange={onUpdate} />
           )}
           {action.type === "update_status" && (
-            <UpdateStatusConfig action={action} variables={variables} onChange={onUpdate} />
+            <UpdateStatusConfig action={action} variables={variables} statuses={statuses} onChange={onUpdate} />
           )}
           {action.type === "update_task" && (
             <UpdateTaskConfig action={action} variables={variables} onChange={onUpdate} />
           )}
           {action.type === "create_contact" && (
             <CreateContactConfig action={action} variables={variables} onChange={onUpdate} />
+          )}
+          {action.type === "set_variable" && (
+            <SetVariableConfig action={action} variables={variables} onChange={onUpdate} />
           )}
         </div>
       )}

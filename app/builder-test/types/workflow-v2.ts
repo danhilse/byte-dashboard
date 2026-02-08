@@ -63,6 +63,14 @@ export type WorkflowAction =
         fields: Array<{ field: string; value: string }>
       }
     }
+  | {
+      type: "set_variable"
+      id: string
+      config: {
+        variableId: string // ID of custom variable to set
+        value: string // Value to set (can be literal or variable ref)
+      }
+    }
 
 // Simple advancement conditions
 export type SimpleCondition =
@@ -142,15 +150,63 @@ export type CompoundCondition = {
 // Union of simple and compound conditions
 export type AdvancementCondition = SimpleCondition | CompoundCondition
 
-// Step structure
-export interface WorkflowStepV2 {
+// ============================================================================
+// Step Types - Union type for standard and branch steps
+// ============================================================================
+
+// Standard step structure (existing step type)
+export interface StandardStepV2 {
   id: string
   name: string // User-visible label
+  stepType?: "standard" // Optional discriminator for type guards
   description?: string // Optional description
   actions: WorkflowAction[]
   advancementCondition: AdvancementCondition
   phaseId?: string // Optional phase grouping
 }
+
+// Branch step structure (new for conditional branching)
+export interface BranchStepV2 {
+  id: string
+  name: string
+  stepType: "branch" // Required discriminator
+  description?: string
+
+  // Branching condition (always a variable check)
+  condition: {
+    variableRef: string // e.g., "var-contact.status" or "var-action-1.outcome"
+    operator: "equals" | "not_equals" | "contains" | "not_contains" | "in" | "not_in"
+    compareValue: string | string[] // Single value, variable ref, or array for "in"/"not_in" operators
+  }
+
+  // Two execution tracks (A/B split)
+  tracks: [
+    {
+      id: string
+      label: string // "Approved", "Yes", "Track A"
+      steps: StandardStepV2[] // Nested steps (MVP: only standard steps, no nested branches)
+    },
+    {
+      id: string
+      label: string // "Rejected", "No", "Track B"
+      steps: StandardStepV2[] // Nested steps
+    }
+  ]
+
+  // Branch steps have no actions (actions live in track steps)
+  actions: []
+
+  // Use normal advancement condition (automatic, wait for task, duration, etc.)
+  advancementCondition: AdvancementCondition
+
+  phaseId?: string // Optional phase grouping
+
+  // UI state (not persisted to backend)
+  isExpanded?: boolean
+}
+
+// Union type for all step types
+export type WorkflowStepV2 = StandardStepV2 | BranchStepV2
 
 // Phase grouping
 export interface WorkflowPhase {
@@ -158,6 +214,14 @@ export interface WorkflowPhase {
   name: string
   color?: string
   order: number // Explicit ordering
+}
+
+// Workflow status definition
+export interface WorkflowStatus {
+  id: string
+  label: string
+  color?: string // Hex color for badge/UI
+  order: number // Display order
 }
 
 // ============================================================================
@@ -214,6 +278,7 @@ export interface WorkflowDefinitionV2 {
   contactRequired: boolean // Always true for MVP
   steps: WorkflowStepV2[]
   phases: WorkflowPhase[]
+  statuses: WorkflowStatus[] // Workflow-specific statuses
   variables: WorkflowVariable[] // Type-safe variables system
   createdAt: string
   updatedAt: string
@@ -253,4 +318,14 @@ export function isSimpleCondition(
   condition: AdvancementCondition
 ): condition is SimpleCondition {
   return condition.type !== "compound"
+}
+
+// Type guard for branch steps
+export function isBranchStep(step: WorkflowStepV2): step is BranchStepV2 {
+  return (step as BranchStepV2).stepType === "branch"
+}
+
+// Type guard for standard steps
+export function isStandardStep(step: WorkflowStepV2): step is StandardStepV2 {
+  return !isBranchStep(step)
 }

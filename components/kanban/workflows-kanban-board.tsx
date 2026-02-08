@@ -46,7 +46,7 @@ export function WorkflowsKanbanBoard({
       renderOverlayCard={(workflow) => <WorkflowKanbanCard workflow={workflow} />}
       onStatusChange={onStatusChange}
       onItemClick={onWorkflowClick}
-      gridClassName="grid h-[calc(100vh-14rem)] auto-cols-[minmax(180px,1fr)] grid-flow-col gap-4 overflow-x-auto"
+      gridClassName="grid h-[calc(100vh-14rem)] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-4 overflow-x-auto"
       emptyStateText="Drop workflows here"
     />
   )

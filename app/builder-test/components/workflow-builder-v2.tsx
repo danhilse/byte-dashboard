@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import type { WorkflowDefinitionV2, WorkflowStepV2, WorkflowVariable } from "../types/workflow-v2"
+import type { WorkflowDefinitionV2, WorkflowStepV2, WorkflowVariable, StandardStepV2 } from "../types/workflow-v2"
+import { isBranchStep } from "../types/workflow-v2"
 import { StepListV2 } from "./step-list-v2"
 import { StepConfigPanelV2 } from "./step-config-panel-v2"
 import { TriggerConfigPanel } from "./trigger-config-panel"
@@ -32,10 +33,35 @@ export function WorkflowBuilderV2({
     workflow.steps[0]?.id || null
   )
   const [selectedTrigger, setSelectedTrigger] = useState(false)
+  const [selectedTrackStep, setSelectedTrackStep] = useState<{
+    branchId: string
+    trackId: string
+    stepId: string
+  } | null>(null)
   const [showJsonExport, setShowJsonExport] = useState(false)
   const [showWorkflowDescription, setShowWorkflowDescription] = useState(false)
 
-  const selectedStep = workflow.steps.find((s) => s.id === selectedStepId)
+  // Get selected step - either from main steps or from within a branch track
+  const selectedStep = useMemo(() => {
+    // First check if it's a main-level step
+    const mainStep = workflow.steps.find((s) => s.id === selectedStepId)
+    if (mainStep) return mainStep
+
+    // If not, check if it's a step within a branch track
+    if (selectedTrackStep) {
+      const branch = workflow.steps.find(
+        (s) => s.id === selectedTrackStep.branchId && isBranchStep(s)
+      )
+      if (branch && isBranchStep(branch)) {
+        const track = branch.tracks.find((t) => t.id === selectedTrackStep.trackId)
+        if (track) {
+          return track.steps.find((s) => s.id === selectedTrackStep.stepId)
+        }
+      }
+    }
+
+    return undefined
+  }, [workflow.steps, selectedStepId, selectedTrackStep])
 
   // Compute all variables (auto-detected + custom)
   const allVariables = useMemo(() => getAllVariables(workflow), [workflow])
@@ -81,10 +107,38 @@ export function WorkflowBuilderV2({
   }
 
   const handleStepUpdate = (updatedStep: WorkflowStepV2) => {
-    const newSteps = workflow.steps.map((s) =>
-      s.id === updatedStep.id ? updatedStep : s
-    )
-    handleStepsChange(newSteps)
+    // Check if updating a main-level step
+    if (workflow.steps.find((s) => s.id === updatedStep.id)) {
+      const newSteps = workflow.steps.map((s) =>
+        s.id === updatedStep.id ? updatedStep : s
+      )
+      handleStepsChange(newSteps)
+      return
+    }
+
+    // Check if updating a step within a branch track
+    if (selectedTrackStep) {
+      const newSteps = workflow.steps.map((step) => {
+        if (step.id === selectedTrackStep.branchId && isBranchStep(step)) {
+          return {
+            ...step,
+            tracks: step.tracks.map((track) => {
+              if (track.id === selectedTrackStep.trackId) {
+                return {
+                  ...track,
+                  steps: track.steps.map((s) =>
+                    s.id === updatedStep.id ? updatedStep : s
+                  ),
+                }
+              }
+              return track
+            }) as [typeof step.tracks[0], typeof step.tracks[1]],
+          }
+        }
+        return step
+      })
+      handleStepsChange(newSteps)
+    }
   }
 
   const handleStepDelete = (stepId: string) => {
@@ -101,16 +155,22 @@ export function WorkflowBuilderV2({
     if (stepIndex === -1) return
 
     const originalStep = workflow.steps[stepIndex]
-    const duplicatedStep: WorkflowStepV2 = {
-      ...originalStep,
-      id: `step-${Date.now()}`,
-      name: `${originalStep.name} (Copy)`,
-      // Deep copy actions to avoid reference issues
-      actions: originalStep.actions.map((action) => ({
-        ...action,
-        id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      })),
-    }
+    const duplicatedStep: WorkflowStepV2 = isBranchStep(originalStep)
+      ? {
+          ...originalStep,
+          id: `step-${Date.now()}`,
+          name: `${originalStep.name} (Copy)`,
+        }
+      : {
+          ...originalStep,
+          id: `step-${Date.now()}`,
+          name: `${originalStep.name} (Copy)`,
+          // Deep copy actions to avoid reference issues
+          actions: originalStep.actions.map((action) => ({
+            ...action,
+            id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          })),
+        }
 
     // Insert the duplicated step right after the original
     const newSteps = [
@@ -137,6 +197,80 @@ export function WorkflowBuilderV2({
 
   const handleStepSelect = (stepId: string) => {
     setSelectedStepId(stepId)
+    setSelectedTrigger(false)
+    setSelectedTrackStep(null)
+  }
+
+  const handleTrackStepAdd = (
+    branchId: string,
+    trackId: string,
+    newStep: StandardStepV2
+  ) => {
+    const newSteps = workflow.steps.map((step) => {
+      if (step.id === branchId && isBranchStep(step)) {
+        return {
+          ...step,
+          tracks: step.tracks.map((track) => {
+            if (track.id === trackId) {
+              return {
+                ...track,
+                steps: [...track.steps, newStep],
+              }
+            }
+            return track
+          }) as [typeof step.tracks[0], typeof step.tracks[1]],
+        }
+      }
+      return step
+    })
+    handleStepsChange(newSteps)
+    // Select the newly added track step
+    setSelectedTrackStep({ branchId, trackId, stepId: newStep.id })
+    setSelectedStepId(null)
+    setSelectedTrigger(false)
+  }
+
+  const handleTrackStepDelete = (
+    branchId: string,
+    trackId: string,
+    stepId: string
+  ) => {
+    const newSteps = workflow.steps.map((step) => {
+      if (step.id === branchId && isBranchStep(step)) {
+        return {
+          ...step,
+          tracks: step.tracks.map((track) => {
+            if (track.id === trackId) {
+              return {
+                ...track,
+                steps: track.steps.filter((s) => s.id !== stepId),
+              }
+            }
+            return track
+          }) as [typeof step.tracks[0], typeof step.tracks[1]],
+        }
+      }
+      return step
+    })
+    handleStepsChange(newSteps)
+    // Clear selection if the deleted step was selected
+    if (
+      selectedTrackStep?.branchId === branchId &&
+      selectedTrackStep?.trackId === trackId &&
+      selectedTrackStep?.stepId === stepId
+    ) {
+      setSelectedTrackStep(null)
+      setSelectedStepId(branchId) // Select the branch itself
+    }
+  }
+
+  const handleTrackStepSelect = (
+    branchId: string,
+    trackId: string,
+    stepId: string
+  ) => {
+    setSelectedTrackStep({ branchId, trackId, stepId })
+    setSelectedStepId(null)
     setSelectedTrigger(false)
   }
 
@@ -218,6 +352,10 @@ export function WorkflowBuilderV2({
             onStepDelete={handleStepDelete}
             onStepDuplicate={handleStepDuplicate}
             onStepUpdate={handleStepUpdate}
+            onTrackStepAdd={handleTrackStepAdd}
+            onTrackStepDelete={handleTrackStepDelete}
+            onTrackStepSelect={handleTrackStepSelect}
+            selectedTrackStep={selectedTrackStep}
           />
         </div>
 
@@ -233,6 +371,7 @@ export function WorkflowBuilderV2({
               step={selectedStep}
               allSteps={workflow.steps}
               variables={allVariables}
+              statuses={workflow.statuses}
               onStepUpdate={handleStepUpdate}
             />
           )}

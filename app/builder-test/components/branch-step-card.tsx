@@ -1,0 +1,283 @@
+"use client"
+
+import { useState } from "react"
+import type { BranchStepV2, StandardStepV2 } from "../types/workflow-v2"
+import { StepCardV2 } from "./step-card-v2"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  GitBranch,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  Copy,
+  Plus,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+
+interface BranchStepCardProps {
+  step: BranchStepV2
+  stepNumber: number
+  isSelected: boolean
+  isExpanded: boolean
+  onToggleExpanded: () => void
+  onSelect: () => void
+  onDelete: () => void
+  onDuplicate: () => void
+  onTrackStepAdd: (trackId: string, step: StandardStepV2) => void
+  onTrackStepDelete: (trackId: string, stepId: string) => void
+  onTrackStepSelect: (trackId: string, stepId: string) => void
+  selectedTrackStep?: { trackId: string; stepId: string } | null
+}
+
+export function BranchStepCard({
+  step,
+  stepNumber,
+  isSelected,
+  isExpanded,
+  onToggleExpanded,
+  onSelect,
+  onDelete,
+  onDuplicate,
+  onTrackStepAdd,
+  onTrackStepDelete,
+  onTrackStepSelect,
+  selectedTrackStep,
+}: BranchStepCardProps) {
+  const [trackA, trackB] = step.tracks
+
+  // Get condition summary text
+  const getConditionSummary = () => {
+    const varLabel = step.condition.variableRef || "variable"
+    const opLabel =
+      step.condition.operator === "equals" ? "=" :
+      step.condition.operator === "not_equals" ? "≠" :
+      step.condition.operator === "contains" ? "contains" :
+      step.condition.operator === "not_contains" ? "doesn't contain" :
+      step.condition.operator === "in" ? "is one of" :
+      step.condition.operator === "not_in" ? "is not one of" :
+      "="
+
+    const value = Array.isArray(step.condition.compareValue)
+      ? step.condition.compareValue.join(", ")
+      : step.condition.compareValue || "value"
+
+    return `${varLabel} ${opLabel} ${value}`
+  }
+
+  const handleTrackStepAdd = (trackId: string) => {
+    const newStep: StandardStepV2 = {
+      id: `step-${Date.now()}`,
+      name: "New Step",
+      actions: [],
+      advancementCondition: { type: "automatic" },
+    }
+    onTrackStepAdd(trackId, newStep)
+  }
+
+  return (
+    <div
+      className={cn(
+        "relative rounded-lg border-2 bg-card shadow-sm transition-all",
+        "border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/10",
+        isSelected && "ring-2 ring-primary"
+      )}
+    >
+      {/* Step Number */}
+      <div className="absolute left-2 top-2 text-xs font-medium text-muted-foreground/40">
+        {stepNumber}
+      </div>
+
+      {/* Header - Always Visible */}
+      <div
+        className="ml-6 flex cursor-pointer items-center justify-between p-3"
+        onClick={onSelect}
+      >
+        <div className="flex flex-1 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-purple-500 text-white">
+              <GitBranch className="mr-1 size-3" />
+              BRANCH
+            </Badge>
+            <span className="font-medium">{step.name}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 gap-1 px-1 hover:bg-purple-100 dark:hover:bg-purple-900"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleExpanded()
+              }}
+            >
+              {isExpanded ? (
+                <ChevronDown className="size-3" />
+              ) : (
+                <ChevronRight className="size-3" />
+              )}
+            </Button>
+            <span>When {getConditionSummary()}</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-7 p-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDuplicate()
+            }}
+            title="Duplicate branch"
+          >
+            <Copy className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-7 p-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (confirm(`Delete branch "${step.name}"?`)) {
+                onDelete()
+              }
+            }}
+            title="Delete branch"
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Collapsed Summary */}
+      {!isExpanded && (
+        <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium">{trackA.label}</span> ({trackA.steps.length}{" "}
+          {trackA.steps.length === 1 ? "step" : "steps"}) |{" "}
+          <span className="font-medium">{trackB.label}</span> ({trackB.steps.length}{" "}
+          {trackB.steps.length === 1 ? "step" : "steps"})
+        </div>
+      )}
+
+      {/* Expanded Tracks - Side by Side */}
+      {isExpanded && (
+        <div className="border-t">
+          <div className="grid grid-cols-2 gap-4 p-4">
+            {/* Track A */}
+            <div className="space-y-2">
+              <div className="mb-3 flex items-center gap-2 border-l-2 border-blue-500 pl-3">
+                <span className="font-medium text-blue-600 dark:text-blue-400">
+                  Track A: {trackA.label}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  ({trackA.steps.length})
+                </span>
+              </div>
+              <div className="space-y-2 pl-3">
+                {trackA.steps.length === 0 ? (
+                  <div className="rounded border-2 border-dashed border-muted-foreground/20 p-4 text-center text-xs text-muted-foreground">
+                    No steps yet
+                  </div>
+                ) : (
+                  trackA.steps.map((trackStep, idx) => (
+                    <StepCardV2
+                      key={trackStep.id}
+                      step={trackStep}
+                      stepNumber={idx + 1}
+                      isSelected={
+                        selectedTrackStep?.trackId === trackA.id &&
+                        selectedTrackStep?.stepId === trackStep.id
+                      }
+                      onSelect={() => onTrackStepSelect(trackA.id, trackStep.id)}
+                      onDelete={() => onTrackStepDelete(trackA.id, trackStep.id)}
+                      onDuplicate={() => {
+                        // Duplicate by creating a copy
+                        const duplicatedStep: StandardStepV2 = {
+                          ...trackStep,
+                          id: `step-${Date.now()}`,
+                          name: `${trackStep.name} (Copy)`,
+                          actions: trackStep.actions.map((action) => ({
+                            ...action,
+                            id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                          })),
+                        }
+                        onTrackStepAdd(trackA.id, duplicatedStep)
+                      }}
+                    />
+                  ))
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => handleTrackStepAdd(trackA.id)}
+                >
+                  <Plus className="mr-1 size-3" />
+                  Add Step to {trackA.label}
+                </Button>
+              </div>
+            </div>
+
+            {/* Track B */}
+            <div className="space-y-2">
+              <div className="mb-3 flex items-center gap-2 border-l-2 border-orange-500 pl-3">
+                <span className="font-medium text-orange-600 dark:text-orange-400">
+                  Track B: {trackB.label}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  ({trackB.steps.length})
+                </span>
+              </div>
+              <div className="space-y-2 pl-3">
+                {trackB.steps.length === 0 ? (
+                  <div className="rounded border-2 border-dashed border-muted-foreground/20 p-4 text-center text-xs text-muted-foreground">
+                    No steps yet
+                  </div>
+                ) : (
+                  trackB.steps.map((trackStep, idx) => (
+                    <StepCardV2
+                      key={trackStep.id}
+                      step={trackStep}
+                      stepNumber={idx + 1}
+                      isSelected={
+                        selectedTrackStep?.trackId === trackB.id &&
+                        selectedTrackStep?.stepId === trackStep.id
+                      }
+                      onSelect={() => onTrackStepSelect(trackB.id, trackStep.id)}
+                      onDelete={() => onTrackStepDelete(trackB.id, trackStep.id)}
+                      onDuplicate={() => {
+                        // Duplicate by creating a copy
+                        const duplicatedStep: StandardStepV2 = {
+                          ...trackStep,
+                          id: `step-${Date.now()}`,
+                          name: `${trackStep.name} (Copy)`,
+                          actions: trackStep.actions.map((action) => ({
+                            ...action,
+                            id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                          })),
+                        }
+                        onTrackStepAdd(trackB.id, duplicatedStep)
+                      }}
+                    />
+                  ))
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => handleTrackStepAdd(trackB.id)}
+                >
+                  <Plus className="mr-1 size-3" />
+                  Add Step to {trackB.label}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

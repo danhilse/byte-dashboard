@@ -27,6 +27,11 @@ import { workflowStatusConfig } from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
 import type { Workflow, WorkflowStatus } from "@/types"
 
+interface DefinitionOption {
+  id: string
+  name: string
+}
+
 const WorkflowsKanbanBoard = dynamic(
   () => import("@/components/kanban/workflows-kanban-board").then((m) => m.WorkflowsKanbanBoard),
   {
@@ -50,9 +55,11 @@ export function WorkflowsContent() {
 
   const view = (searchParams.get("view") as ViewType) || "kanban"
   const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [definitionFilter, setDefinitionFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -61,6 +68,11 @@ export function WorkflowsContent() {
 
   const filteredWorkflows = useMemo(() => {
     let result = workflows
+
+    // Apply definition filter
+    if (definitionFilter !== "all") {
+      result = result.filter((w) => w.workflowDefinitionId === definitionFilter)
+    }
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -77,7 +89,7 @@ export function WorkflowsContent() {
     }
 
     return result
-  }, [workflows, searchQuery, statusFilter])
+  }, [workflows, definitionFilter, searchQuery, statusFilter])
 
   const updateView = useCallback(
     (newView: string) => {
@@ -89,18 +101,27 @@ export function WorkflowsContent() {
   )
 
   useEffect(() => {
-    async function fetchWorkflows() {
+    async function fetchData() {
       setIsLoading(true)
       setLoadError(null)
 
       try {
-        const response = await fetch("/api/workflows")
-        if (!response.ok) {
+        const [workflowsRes, definitionsRes] = await Promise.all([
+          fetch("/api/workflows"),
+          fetch("/api/workflow-definitions"),
+        ])
+
+        if (!workflowsRes.ok) {
           throw new Error("Failed to load workflows")
         }
 
-        const data = await response.json()
-        setWorkflows(data.workflows ?? [])
+        const workflowsData = await workflowsRes.json()
+        setWorkflows(workflowsData.workflows ?? [])
+
+        if (definitionsRes.ok) {
+          const defsData = await definitionsRes.json()
+          setDefinitions(defsData.definitions ?? [])
+        }
       } catch (error) {
         console.error("Error fetching workflows:", error)
         setLoadError("Unable to load workflow executions.")
@@ -109,7 +130,7 @@ export function WorkflowsContent() {
       }
     }
 
-    fetchWorkflows()
+    fetchData()
   }, [])
 
   const handleCreateWorkflow = async (data: {
@@ -297,22 +318,41 @@ export function WorkflowsContent() {
     }
   }
 
+  const selectedDefinitionName = definitionFilter !== "all"
+    ? definitions.find((d) => d.id === definitionFilter)?.name
+    : null
+
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Workflows</h1>
           <p className="text-sm text-muted-foreground">
-            Track and manage your workflow instances.
+            {selectedDefinitionName
+              ? `Viewing ${selectedDefinitionName} instances.`
+              : "Track and manage your workflow instances."}
           </p>
         </div>
         <WorkflowCreateDialog onCreateWorkflow={handleCreateWorkflow} />
       </div>
 
-      {/* Search, filters, and view toggle */}
+      {/* Definition selector, search, filters, and view toggle */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
+          <Select value={definitionFilter} onValueChange={setDefinitionFilter}>
+            <SelectTrigger className="h-9 w-[220px]">
+              <SelectValue placeholder="All Workflow Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Workflow Types</SelectItem>
+              {definitions.map((def) => (
+                <SelectItem key={def.id} value={def.id}>
+                  {def.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             placeholder="Search workflows..."
             value={searchQuery}
@@ -361,10 +401,10 @@ export function WorkflowsContent() {
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         {isLoading && (
-          <div className="grid h-[calc(100vh-14rem)] auto-cols-fr grid-flow-col gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid h-[calc(100vh-14rem)] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-4 overflow-x-auto">
+            {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-full rounded-lg" />
             ))}
           </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import type { WorkflowAction, ActionType, WorkflowVariable } from "../../types/workflow-v2"
+import type { WorkflowAction, ActionType, WorkflowVariable, WorkflowStatus } from "../../types/workflow-v2"
 import { ActionCard } from "./action-card"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,10 +22,11 @@ import {
 interface ActionListProps {
   actions: WorkflowAction[]
   variables: WorkflowVariable[]
+  statuses: WorkflowStatus[]
   onChange: (actions: WorkflowAction[]) => void
 }
 
-export function ActionList({ actions, variables, onChange }: ActionListProps) {
+export function ActionList({ actions, variables, statuses, onChange }: ActionListProps) {
   const [expandedActionId, setExpandedActionId] = useState<string | null>(
     actions[0]?.id || null
   )
@@ -70,6 +71,7 @@ export function ActionList({ actions, variables, onChange }: ActionListProps) {
               key={action.id}
               action={action}
               variables={variables}
+              statuses={statuses}
               isExpanded={expandedActionId === action.id}
               onToggle={() =>
                 setExpandedActionId(expandedActionId === action.id ? null : action.id)
