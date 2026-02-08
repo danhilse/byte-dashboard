@@ -6,6 +6,7 @@ import { tasks, workflows } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import type { TaskCompletedSignal } from "@/lib/workflows/applicant-review-workflow";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * PATCH /api/tasks/[id]/status
@@ -157,6 +158,15 @@ export async function PATCH(
         // Task status is already updated
       }
 
+      await logActivity({
+        orgId,
+        userId,
+        entityType: "task",
+        entityId: taskId,
+        action: "status_changed",
+        details: { from: task.status, to: status },
+      });
+
       return NextResponse.json({
         taskId,
         status,
@@ -176,6 +186,15 @@ export async function PATCH(
       })
       .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)))
       .returning();
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "task",
+      entityId: taskId,
+      action: "status_changed",
+      details: { from: task.status, to: status },
+    });
 
     return NextResponse.json({
       taskId,

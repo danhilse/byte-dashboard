@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { contacts, workflows, workflowDefinitions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * GET /api/workflows
@@ -153,6 +154,15 @@ export async function POST(req: Request) {
 
     const contactName =
       `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim();
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "workflow",
+      entityId: workflow.id,
+      action: "created",
+      details: { contactName, definitionName },
+    });
 
     return NextResponse.json({
       workflow: {

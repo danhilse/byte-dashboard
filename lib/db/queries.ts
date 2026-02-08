@@ -1,15 +1,216 @@
 /**
- * Reusable database queries
+ * Dashboard Query Functions
  *
- * This file will contain common query patterns and helpers
- * for database operations across the application.
- *
- * Examples:
- * - getContactById
- * - getWorkflowsByOrg
- * - getTasksByAssignedUser
- * - etc.
+ * Server-side queries for dashboard stats, charts, and widgets.
+ * All queries are scoped by orgId for multi-tenancy.
  */
 
-// Query functions will be added as needed during development
-export {};
+import { db } from "@/lib/db";
+import {
+  contacts,
+  workflows,
+  tasks,
+  activityLog,
+  users,
+  workflowDefinitions,
+} from "@/lib/db/schema";
+import { and, count, desc, eq, gte, sql } from "drizzle-orm";
+
+/**
+ * Dashboard stats: total contacts, active workflows, pending tasks,
+ * completed tasks this week.
+ */
+export async function getDashboardStats(orgId: string) {
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    [contactCount],
+    [activeWorkflowCount],
+    [pendingTaskCount],
+    [completedThisWeek],
+  ] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(contacts)
+      .where(eq(contacts.orgId, orgId)),
+    db
+      .select({ count: count() })
+      .from(workflows)
+      .where(
+        and(
+          eq(workflows.orgId, orgId),
+          sql`${workflows.status} NOT IN ('completed', 'failed', 'timeout')`
+        )
+      ),
+    db
+      .select({ count: count() })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.orgId, orgId),
+          sql`${tasks.status} IN ('todo', 'in_progress')`
+        )
+      ),
+    db
+      .select({ count: count() })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.orgId, orgId),
+          eq(tasks.status, "done"),
+          gte(tasks.completedAt, weekAgo)
+        )
+      ),
+  ]);
+
+  return {
+    totalContacts: contactCount.count,
+    activeWorkflows: activeWorkflowCount.count,
+    pendingTasks: pendingTaskCount.count,
+    completedTasksThisWeek: completedThisWeek.count,
+  };
+}
+
+/**
+ * Workflow counts grouped by status for pie/bar chart.
+ */
+export async function getWorkflowCountsByStatus(orgId: string) {
+  const rows = await db
+    .select({
+      status: workflows.status,
+      count: count(),
+    })
+    .from(workflows)
+    .where(eq(workflows.orgId, orgId))
+    .groupBy(workflows.status);
+
+  return rows;
+}
+
+/**
+ * Workflow creation counts per day for line/area chart.
+ */
+export async function getWorkflowsOverTime(orgId: string, days: number = 30) {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  const rows = await db
+    .select({
+      date: sql<string>`DATE(${workflows.createdAt})`.as("date"),
+      count: count(),
+    })
+    .from(workflows)
+    .where(and(eq(workflows.orgId, orgId), gte(workflows.createdAt, startDate)))
+    .groupBy(sql`DATE(${workflows.createdAt})`)
+    .orderBy(sql`DATE(${workflows.createdAt})`);
+
+  return rows;
+}
+
+/**
+ * Recent workflows with contact and definition names.
+ */
+export async function getRecentWorkflows(orgId: string, limit: number = 5) {
+  const rows = await db
+    .select({
+      id: workflows.id,
+      status: workflows.status,
+      startedAt: workflows.startedAt,
+      contactFirstName: contacts.firstName,
+      contactLastName: contacts.lastName,
+      definitionName: workflowDefinitions.name,
+    })
+    .from(workflows)
+    .leftJoin(contacts, eq(workflows.contactId, contacts.id))
+    .leftJoin(
+      workflowDefinitions,
+      eq(workflows.workflowDefinitionId, workflowDefinitions.id)
+    )
+    .where(eq(workflows.orgId, orgId))
+    .orderBy(desc(workflows.startedAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    startedAt: row.startedAt.toISOString(),
+    contactName: [row.contactFirstName, row.contactLastName]
+      .filter(Boolean)
+      .join(" ") || "Unknown",
+    definitionName: row.definitionName ?? undefined,
+  }));
+}
+
+/**
+ * Tasks assigned to user, sorted by priority and due date.
+ */
+export async function getMyTasks(
+  orgId: string,
+  userId: string,
+  limit: number = 5
+) {
+  const priorityOrder = sql`CASE ${tasks.priority}
+    WHEN 'urgent' THEN 0
+    WHEN 'high' THEN 1
+    WHEN 'medium' THEN 2
+    WHEN 'low' THEN 3
+    ELSE 4
+  END`;
+
+  const rows = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.orgId, orgId),
+        eq(tasks.assignedTo, userId),
+        sql`${tasks.status} != 'done'`
+      )
+    )
+    .orderBy(priorityOrder, tasks.dueDate)
+    .limit(limit);
+
+  return rows.map((task) => ({
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    dueDate: task.dueDate,
+    taskType: task.taskType,
+  }));
+}
+
+/**
+ * Recent activity log entries joined with users for display names.
+ */
+export async function getRecentActivity(orgId: string, limit: number = 10) {
+  const rows = await db
+    .select({
+      id: activityLog.id,
+      entityType: activityLog.entityType,
+      entityId: activityLog.entityId,
+      action: activityLog.action,
+      details: activityLog.details,
+      createdAt: activityLog.createdAt,
+      userId: activityLog.userId,
+      userFirstName: users.firstName,
+      userLastName: users.lastName,
+    })
+    .from(activityLog)
+    .leftJoin(users, eq(activityLog.userId, users.id))
+    .where(eq(activityLog.orgId, orgId))
+    .orderBy(desc(activityLog.createdAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    id: row.id,
+    entityType: row.entityType as "workflow" | "contact" | "task",
+    entityId: row.entityId,
+    action: row.action,
+    details: row.details as Record<string, unknown>,
+    createdAt: row.createdAt.toISOString(),
+    userId: row.userId,
+    userName: [row.userFirstName, row.userLastName].filter(Boolean).join(" ") || "System",
+  }));
+}

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflows, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * GET /api/workflows/[id]
@@ -136,6 +137,15 @@ export async function PATCH(
       .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)))
       .returning();
 
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "workflow",
+      entityId: id,
+      action: status !== undefined ? "status_changed" : "updated",
+      details: status !== undefined ? { status } : {},
+    });
+
     return NextResponse.json({ workflow });
   } catch (error) {
     console.error("Error updating workflow:", error);
@@ -199,6 +209,14 @@ export async function DELETE(
     await db
       .delete(workflows)
       .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "workflow",
+      entityId: id,
+      action: "deleted",
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -8,6 +8,7 @@ import {
   canClaimTask,
   canMutateTask,
 } from "@/lib/tasks/access";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * GET /api/tasks/:id
@@ -169,6 +170,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "task",
+      entityId: id,
+      action: "updated",
+    });
+
     return NextResponse.json({ task });
   } catch (error) {
     console.error("Error updating task:", error);
@@ -227,6 +236,15 @@ export async function DELETE(
     if (!deletedTask) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "task",
+      entityId: id,
+      action: "deleted",
+      details: { title: deletedTask.title },
+    });
 
     return NextResponse.json({ success: true, task: deletedTask });
   } catch (error) {

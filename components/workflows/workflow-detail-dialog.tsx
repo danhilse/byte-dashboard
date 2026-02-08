@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { WorkflowStatusBadge } from "@/components/common/status-badge"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
+import { NotesSection } from "@/components/detail/notes-section"
+import { ActivityFeed } from "@/components/detail/activity-feed"
 import { AssetList, AssetUploader, AssetPreviewModal } from "@/components/assets"
 import { workflowStatusConfig } from "@/lib/status-config"
 import { getAssetsByWorkflow } from "@/lib/data/assets"
@@ -82,35 +84,40 @@ export function WorkflowDetailDialog({
   })
 
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null)
-  const [definitionPhases, setDefinitionPhases] = useState<WorkflowPhase[]>([])
-  const [definitionSteps, setDefinitionSteps] = useState<WorkflowStep[]>([])
+  const [definitionData, setDefinitionData] = useState<{
+    definitionId: string
+    phases: WorkflowPhase[]
+    steps: WorkflowStep[]
+  } | null>(null)
+  const workflowDefinitionId = workflow?.workflowDefinitionId
 
   // Fetch workflow definition for phase stepper when dialog opens
   useEffect(() => {
-    if (!open || !workflow?.workflowDefinitionId) {
-      setDefinitionPhases([])
-      setDefinitionSteps([])
-      return
-    }
+    if (!open || !workflowDefinitionId) return
 
     let cancelled = false
     async function fetchDefinition() {
       try {
-        const res = await fetch(`/api/workflow-definitions/${workflow!.workflowDefinitionId}`)
+        const res = await fetch(`/api/workflow-definitions/${workflowDefinitionId}`)
         if (!res.ok || cancelled) return
         const data = await res.json()
         const def = data.definition as WorkflowDefinition | undefined
         if (!def || cancelled) return
-        setDefinitionPhases((def.phases as WorkflowPhase[]) ?? [])
         const stepsData = def.steps as { steps: WorkflowStep[] } | null
-        setDefinitionSteps(stepsData?.steps ?? [])
+        setDefinitionData({
+          definitionId: workflowDefinitionId!,
+          phases: (def.phases as WorkflowPhase[]) ?? [],
+          steps: stepsData?.steps ?? [],
+        })
       } catch {
-        // Silently fail — stepper just won't show
+        if (!cancelled) {
+          setDefinitionData(null)
+        }
       }
     }
     fetchDefinition()
     return () => { cancelled = true }
-  }, [open, workflow?.workflowDefinitionId])
+  }, [open, workflowDefinitionId])
 
   const handleAssetUpload = async (files: File[]) => {
     console.log("Assets uploaded:", files)
@@ -133,6 +140,14 @@ export function WorkflowDetailDialog({
     ? `${displayWorkflow.definitionName} - ${displayWorkflow.contactName ?? "Unknown"}`
     : displayWorkflow.contactName ?? "Workflow"
   const isTemporalManaged = Boolean(displayWorkflow.temporalWorkflowId)
+  const activeDefinitionData =
+    definitionData &&
+    workflow.workflowDefinitionId &&
+    definitionData.definitionId === workflow.workflowDefinitionId
+      ? definitionData
+      : null
+  const definitionPhases = activeDefinitionData?.phases ?? []
+  const definitionSteps = activeDefinitionData?.steps ?? []
 
   return (
     <>
@@ -165,8 +180,10 @@ export function WorkflowDetailDialog({
           </DialogHeader>
 
           <Tabs defaultValue="details" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="assets">Assets ({workflowAssets.length})</TabsTrigger>
             </TabsList>
 
@@ -258,6 +275,7 @@ export function WorkflowDetailDialog({
                     phases={definitionPhases}
                     steps={definitionSteps}
                     currentStepId={displayWorkflow.currentStepId}
+                    currentPhaseId={displayWorkflow.currentPhaseId}
                     workflowStatus={displayWorkflow.status as WorkflowStatus}
                   />
                 </div>
@@ -288,6 +306,14 @@ export function WorkflowDetailDialog({
                 )}
                 <div>Updated {format(new Date(displayWorkflow.updatedAt), "MMM d, yyyy")}</div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="notes" className="flex-1 overflow-auto py-4">
+              <NotesSection entityType="workflow" entityId={workflow.id} />
+            </TabsContent>
+
+            <TabsContent value="activity" className="flex-1 overflow-auto py-4">
+              <ActivityFeed entityType="workflow" entityId={workflow.id} />
             </TabsContent>
 
             <TabsContent value="assets" className="flex-1 overflow-auto space-y-4 py-4">

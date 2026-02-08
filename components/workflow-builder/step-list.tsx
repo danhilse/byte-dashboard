@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import {
   DndContext,
   closestCenter,
@@ -83,18 +83,15 @@ function buildInterleavedIds(
 function parseInterleavedOrder(
   interleavedIds: string[],
   stepsMap: Map<string, WorkflowStep>,
-  phasesMap: Map<string, WorkflowPhase>
-): { steps: WorkflowStep[]; phases: WorkflowPhase[] } {
+  validPhaseIds: Set<string>
+): WorkflowStep[] {
   const newSteps: WorkflowStep[] = []
-  const newPhases: WorkflowPhase[] = []
   let currentPhaseId: string | undefined = undefined
 
   for (const id of interleavedIds) {
     if (id.startsWith(PHASE_PREFIX)) {
       const phaseId = id.slice(PHASE_PREFIX.length)
-      const phase = phasesMap.get(phaseId)
-      if (phase) {
-        newPhases.push(phase)
+      if (validPhaseIds.has(phaseId)) {
         currentPhaseId = phaseId
       }
     } else {
@@ -105,7 +102,7 @@ function parseInterleavedOrder(
     }
   }
 
-  return { steps: newSteps, phases: newPhases }
+  return newSteps
 }
 
 export function StepList({
@@ -129,32 +126,70 @@ export function StepList({
     })
   )
 
-  const interleavedIds = buildInterleavedIds(steps, phases)
-
-  // Build lookup maps
-  const stepsMap = new Map(steps.map((s) => [s.id, s]))
-  const phasesMap = new Map(phases.map((p) => [p.id, p]))
+  const interleavedIds = useMemo(
+    () => buildInterleavedIds(steps, phases),
+    [steps, phases]
+  )
+  const phaseIdSet = useMemo(() => new Set(phases.map((p) => p.id)), [phases])
+  const stepsMap = useMemo(() => new Map(steps.map((s) => [s.id, s])), [steps])
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event
       if (!over || active.id === over.id) return
 
-      const oldIndex = interleavedIds.indexOf(String(active.id))
-      const newIndex = interleavedIds.indexOf(String(over.id))
+      const activeId = String(active.id)
+      const overId = String(over.id)
+
+      // Reordering a phase header should only reorder phase order, not remap step phase assignments.
+      if (activeId.startsWith(PHASE_PREFIX)) {
+        const activePhaseId = activeId.slice(PHASE_PREFIX.length)
+        const activePhaseIndex = phases.findIndex((p) => p.id === activePhaseId)
+        if (activePhaseIndex === -1) return
+
+        let targetPhaseIndex = 0
+        if (overId.startsWith(PHASE_PREFIX)) {
+          const overPhaseId = overId.slice(PHASE_PREFIX.length)
+          const found = phases.findIndex((p) => p.id === overPhaseId)
+          if (found === -1) return
+          targetPhaseIndex = found
+        } else {
+          const overStep = stepsMap.get(overId)
+          if (overStep?.phaseId && phaseIdSet.has(overStep.phaseId)) {
+            const found = phases.findIndex((p) => p.id === overStep.phaseId)
+            if (found === -1) return
+            targetPhaseIndex = found
+          } else {
+            targetPhaseIndex = 0
+          }
+        }
+
+        if (activePhaseIndex === targetPhaseIndex) return
+        onPhasesChange(arrayMove(phases, activePhaseIndex, targetPhaseIndex))
+        return
+      }
+
+      const oldIndex = interleavedIds.indexOf(activeId)
+      const newIndex = interleavedIds.indexOf(overId)
       if (oldIndex === -1 || newIndex === -1) return
 
       const reordered = arrayMove(interleavedIds, oldIndex, newIndex)
-      const { steps: newSteps, phases: newPhases } = parseInterleavedOrder(
+      const newSteps = parseInterleavedOrder(
         reordered,
         stepsMap,
-        phasesMap
+        phaseIdSet
       )
 
       onStepsChange(newSteps)
-      onPhasesChange(newPhases)
     },
-    [interleavedIds, stepsMap, phasesMap, onStepsChange, onPhasesChange]
+    [
+      interleavedIds,
+      phaseIdSet,
+      phases,
+      stepsMap,
+      onPhasesChange,
+      onStepsChange,
+    ]
   )
 
   const handleAddStep = (type: StepType) => {
@@ -207,11 +242,9 @@ export function StepList({
 
   // Group steps by phase for counting
   const phaseStepCounts = new Map<string, number>()
-  const phaseIdSet = new Set(phases.map((p) => p.id))
-  let unassignedCount = 0
   for (const step of steps) {
     if (!step.phaseId || !phaseIdSet.has(step.phaseId)) {
-      unassignedCount++
+      continue
     } else {
       phaseStepCounts.set(
         step.phaseId,

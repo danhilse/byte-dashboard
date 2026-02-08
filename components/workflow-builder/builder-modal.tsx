@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -27,21 +27,14 @@ export function BuilderModal({
   onOpenChange,
   onSave,
 }: BuilderModalProps) {
-  const [steps, setSteps] = useState<WorkflowStep[]>([])
-  const [phases, setPhases] = useState<WorkflowPhase[]>([])
+  const initialSteps =
+    (definition?.steps as { steps: WorkflowStep[] } | null)?.steps ?? []
+  const initialPhases = (definition?.phases as WorkflowPhase[]) ?? []
+
+  const [steps, setSteps] = useState<WorkflowStep[]>(initialSteps)
+  const [phases, setPhases] = useState<WorkflowPhase[]>(initialPhases)
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
-
-  // Sync steps and phases from definition when it changes
-  useEffect(() => {
-    if (definition) {
-      const stepsData = definition.steps as { steps: WorkflowStep[] } | null
-      setSteps(stepsData?.steps ?? [])
-      setPhases((definition.phases as WorkflowPhase[]) ?? [])
-      setSelectedStepId(null)
-      setIsDirty(false)
-    }
-  }, [definition])
 
   const selectedStep = steps.find((s) => s.id === selectedStepId) ?? null
 

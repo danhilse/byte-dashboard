@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import { buildTaskAccessContext, canClaimTask } from "@/lib/tasks/access";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * PATCH /api/tasks/[id]/claim
@@ -96,6 +97,15 @@ export async function PATCH(
         { status: 409 }
       );
     }
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "task",
+      entityId: id,
+      action: "updated",
+      details: { action: "claimed" },
+    });
 
     return NextResponse.json({ task: claimed });
   } catch (error) {

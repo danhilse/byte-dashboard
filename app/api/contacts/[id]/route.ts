@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { contacts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * GET /api/contacts/:id
@@ -112,6 +113,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "contact",
+      entityId: id,
+      action: "updated",
+    });
+
     return NextResponse.json({ contact });
   } catch (error) {
     console.error("Error updating contact:", error);
@@ -150,6 +159,15 @@ export async function DELETE(
     if (!deletedContact) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "contact",
+      entityId: id,
+      action: "deleted",
+      details: { firstName: deletedContact.firstName, lastName: deletedContact.lastName },
+    });
 
     return NextResponse.json({ success: true, contact: deletedContact });
   } catch (error) {

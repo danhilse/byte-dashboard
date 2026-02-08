@@ -6,21 +6,30 @@ interface PhaseProgressStepperProps {
   phases: WorkflowPhase[]
   steps: WorkflowStep[]
   currentStepId?: string | null
+  currentPhaseId?: string | null
   workflowStatus?: WorkflowStatus
 }
 
 type PhaseState = "completed" | "current" | "upcoming"
 
+const TERMINAL_COMPLETED_STATUSES = new Set<WorkflowStatus>([
+  "completed",
+  "approved",
+  "rejected",
+  "timeout",
+])
+
 function getPhaseStates(
   phases: WorkflowPhase[],
   steps: WorkflowStep[],
   currentStepId?: string | null,
+  explicitCurrentPhaseId?: string | null,
   workflowStatus?: WorkflowStatus
 ): PhaseState[] {
   if (!phases.length) return []
 
-  // If workflow is completed, all phases are completed
-  if (workflowStatus === "completed") {
+  // Terminal successful/ended statuses treat all phases as complete.
+  if (workflowStatus && TERMINAL_COMPLETED_STATUSES.has(workflowStatus)) {
     return phases.map(() => "completed")
   }
 
@@ -28,7 +37,7 @@ function getPhaseStates(
   const currentStep = currentStepId
     ? steps.find((s) => s.id === currentStepId)
     : null
-  const currentPhaseId = currentStep?.phaseId
+  const currentPhaseId = currentStep?.phaseId ?? explicitCurrentPhaseId
 
   if (!currentPhaseId) {
     // No current phase — all upcoming
@@ -51,11 +60,18 @@ export function PhaseProgressStepper({
   phases,
   steps,
   currentStepId,
+  currentPhaseId,
   workflowStatus,
 }: PhaseProgressStepperProps) {
   if (!phases.length) return null
 
-  const states = getPhaseStates(phases, steps, currentStepId, workflowStatus)
+  const states = getPhaseStates(
+    phases,
+    steps,
+    currentStepId,
+    currentPhaseId,
+    workflowStatus
+  )
   const isFailed = workflowStatus === "failed"
 
   return (

@@ -5,6 +5,8 @@ import { auth } from "@clerk/nextjs/server"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
+import { NotesSection } from "@/components/detail/notes-section"
+import { ActivityFeed } from "@/components/detail/activity-feed"
 import { InfoField } from "@/components/common/info-field"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -97,6 +99,8 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -197,6 +201,14 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="notes">
+            <NotesSection entityType="contact" entityId={id} />
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <ActivityFeed entityType="contact" entityId={id} />
           </TabsContent>
         </Tabs>
       </div>

@@ -176,6 +176,7 @@ export function WorkflowBuilderContent() {
       )}
 
       <BuilderModal
+        key={selectedDefinition ? `${selectedDefinition.id}:${selectedDefinition.version}` : "builder-modal-none"}
         definition={selectedDefinition}
         open={builderModalOpen}
         onOpenChange={setBuilderModalOpen}

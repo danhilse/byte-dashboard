@@ -239,7 +239,7 @@ export interface Note {
   entityId: string
   content: string
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
   userId: string
   userName: string
 }
@@ -277,4 +277,15 @@ export interface DashboardStats {
   activeWorkflows: number
   pendingTasks: number
   completedTasksThisWeek: number
+}
+
+export interface ActivityLogRow {
+  id: string
+  entityType: "workflow" | "contact" | "task"
+  entityId: string
+  action: string
+  details: Record<string, unknown>
+  createdAt: string
+  userId: string | null
+  userName: string
 }

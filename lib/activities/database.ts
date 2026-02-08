@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { tasks, workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { TaskType, TaskPriority, WorkflowStep } from "@/types";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * Configuration for creating a task
@@ -60,6 +61,16 @@ export async function createTask(
     .returning({ id: tasks.id });
 
   console.log(`Activity: Task created with ID ${task.id}`);
+
+  await logActivity({
+    orgId: config.orgId,
+    userId: null, // System-generated (Temporal)
+    entityType: "task",
+    entityId: task.id,
+    action: "created",
+    details: { title: config.title, source: "workflow" },
+  });
+
   return task.id;
 }
 
@@ -78,7 +89,7 @@ export async function setWorkflowStatus(
 ): Promise<void> {
   console.log(`Activity: Updating workflow ${workflowId} status to "${status}"`);
 
-  await db
+  const [updatedWorkflow] = await db
     .update(workflows)
     .set({
       status,
@@ -88,7 +99,19 @@ export async function setWorkflowStatus(
         ? { completedAt: new Date() }
         : {}),
     })
-    .where(eq(workflows.id, workflowId));
+    .where(eq(workflows.id, workflowId))
+    .returning({ orgId: workflows.orgId });
+
+  if (updatedWorkflow) {
+    await logActivity({
+      orgId: updatedWorkflow.orgId,
+      userId: null, // System-generated (Temporal)
+      entityType: "workflow",
+      entityId: workflowId,
+      action: "status_changed",
+      details: { status, source: "temporal" },
+    });
+  }
 
   console.log(`Activity: Workflow status updated to "${status}"`);
 }
@@ -227,10 +250,22 @@ export async function updateTask(
     );
   }
 
-  await db
+  const [updatedTask] = await db
     .update(tasks)
     .set(updateData)
-    .where(eq(tasks.id, taskId));
+    .where(eq(tasks.id, taskId))
+    .returning({ orgId: tasks.orgId });
+
+  if (updatedTask) {
+    await logActivity({
+      orgId: updatedTask.orgId,
+      userId: null, // System-generated (Temporal)
+      entityType: "task",
+      entityId: taskId,
+      action: "updated",
+      details: { source: "workflow", fields: Object.keys(fields) },
+    });
+  }
 
   console.log(`Activity: Task updated`);
 }

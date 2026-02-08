@@ -9,6 +9,7 @@ import {
   canMutateTask,
   normalizeRoleName,
 } from "@/lib/tasks/access";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * GET /api/tasks
@@ -195,6 +196,15 @@ export async function POST(req: Request) {
         metadata: metadata || {},
       })
       .returning();
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "task",
+      entityId: task.id,
+      action: "created",
+      details: { title },
+    });
 
     return NextResponse.json({ task });
   } catch (error) {

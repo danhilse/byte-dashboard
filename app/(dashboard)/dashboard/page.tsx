@@ -1,10 +1,16 @@
 import { Suspense } from "react"
 import { Users, FileText, CheckSquare, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { auth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
 import { PageHeader } from "@/components/layout/page-header"
 import { StatCard } from "@/components/dashboard/stat-card"
-import { RecentActivity } from "@/components/dashboard/recent-activity"
-import { dashboardStats, getRecentActivities } from "@/lib/data/activity"
+import { WorkflowStatusChart } from "@/components/dashboard/workflow-status-chart"
+import { WorkflowsOverTimeChart } from "@/components/dashboard/workflows-over-time-chart"
+import { RecentWorkflowsWidget } from "@/components/dashboard/recent-workflows-widget"
+import { MyTasksWidget } from "@/components/dashboard/my-tasks-widget"
+import { DashboardActivity } from "@/components/dashboard/dashboard-activity"
+import { getDashboardStats, getWorkflowCountsByStatus, getRecentWorkflows, getMyTasks, getRecentActivity } from "@/lib/db/queries"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -25,7 +31,7 @@ function StatCardSkeleton() {
   )
 }
 
-function ActivitySkeleton() {
+function WidgetSkeleton() {
   return (
     <Card>
       <CardHeader>
@@ -47,10 +53,11 @@ function ActivitySkeleton() {
   )
 }
 
-// Async component for stats - ready for real API integration
-async function DashboardStats() {
-  // When adding real APIs, this becomes: const stats = await fetchDashboardStats()
-  const stats = dashboardStats
+async function DashboardStatsRow() {
+  const { userId, orgId } = await auth()
+  if (!userId || !orgId) redirect("/sign-in")
+
+  const stats = await getDashboardStats(orgId)
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -58,9 +65,8 @@ async function DashboardStats() {
         <StatCard
           title="Total Contacts"
           value={stats.totalContacts}
-          description="from last month"
+          description="in your organization"
           icon={Users}
-          trend={{ value: 12, isPositive: true }}
         />
       </div>
       <div className="animate-slide-up stagger-2">
@@ -69,7 +75,6 @@ async function DashboardStats() {
           value={stats.activeWorkflows}
           description="in pipeline"
           icon={FileText}
-          trend={{ value: 8, isPositive: true }}
         />
       </div>
       <div className="animate-slide-up stagger-3">
@@ -86,19 +91,67 @@ async function DashboardStats() {
           value={stats.completedTasksThisWeek}
           description="tasks finished"
           icon={TrendingUp}
-          trend={{ value: 25, isPositive: true }}
         />
       </div>
     </div>
   )
 }
 
-// Async component for activity feed - ready for real API integration
-async function DashboardActivity() {
-  // When adding real APIs, this becomes: const activities = await fetchRecentActivities(6)
-  const activities = getRecentActivities(6)
+async function DashboardChartsRow() {
+  const { userId, orgId } = await auth()
+  if (!userId || !orgId) redirect("/sign-in")
 
-  return <RecentActivity activities={activities} />
+  const [workflowsByStatus, myTasks] = await Promise.all([
+    getWorkflowCountsByStatus(orgId),
+    getMyTasks(orgId, userId, 5),
+  ])
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="lg:col-span-4">
+        <WorkflowStatusChart data={workflowsByStatus} />
+      </div>
+      <div className="lg:col-span-3">
+        <MyTasksWidget tasks={myTasks} />
+      </div>
+    </div>
+  )
+}
+
+async function DashboardTimelineRow() {
+  const { userId, orgId } = await auth()
+  if (!userId || !orgId) redirect("/sign-in")
+
+  const recentWorkflows = await getRecentWorkflows(orgId, 5)
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="lg:col-span-4">
+        <WorkflowsOverTimeChart />
+      </div>
+      <div className="lg:col-span-3">
+        <RecentWorkflowsWidget workflows={recentWorkflows} />
+      </div>
+    </div>
+  )
+}
+
+async function DashboardActivityRow() {
+  const { userId, orgId } = await auth()
+  if (!userId || !orgId) redirect("/sign-in")
+
+  const recentActivity = await getRecentActivity(orgId, 6)
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="lg:col-span-4">
+        <DashboardActivity activities={recentActivity} />
+      </div>
+      <div className="lg:col-span-3">
+        <QuickActions />
+      </div>
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -115,19 +168,41 @@ export default function DashboardPage() {
             </div>
           }
         >
-          <DashboardStats />
+          <DashboardStatsRow />
         </Suspense>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <div className="lg:col-span-4">
-            <Suspense fallback={<ActivitySkeleton />}>
-              <DashboardActivity />
-            </Suspense>
-          </div>
-          <div className="lg:col-span-3">
-            <QuickActions />
-          </div>
-        </div>
+        <Suspense
+          fallback={
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+              <div className="lg:col-span-4"><WidgetSkeleton /></div>
+              <div className="lg:col-span-3"><WidgetSkeleton /></div>
+            </div>
+          }
+        >
+          <DashboardChartsRow />
+        </Suspense>
+
+        <Suspense
+          fallback={
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+              <div className="lg:col-span-4"><WidgetSkeleton /></div>
+              <div className="lg:col-span-3"><WidgetSkeleton /></div>
+            </div>
+          }
+        >
+          <DashboardTimelineRow />
+        </Suspense>
+
+        <Suspense
+          fallback={
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+              <div className="lg:col-span-4"><WidgetSkeleton /></div>
+              <div className="lg:col-span-3"><WidgetSkeleton /></div>
+            </div>
+          }
+        >
+          <DashboardActivityRow />
+        </Suspense>
       </div>
     </>
   )

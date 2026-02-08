@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { contacts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * GET /api/contacts
@@ -98,6 +99,15 @@ export async function POST(req: Request) {
         tags: tags || [],
       })
       .returning();
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "contact",
+      entityId: contact.id,
+      action: "created",
+      details: { firstName, lastName, email },
+    });
 
     return NextResponse.json({ contact });
   } catch (error) {

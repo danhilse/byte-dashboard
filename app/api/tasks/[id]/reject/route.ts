@@ -7,6 +7,7 @@ import { and, eq, ne } from "drizzle-orm";
 import type { ApprovalSignal } from "@/lib/workflows/applicant-review-workflow";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { requiresApprovalComment } from "@/lib/tasks/approval-requirements";
+import { logActivity } from "@/lib/db/log-activity";
 
 /**
  * PATCH /api/tasks/[id]/reject
@@ -177,6 +178,15 @@ export async function PATCH(
         // Don't fail the request if signaling fails
       }
     }
+
+    await logActivity({
+      orgId,
+      userId,
+      entityType: "task",
+      entityId: taskId,
+      action: "status_changed",
+      details: { outcome: "rejected", comment: normalizedComment },
+    });
 
     return NextResponse.json({
       taskId,

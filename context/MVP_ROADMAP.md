@@ -18,7 +18,7 @@
 | Phase 4: Tasks & Kanban | ✅ **COMPLETE** | Tasks CRUD, kanban drag-and-drop with workflow signaling, atomic claiming. |
 | Phase 5a: Workflow Builder (Core) | ✅ **COMPLETE** | Definition CRUD, step builder, core step types, generic interpreter. |
 | Phase 5b: Workflow Builder (Advanced) | ✅ **COMPLETE** | Advanced step types, variable system, and phase management all complete. |
-| Phase 6: Dashboard & Reporting | ⚪ Not Started | |
+| Phase 6: Dashboard & Reporting | ✅ **COMPLETE** | Dashboard with real data, charts, activity logging, notes CRUD. |
 | Phase 7: Polish & Launch Prep | ⚪ Not Started | |
 
 **Roadmap Rationale:**
@@ -27,8 +27,7 @@
 - Avoids overbuilding the builder without execution feedback
 
 **Next Steps:**
-1. Phase 6: Dashboard & Reporting
-2. Phase 7: Polish & Launch Prep
+1. Phase 7: Polish & Launch Prep
 
 ---
 
@@ -495,50 +494,78 @@ users (sync from Clerk)
 
 ### Phase 6: Dashboard & Reporting
 
+✅ PHASE 6 COMPLETE (Feb 7, 2026)
+
 **Dashboard Widgets**
-- [ ] Workflow count by status (pie/bar chart)
-- [ ] Recent workflows list
-- [ ] My tasks widget
-- [ ] Workflows over time (line chart)
+- [x] Workflow count by status (pie/bar chart)
+- [x] Recent workflows list
+- [x] My tasks widget
+- [x] Workflows over time (area chart)
 
 **Dashboard Page**
-- [ ] Widget grid layout
-- [ ] Date range filter (optional for MVP)
+- [x] Widget grid layout (4 rows: stats, charts, timeline, activity)
+- [x] Real data from database queries (no more mock data)
+- [x] Suspense boundaries with skeleton fallbacks
 
-**Activity & Notes**
-- [ ] Activity log on workflow detail (polymorphic with soft FKs)
-- [ ] Activity log on contact detail
-- [ ] Add note to workflow/contact
-- [ ] Activity feed widget on dashboard
+**Activity Logging**
+- [x] `logActivity()` helper with soft FK mapping
+- [x] Activity logging on all contact mutations (create/update/delete)
+- [x] Activity logging on all workflow mutations (create/update/delete)
+- [x] Activity logging on all task mutations (create/update/delete/status/claim/approve/reject)
+- [x] Activity logging in Temporal activities (system-generated, userId=null)
+- [x] Dashboard activity feed API (`GET /api/dashboard/stats`)
+- [x] Entity-specific activity feed API (`GET /api/activity`)
 
-**Exports**
+**Notes CRUD**
+- [x] Notes list API (`GET /api/notes?entityType=...&entityId=...`)
+- [x] Notes create API (`POST /api/notes`)
+- [x] Notes delete API (`DELETE /api/notes/[id]`)
+- [x] NotesSection component (self-fetching, add/delete)
+- [x] Notes tab on contact detail page
+- [x] Notes tab on workflow detail dialog
+- [x] Notes tab on workflow detail page
+
+**Activity Feed**
+- [x] ActivityFeed component (self-fetching)
+- [x] Activity tab on contact detail page
+- [x] Activity tab on workflow detail dialog
+- [x] Activity tab on workflow detail page
+- [x] Dashboard activity widget
+
+**Out of scope (post-v1):**
 - [ ] CSV export for workflows
 - [ ] CSV export for contacts
 - [ ] Basic PDF report (workflow summary)
 
-**Deliverable:** User sees pipeline overview, full audit trail, can export data
+**Deliverable:** User sees pipeline overview with real data, full audit trail, notes CRUD on detail pages
 
 ---
 
 ### Phase 7: Polish & Launch Prep
 
 **UX Polish**
+A
 - [ ] Loading states
+- [ ] Toast notifications
+B
 - [ ] Error handling
 - [ ] Empty states
-- [ ] Toast notifications
+C 
 - [ ] Responsive design check
 
 **Security & Compliance**
+D
 - [ ] Org isolation audit (no cross-tenant data leaks)
 - [ ] Role permission audit
+E
 - [ ] Input validation review
 - [ ] Rate limiting on API routes
 
 **Testing**
+F
 - [ ] Core flow E2E tests
+G
 - [ ] Auth flow tests
-- [ ] Formstack webhook tests
 
 **Deliverable:** Production-ready MVP
 

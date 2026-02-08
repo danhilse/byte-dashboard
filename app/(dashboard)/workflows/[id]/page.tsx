@@ -16,7 +16,6 @@ import { db } from "@/lib/db"
 import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { workflowStatusConfig } from "@/lib/status-config"
-import { getActivitiesByEntity, getNotesByEntity } from "@/lib/data/activity"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
 import type { WorkflowStatus, WorkflowPhase, WorkflowStep } from "@/types"
 
@@ -63,10 +62,6 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
   const displayTitle = definitionName
     ? `${definitionName} - ${contactName}`
     : contactName
-
-  // TODO: Replace with DB queries when notes/activity CRUD is implemented (Phase 6)
-  const activities = getActivitiesByEntity("workflow", id)
-  const notes = getNotesByEntity("workflow", id)
 
   const sourceLabels: Record<string, string> = {
     manual: "Manual",
@@ -155,6 +150,7 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                         phases={parsedPhases}
                         steps={parsedSteps}
                         currentStepId={workflow.currentStepId}
+                        currentPhaseId={workflow.currentPhaseId}
                         workflowStatus={workflow.status as WorkflowStatus}
                       />
                     </div>
@@ -236,11 +232,11 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
           </TabsContent>
 
           <TabsContent value="notes">
-            <NotesSection notes={notes} />
+            <NotesSection entityType="workflow" entityId={id} />
           </TabsContent>
 
           <TabsContent value="activity">
-            <ActivityFeed activities={activities} />
+            <ActivityFeed entityType="workflow" entityId={id} />
           </TabsContent>
         </Tabs>
       </div>
