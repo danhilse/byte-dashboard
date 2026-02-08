@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, memo, type ReactNode } from "react"
+import { useState, useMemo, useCallback, useEffect, memo, type ReactNode } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -32,7 +32,7 @@ export interface KanbanColumn<S extends string> {
 
 export interface KanbanItem {
   id: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface GenericKanbanBoardProps<T extends KanbanItem, S extends string> {
@@ -66,7 +66,7 @@ export function GenericKanbanBoard<T extends KanbanItem, S extends string>({
   const [activeItem, setActiveItem] = useState<T | null>(null)
 
   // Sync with parent when initialItems changes
-  useMemo(() => {
+  useEffect(() => {
     setItems(initialItems)
   }, [initialItems])
 

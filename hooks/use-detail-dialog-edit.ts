@@ -47,7 +47,7 @@ export function useDetailDialogEdit<T extends { id: string }>({
   }, [])
 
   const handleQuickStatusUpdate = useCallback(
-    (newStatus: any) => {
+    (newStatus: unknown) => {
       if (item) {
         onUpdate?.({ ...item, status: newStatus } as T)
       }

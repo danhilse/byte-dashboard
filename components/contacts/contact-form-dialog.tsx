@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Plus, Pencil } from "lucide-react"
 
 import { FormDialog } from "@/components/common/form-dialog"
@@ -34,39 +34,46 @@ export function ContactFormDialog({
   open,
   onOpenChange,
 }: ContactFormDialogProps) {
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
-  const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("")
-  const [company, setCompany] = useState("")
-  const [role, setRole] = useState("")
-  const [status, setStatus] = useState<ContactStatus>("lead")
-  const [tags, setTags] = useState("")
-  const [addressLine1, setAddressLine1] = useState("")
-  const [addressLine2, setAddressLine2] = useState("")
-  const [city, setCity] = useState("")
-  const [state, setState] = useState("")
-  const [zip, setZip] = useState("")
-
-  useEffect(() => {
-    if (mode === "edit" && contact) {
-      setFirstName(contact.firstName)
-      setLastName(contact.lastName)
-      setEmail(contact.email)
-      setPhone(contact.phone)
-      setCompany(contact.company)
-      setRole(contact.role)
-      setStatus(contact.status)
-      setTags(contact.tags?.join(", ") ?? "")
-      setAddressLine1(contact.addressLine1 ?? "")
-      setAddressLine2(contact.addressLine2 ?? "")
-      setCity(contact.city ?? "")
-      setState(contact.state ?? "")
-      setZip(contact.zip ?? "")
-    } else if (mode === "create") {
-      resetForm()
-    }
-  }, [mode, contact, open])
+  const [internalOpen, setInternalOpen] = useState(false)
+  const [firstName, setFirstName] = useState(
+    mode === "edit" && contact ? contact.firstName : ""
+  )
+  const [lastName, setLastName] = useState(
+    mode === "edit" && contact ? contact.lastName : ""
+  )
+  const [email, setEmail] = useState(
+    mode === "edit" && contact ? contact.email : ""
+  )
+  const [phone, setPhone] = useState(
+    mode === "edit" && contact ? contact.phone : ""
+  )
+  const [company, setCompany] = useState(
+    mode === "edit" && contact ? contact.company : ""
+  )
+  const [role, setRole] = useState(
+    mode === "edit" && contact ? contact.role : ""
+  )
+  const [status, setStatus] = useState<ContactStatus>(
+    mode === "edit" && contact ? contact.status : "lead"
+  )
+  const [tags, setTags] = useState(
+    mode === "edit" && contact ? (contact.tags?.join(", ") ?? "") : ""
+  )
+  const [addressLine1, setAddressLine1] = useState(
+    mode === "edit" && contact ? (contact.addressLine1 ?? "") : ""
+  )
+  const [addressLine2, setAddressLine2] = useState(
+    mode === "edit" && contact ? (contact.addressLine2 ?? "") : ""
+  )
+  const [city, setCity] = useState(
+    mode === "edit" && contact ? (contact.city ?? "") : ""
+  )
+  const [state, setState] = useState(
+    mode === "edit" && contact ? (contact.state ?? "") : ""
+  )
+  const [zip, setZip] = useState(
+    mode === "edit" && contact ? (contact.zip ?? "") : ""
+  )
 
   const resetForm = () => {
     setFirstName("")
@@ -82,6 +89,40 @@ export function ContactFormDialog({
     setCity("")
     setState("")
     setZip("")
+  }
+
+  const hydrateFromContact = (source: Contact) => {
+    setFirstName(source.firstName)
+    setLastName(source.lastName)
+    setEmail(source.email)
+    setPhone(source.phone)
+    setCompany(source.company)
+    setRole(source.role)
+    setStatus(source.status)
+    setTags(source.tags?.join(", ") ?? "")
+    setAddressLine1(source.addressLine1 ?? "")
+    setAddressLine2(source.addressLine2 ?? "")
+    setCity(source.city ?? "")
+    setState(source.state ?? "")
+    setZip(source.zip ?? "")
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      if (mode === "edit" && contact) {
+        hydrateFromContact(contact)
+      } else if (mode === "create") {
+        resetForm()
+      }
+    } else if (mode === "create") {
+      resetForm()
+    }
+
+    if (open === undefined) {
+      setInternalOpen(nextOpen)
+    }
+
+    onOpenChange?.(nextOpen)
   }
 
   const handleSubmit = () => {
@@ -131,8 +172,8 @@ export function ContactFormDialog({
       title={mode === "create" ? "Add New Contact" : "Edit Contact"}
       description={mode === "create" ? "Add a new contact to your database." : "Update the contact information."}
       trigger={trigger !== undefined ? trigger : defaultTrigger}
-      open={open}
-      onOpenChange={onOpenChange}
+      open={open ?? internalOpen}
+      onOpenChange={handleDialogOpenChange}
       onSubmit={handleSubmit}
       onCancel={resetForm}
       submitLabel={mode === "create" ? "Add Contact" : "Save Changes"}
