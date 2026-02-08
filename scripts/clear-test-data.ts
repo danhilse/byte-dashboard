@@ -25,7 +25,7 @@ import {
 import { eq } from "drizzle-orm";
 
 // Target organization ID (Dan Hilse test account)
-const TARGET_ORG_ID = "org_2rEpAiJOqtVLaDbD1W5HbOa4aQH";
+const TARGET_ORG_ID = "org_39JMtNqbQG7jxrQJ11xFDYWyKE5";
 
 async function clearTestData() {
   console.log(`🗑️  Clearing test data for org: ${TARGET_ORG_ID}\n`);

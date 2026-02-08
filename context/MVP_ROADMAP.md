@@ -532,11 +532,6 @@ users (sync from Clerk)
 - [x] Activity tab on workflow detail page
 - [x] Dashboard activity widget
 
-**Out of scope (post-v1):**
-- [ ] CSV export for workflows
-- [ ] CSV export for contacts
-- [ ] Basic PDF report (workflow summary)
-
 **Deliverable:** User sees pipeline overview with real data, full audit trail, notes CRUD on detail pages
 
 ---
@@ -637,6 +632,11 @@ These features will be built after the core platform is proven and when specific
 **Admin Config**
 - [ ] Settings page for Formstack integration
 - [ ] Field mapping UI (or config file for MVP)
+
+**Out of scope (post-v1):**
+- [ ] CSV export for workflows
+- [ ] CSV export for contacts
+- [ ] Basic PDF report (workflow summary)
 
 **Deliverable:** Workflow instances (for application tracking) auto-created via Temporal when Formstack forms submitted. Temporal workflow handles retries and error recovery.
 
