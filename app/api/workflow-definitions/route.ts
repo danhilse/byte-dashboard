@@ -3,6 +3,45 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflowDefinitions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
+import type { DefinitionStatus } from "@/types";
+
+function isValidDefinitionStatuses(
+  value: unknown
+): value is DefinitionStatus[] {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.every((status) => {
+    if (!status || typeof status !== "object") {
+      return false;
+    }
+
+    const candidate = status as Partial<DefinitionStatus>;
+    const hasRequiredFields =
+      typeof candidate.id === "string" &&
+      candidate.id.trim().length > 0 &&
+      typeof candidate.label === "string" &&
+      candidate.label.trim().length > 0 &&
+      typeof candidate.order === "number" &&
+      Number.isInteger(candidate.order) &&
+      candidate.order >= 0;
+
+    if (!hasRequiredFields) {
+      return false;
+    }
+
+    if (
+      candidate.color !== undefined &&
+      candidate.color !== null &&
+      typeof candidate.color !== "string"
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
 
 /**
  * GET /api/workflow-definitions
@@ -77,7 +116,8 @@ export async function GET(req: Request) {
  * {
  *   "name": "string" (required),
  *   "description": "string" (optional),
- *   "steps": WorkflowStep[] (optional)
+ *   "steps": WorkflowStep[] (optional),
+ *   "statuses": DefinitionStatus[] (optional)
  * }
  */
 export async function POST(req: Request) {
@@ -89,7 +129,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, steps } = body;
+    const { name, description, steps, statuses } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -105,6 +145,20 @@ export async function POST(req: Request) {
       );
     }
 
+    if (statuses !== undefined && !isValidDefinitionStatuses(statuses)) {
+      return NextResponse.json(
+        { error: "statuses must be a valid DefinitionStatus[] when provided" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedStatuses = (statuses ?? []).map((status) => ({
+      id: status.id.trim(),
+      label: status.label.trim(),
+      order: status.order,
+      color: status.color?.trim() || undefined,
+    }));
+
     const [definition] = await db
       .insert(workflowDefinitions)
       .values({
@@ -113,6 +167,7 @@ export async function POST(req: Request) {
         description: description || null,
         version: 1,
         steps: steps ?? [],
+        statuses: normalizedStatuses,
         isActive: true,
       })
       .returning();

@@ -98,7 +98,55 @@ describe("app/api/workflow-definitions/route", () => {
         version: 1,
         isActive: true,
         steps: [],
+        statuses: [],
       })
     );
+  });
+
+  it("POST creates workflow definition with provided statuses", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    const q = insertQuery([{ id: "def_1", name: "Review Flow", version: 1 }]);
+    mocks.insert.mockReturnValue({ values: q.values });
+
+    const statuses = [
+      { id: "draft", label: "Draft", order: 0, color: "#64748b" },
+      { id: "approved", label: "Approved", order: 1, color: "#22c55e" },
+    ];
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "Review Flow", statuses }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({
+      definition: { id: "def_1", name: "Review Flow", version: 1 },
+    });
+    expect(q.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statuses,
+      })
+    );
+  });
+
+  it("POST returns 400 when statuses payload is invalid", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Review Flow",
+          statuses: [{ id: "draft", label: "Draft", order: "zero" }],
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "statuses must be a valid DefinitionStatus[] when provided",
+    });
   });
 });

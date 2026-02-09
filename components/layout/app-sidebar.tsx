@@ -75,8 +75,8 @@ const primaryNavItems = [
 
 const adminNavItems = [
   {
-    title: "Workflow Builder V2",
-    href: "/builder-test",
+    title: "Workflow Builder",
+    href: "/admin/workflow-builder",
     icon: GitBranch,
   },
   {
