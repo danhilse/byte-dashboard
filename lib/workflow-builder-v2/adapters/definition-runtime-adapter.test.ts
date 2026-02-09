@@ -4,6 +4,7 @@ import {
   AUTHORING_STORAGE_KEY,
   AuthoringCompileError,
   compileAuthoringToRuntime,
+  definitionPhasesFromAuthoring,
   fromDefinitionToAuthoring,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter"
 import type { WorkflowDefinitionV2 } from "@/lib/workflow-builder-v2/types"
@@ -218,6 +219,283 @@ describe("definition-runtime-adapter", () => {
     expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
   })
 
+  it("converts duration advancement into runtime delay steps", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "step_a",
+          name: "Wait",
+          actions: [],
+          advancementCondition: {
+            type: "when_duration_passes",
+            config: { duration: 2, unit: "weeks" },
+          },
+        },
+      ],
+    })
+
+    const runtimeSteps = compileAuthoringToRuntime(workflow)
+    const delayStep = runtimeSteps.find((step) => step.type === "delay")
+
+    expect(delayStep).toMatchObject({
+      type: "delay",
+      config: { duration: 14, unit: "days" },
+    })
+  })
+
+  it("throws compile errors for unsupported variable references", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "step_a",
+          name: "Notify",
+          actions: [
+            {
+              type: "send_email",
+              id: "email_1",
+              config: {
+                to: "var-custom-1",
+                subject: "Subject",
+                body: "Body",
+              },
+            },
+          ],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
+  })
+
+  it("compiles branch conditions with templated refs and not_equals operator", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "branch_1",
+          name: "Check Email",
+          stepType: "branch",
+          condition: {
+            variableRef: "{{contact.email}}",
+            operator: "not_equals",
+            compareValue: "allowed@example.com",
+          },
+          tracks: [
+            {
+              id: "track_a",
+              label: "Default",
+              steps: [
+                {
+                  id: "track_a_step",
+                  name: "Track A Step",
+                  actions: [
+                    {
+                      type: "send_email",
+                      id: "email_a",
+                      config: {
+                        to: "var-contact.email",
+                        subject: "A",
+                        body: "A",
+                      },
+                    },
+                  ],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+            {
+              id: "track_b",
+              label: "Match",
+              steps: [
+                {
+                  id: "track_b_step",
+                  name: "Track B Step",
+                  actions: [
+                    {
+                      type: "send_email",
+                      id: "email_b",
+                      config: {
+                        to: "var-contact.email",
+                        subject: "B",
+                        body: "B",
+                      },
+                    },
+                  ],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+          ],
+          actions: [],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    const runtimeSteps = compileAuthoringToRuntime(workflow)
+    const branch = runtimeSteps.find((step) => step.type === "condition")
+
+    expect(branch?.type).toBe("condition")
+    if (branch?.type === "condition") {
+      expect(branch.config.field).toBe("{{contact.email}}")
+      expect(branch.config.branches[0].gotoStepId).toBe("email_b")
+      expect(branch.config.defaultGotoStepId).toBe("email_a")
+    }
+  })
+
+  it("throws compile errors when branch variable ref is empty", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "branch_1",
+          name: "Bad Branch",
+          stepType: "branch",
+          condition: {
+            variableRef: "",
+            operator: "equals",
+            compareValue: "ok",
+          },
+          tracks: [
+            {
+              id: "track_a",
+              label: "A",
+              steps: [
+                {
+                  id: "track_a_step",
+                  name: "A Step",
+                  actions: [],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+            {
+              id: "track_b",
+              label: "B",
+              steps: [
+                {
+                  id: "track_b_step",
+                  name: "B Step",
+                  actions: [],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+          ],
+          actions: [],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
+  })
+
+  it("defensively rejects branch compareValue shape changes during compile", () => {
+    let compareReads = 0
+    const condition = {
+      variableRef: "var-contact.email",
+      operator: "equals",
+      get compareValue() {
+        compareReads += 1
+        return compareReads === 1 ? "ok" : 42
+      },
+    }
+
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "branch_1",
+          name: "Unstable Branch",
+          stepType: "branch",
+          condition: condition as never,
+          tracks: [
+            {
+              id: "track_a",
+              label: "A",
+              steps: [
+                {
+                  id: "track_a_step",
+                  name: "A Step",
+                  actions: [],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+            {
+              id: "track_b",
+              label: "B",
+              steps: [
+                {
+                  id: "track_b_step",
+                  name: "B Step",
+                  actions: [],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+          ],
+          actions: [],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
+  })
+
+  it("defensively rejects branch operator shape changes during compile", () => {
+    let operatorReads = 0
+    const condition = {
+      variableRef: "var-contact.email",
+      compareValue: "ok",
+      get operator() {
+        operatorReads += 1
+        return operatorReads === 1 ? "equals" : "contains"
+      },
+    }
+
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "branch_1",
+          name: "Unstable Operator Branch",
+          stepType: "branch",
+          condition: condition as never,
+          tracks: [
+            {
+              id: "track_a",
+              label: "A",
+              steps: [
+                {
+                  id: "track_a_step",
+                  name: "A Step",
+                  actions: [],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+            {
+              id: "track_b",
+              label: "B",
+              steps: [
+                {
+                  id: "track_b_step",
+                  name: "B Step",
+                  actions: [],
+                  advancementCondition: { type: "automatic" },
+                },
+              ],
+            },
+          ],
+          actions: [],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
+  })
+
   it("hydrates authoring from persisted variables payload", () => {
     const definition = {
       id: "def_1",
@@ -258,5 +536,19 @@ describe("definition-runtime-adapter", () => {
     expect(authoring.contactRequired).toBe(false)
     expect(authoring.steps).toHaveLength(1)
     expect(authoring.steps[0].id).toBe("step_1")
+  })
+
+  it("maps authoring phases to persisted definition phases", () => {
+    const authoring = buildWorkflow({
+      phases: [
+        { id: "phase_review", name: "Review", order: 2, color: "#3b82f6" },
+        { id: "phase_intake", name: "Intake", order: 0, color: "#64748b" },
+      ],
+    })
+
+    expect(definitionPhasesFromAuthoring(authoring)).toEqual([
+      { id: "phase_review", label: "Review", order: 2 },
+      { id: "phase_intake", label: "Intake", order: 0 },
+    ])
   })
 })

@@ -62,6 +62,55 @@ describe("app/api/workflow-definitions/route", () => {
     });
   });
 
+  it("GET returns lightweight definitions by default", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select.mockReturnValue(
+      selectQuery([
+        {
+          id: "def_1",
+          name: "Review Flow",
+          description: null,
+          version: 1,
+          statuses: [],
+        },
+      ])
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/workflow-definitions")
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      definitions: [
+        {
+          id: "def_1",
+          name: "Review Flow",
+          description: null,
+          version: 1,
+          statuses: [],
+        },
+      ],
+    });
+  });
+
+  it("GET returns 500 when query throws", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select.mockImplementation(() => {
+      throw new Error("db exploded");
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/workflow-definitions")
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "Failed to fetch workflow definitions",
+      details: "db exploded",
+    });
+  });
+
   it("POST returns 400 when name is missing", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
 
@@ -74,6 +123,36 @@ describe("app/api/workflow-definitions/route", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "name is required" });
+  });
+
+  it("POST returns 401 when unauthenticated", async () => {
+    mocks.auth.mockResolvedValue({ userId: null, orgId: null });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "Review Flow" }),
+      })
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Unauthorized" });
+  });
+
+  it("POST returns 400 when description is not a string", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "Review Flow", description: 123 }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "description must be a string when provided",
+    });
   });
 
   it("POST creates workflow definition with defaults", async () => {
@@ -99,7 +178,9 @@ describe("app/api/workflow-definitions/route", () => {
         version: 1,
         isActive: true,
         statuses: DEFAULT_DEFINITION_STATUSES,
-        steps: expect.any(Array),
+        steps: expect.arrayContaining([
+          expect.objectContaining({ type: "trigger" }),
+        ]),
         variables: expect.objectContaining({
           __builderV2Authoring: expect.any(Object),
         }),
@@ -168,6 +249,48 @@ describe("app/api/workflow-definitions/route", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
       error: "statuses must be a valid DefinitionStatus[] when provided",
+    });
+  });
+
+  it("POST returns 400 when statuses contain duplicate ids", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Review Flow",
+          statuses: [
+            { id: "draft", label: "Draft", order: 0 },
+            { id: "draft", label: "Draft Again", order: 1 },
+          ],
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: 'statuses contains duplicate id "draft"',
+    });
+  });
+
+  it("POST returns 500 when insert throws", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.insert.mockImplementation(() => {
+      throw new Error("insert failed");
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "Review Flow" }),
+      })
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "Failed to create workflow definition",
+      details: "insert failed",
     });
   });
 });
