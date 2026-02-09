@@ -1,0 +1,30 @@
+export type {
+  ActionConfig,
+  ActionType,
+  AdvancementCondition,
+  BranchStepV2,
+  CompoundCondition,
+  ConditionConfig,
+  SimpleCondition,
+  SimpleConditionType,
+  StandardStepV2,
+  TriggerType,
+  VariableDataType,
+  VariableSource,
+  VariableType,
+  WorkflowAction,
+  WorkflowDefinitionV2,
+  WorkflowPhase,
+  WorkflowStepV2,
+  WorkflowStatus,
+  WorkflowTrigger,
+  WorkflowVariable,
+  WorkflowVariableField,
+} from "@/app/builder-test/types/workflow-v2"
+
+export {
+  isBranchStep,
+  isCompoundCondition,
+  isSimpleCondition,
+  isStandardStep,
+} from "@/app/builder-test/types/workflow-v2"

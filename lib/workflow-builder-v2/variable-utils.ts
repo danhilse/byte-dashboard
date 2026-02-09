@@ -3,7 +3,7 @@ import type {
   WorkflowVariable,
   WorkflowAction,
   WorkflowTrigger,
-} from "@/app/builder-test/types/workflow-v2"
+} from "./types"
 
 /**
  * Auto-detect variables from workflow trigger and actions

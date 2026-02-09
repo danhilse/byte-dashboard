@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import type { WorkflowStepV2 } from "../types/workflow-v2"
+import type { ActionType, StandardStepV2 } from "../types/workflow-v2"
 import { getActionMetadata } from "@/lib/workflow-builder-v2/action-registry"
 import { getConditionBadgeText } from "@/lib/workflow-builder-v2/condition-registry"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +12,7 @@ import { GripVertical, Trash2, Copy, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface StepCardV2Props {
-  step: WorkflowStepV2
+  step: StandardStepV2
   stepNumber: number
   isSelected: boolean
   isAnyDragging?: boolean
@@ -120,7 +120,7 @@ export function StepCardV2({
             <div className="mb-1 text-xs font-medium text-muted-foreground">Actions:</div>
             <div className="flex flex-wrap gap-1">
               {Array.from(actionCounts.entries()).map(([type, count]) => {
-                const metadata = getActionMetadata(type as any)
+                const metadata = getActionMetadata(type as ActionType)
                 const Icon = metadata.icon
                 return (
                   <Badge key={type} variant="secondary" className="text-xs">

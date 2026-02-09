@@ -118,7 +118,7 @@ export function UpdateTaskConfig({ action, variables, statuses, onChange }: Upda
           </Select>
         ) : (
           <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-            No tasks created in earlier steps. Add a "Create Task" action first.
+            No tasks created in earlier steps. Add a Create Task action first.
           </p>
         )}
         <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import {
   DndContext,
   closestCenter,
@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import type { WorkflowStepV2, WorkflowTrigger, StandardStepV2, BranchStepV2, WorkflowVariable } from "../types/workflow-v2"
+import type { WorkflowStepV2, WorkflowTrigger, StandardStepV2, WorkflowVariable } from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { StepCardV2 } from "./step-card-v2"
 import { BranchStepCard } from "./branch-step-card"
@@ -29,6 +29,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Plus, GitBranch } from "lucide-react"
+import {
+  createEmptyBranchStep,
+  createEmptyStandardStep,
+} from "@/lib/workflow-builder-v2/workflow-operations"
 
 interface StepListV2Props {
   trigger: WorkflowTrigger
@@ -42,11 +46,16 @@ interface StepListV2Props {
   onStepAdd: (step: WorkflowStepV2) => void
   onStepDelete: (stepId: string) => void
   onStepDuplicate: (stepId: string) => void
-  onStepUpdate: (step: WorkflowStepV2) => void
   onTrackStepAdd: (branchId: string, trackId: string, step: StandardStepV2) => void
   onTrackStepDelete: (branchId: string, trackId: string, stepId: string) => void
   onTrackStepSelect: (branchId: string, trackId: string, stepId: string) => void
   selectedTrackStep?: { branchId: string; trackId: string; stepId: string } | null
+}
+
+const subscribeToClient = () => () => {}
+
+function useIsClient() {
+  return useSyncExternalStore(subscribeToClient, () => true, () => false)
 }
 
 export function StepListV2({
@@ -61,21 +70,15 @@ export function StepListV2({
   onStepAdd,
   onStepDelete,
   onStepDuplicate,
-  onStepUpdate,
   onTrackStepAdd,
   onTrackStepDelete,
   onTrackStepSelect,
   selectedTrackStep,
 }: StepListV2Props) {
-  const [mounted, setMounted] = useState(false)
+  const isClient = useIsClient()
   const [isDragging, setIsDragging] = useState(false)
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-
-  // Only enable drag-and-drop after client-side hydration
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // Scroll to bottom when the last step is selected (for newly added steps)
   useEffect(() => {
@@ -132,41 +135,12 @@ export function StepListV2({
   }
 
   const handleAddStandardStep = () => {
-    const newStep: StandardStepV2 = {
-      id: `step-${Date.now()}`,
-      name: "New Step",
-      actions: [],
-      advancementCondition: { type: "automatic" },
-    }
+    const newStep = createEmptyStandardStep()
     onStepAdd(newStep)
   }
 
   const handleAddBranch = () => {
-    const newBranch: BranchStepV2 = {
-      id: `branch-${Date.now()}`,
-      name: "New Branch",
-      stepType: "branch" as const,
-      condition: {
-        variableRef: "", // User will select a variable
-        operator: "equals" as const,
-        compareValue: "",
-      },
-      tracks: [
-        {
-          id: `track-a-${Date.now()}`,
-          label: "Track A",
-          steps: [],
-        },
-        {
-          id: `track-b-${Date.now()}-1`,
-          label: "Track B",
-          steps: [],
-        },
-      ],
-      actions: [],
-      advancementCondition: { type: "automatic" },
-      isExpanded: true,
-    }
+    const newBranch = createEmptyBranchStep()
     onStepAdd(newBranch)
 
     // Auto-expand the new branch
@@ -208,7 +182,7 @@ export function StepListV2({
           </div>
 
           {/* Steps */}
-          {mounted ? (
+          {isClient ? (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}

@@ -2,7 +2,7 @@
 // Mock Workflows V2 - Example workflows for testing (Updated)
 // ============================================================================
 
-import type { WorkflowDefinitionV2 } from "@/app/builder-test/types/workflow-v2"
+import type { WorkflowDefinitionV2 } from "./types"
 
 export const mockWorkflowsV2: WorkflowDefinitionV2[] = [
   // ============================================================================

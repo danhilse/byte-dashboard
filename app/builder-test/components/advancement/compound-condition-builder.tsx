@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus, Trash2, Layers } from "lucide-react"
-import { conditionRegistry } from "@/lib/workflow-builder-v2/condition-registry"
 import { SimpleConditionConfig } from "./simple-condition-config"
 import { cn } from "@/lib/utils"
 

@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import type { WorkflowDefinitionV2, WorkflowStepV2, WorkflowVariable, StandardStepV2, VariableDataType } from "../types/workflow-v2"
-import { isBranchStep } from "../types/workflow-v2"
+import { useEffect, useMemo, useReducer, useRef } from "react"
+import type { WorkflowDefinitionV2, WorkflowVariable, StandardStepV2 } from "../types/workflow-v2"
 import { StepListV2 } from "./step-list-v2"
 import { StepConfigPanelV2 } from "./step-config-panel-v2"
 import { TriggerConfigPanel } from "./trigger-config-panel"
@@ -11,6 +10,11 @@ import { WorkflowConfigDialog } from "./workflow-config-dialog"
 import { Button } from "@/components/ui/button"
 import { Save } from "lucide-react"
 import { getAllVariables } from "@/lib/workflow-builder-v2/variable-utils"
+import {
+  builderStateReducer,
+  createInitialBuilderState,
+} from "@/lib/workflow-builder-v2/builder-state"
+import { findSelectedStep } from "@/lib/workflow-builder-v2/workflow-operations"
 
 interface WorkflowBuilderV2Props {
   workflow: WorkflowDefinitionV2
@@ -21,151 +25,55 @@ export function WorkflowBuilderV2({
   workflow,
   onWorkflowChange,
 }: WorkflowBuilderV2Props) {
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(
-    workflow.steps[0]?.id || null
+  const [state, dispatchEvent] = useReducer(
+    builderStateReducer,
+    workflow,
+    createInitialBuilderState
   )
-  const [selectedTrigger, setSelectedTrigger] = useState(false)
-  const [selectedTrackStep, setSelectedTrackStep] = useState<{
-    branchId: string
-    trackId: string
-    stepId: string
-  } | null>(null)
-  const [showJsonExport, setShowJsonExport] = useState(false)
+  const hasSyncedInitialWorkflow = useRef(false)
 
-  // Get selected step - either from main steps or from within a branch track
-  const selectedStep = useMemo(() => {
-    // First check if it's a main-level step
-    const mainStep = workflow.steps.find((s) => s.id === selectedStepId)
-    if (mainStep) return mainStep
-
-    // If not, check if it's a step within a branch track
-    if (selectedTrackStep) {
-      const branch = workflow.steps.find(
-        (s) => s.id === selectedTrackStep.branchId && isBranchStep(s)
-      )
-      if (branch && isBranchStep(branch)) {
-        const track = branch.tracks.find((t) => t.id === selectedTrackStep.trackId)
-        if (track) {
-          return track.steps.find((s) => s.id === selectedTrackStep.stepId)
-        }
-      }
-    }
-
-    return undefined
-  }, [workflow.steps, selectedStepId, selectedTrackStep])
-
-  // Compute all variables (auto-detected + custom)
-  const allVariables = useMemo(() => getAllVariables(workflow), [workflow])
-
-  const handleTriggerChange = (trigger: typeof workflow.trigger) => {
-    onWorkflowChange({
-      ...workflow,
-      trigger,
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
-  const handleStepsChange = (steps: WorkflowStepV2[]) => {
-    onWorkflowChange({
-      ...workflow,
-      steps,
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
-  const handleStepUpdate = (updatedStep: WorkflowStepV2) => {
-    // Check if updating a main-level step
-    if (workflow.steps.find((s) => s.id === updatedStep.id)) {
-      const newSteps = workflow.steps.map((s) =>
-        s.id === updatedStep.id ? updatedStep : s
-      )
-      handleStepsChange(newSteps)
+  useEffect(() => {
+    if (!hasSyncedInitialWorkflow.current) {
+      hasSyncedInitialWorkflow.current = true
       return
     }
+    onWorkflowChange(state.workflow)
+  }, [onWorkflowChange, state.workflow])
 
-    // Check if updating a step within a branch track
-    if (selectedTrackStep) {
-      const newSteps = workflow.steps.map((step) => {
-        if (step.id === selectedTrackStep.branchId && isBranchStep(step)) {
-          return {
-            ...step,
-            tracks: step.tracks.map((track) => {
-              if (track.id === selectedTrackStep.trackId) {
-                return {
-                  ...track,
-                  steps: track.steps.map((s) =>
-                    s.id === updatedStep.id ? updatedStep : s
-                  ),
-                }
-              }
-              return track
-            }) as [typeof step.tracks[0], typeof step.tracks[1]],
-          }
-        }
-        return step
-      })
-      handleStepsChange(newSteps)
-    }
+  const selectedStep = useMemo(
+    () => findSelectedStep(state.workflow.steps, state.ui.selectedStepId, state.ui.selectedTrackStep),
+    [state.workflow.steps, state.ui.selectedStepId, state.ui.selectedTrackStep]
+  )
+
+  // Compute all variables (auto-detected + custom)
+  const allVariables = useMemo(() => getAllVariables(state.workflow), [state.workflow])
+
+  const handleTriggerChange = (trigger: typeof workflow.trigger) => {
+    dispatchEvent({ type: "trigger_changed", trigger })
+  }
+
+  const handleStepUpdate = (updatedStep: typeof state.workflow.steps[number]) => {
+    dispatchEvent({ type: "step_updated", step: updatedStep })
   }
 
   const handleStepDelete = (stepId: string) => {
-    const newSteps = workflow.steps.filter((s) => s.id !== stepId)
-    handleStepsChange(newSteps)
-    if (selectedStepId === stepId) {
-      setSelectedStepId(newSteps[0]?.id || null)
-      setSelectedTrigger(false)
-    }
+    dispatchEvent({ type: "step_deleted", stepId })
   }
 
   const handleStepDuplicate = (stepId: string) => {
-    const stepIndex = workflow.steps.findIndex((s) => s.id === stepId)
-    if (stepIndex === -1) return
-
-    const originalStep = workflow.steps[stepIndex]
-    const duplicatedStep: WorkflowStepV2 = isBranchStep(originalStep)
-      ? {
-          ...originalStep,
-          id: `step-${Date.now()}`,
-          name: `${originalStep.name} (Copy)`,
-        }
-      : {
-          ...originalStep,
-          id: `step-${Date.now()}`,
-          name: `${originalStep.name} (Copy)`,
-          // Deep copy actions to avoid reference issues
-          actions: originalStep.actions.map((action) => ({
-            ...action,
-            id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          })),
-        }
-
-    // Insert the duplicated step right after the original
-    const newSteps = [
-      ...workflow.steps.slice(0, stepIndex + 1),
-      duplicatedStep,
-      ...workflow.steps.slice(stepIndex + 1),
-    ]
-
-    handleStepsChange(newSteps)
-    setSelectedStepId(duplicatedStep.id)
-    setSelectedTrigger(false)
+    dispatchEvent({ type: "step_duplicated", stepId })
   }
 
-  const handleStepAdd = (step: WorkflowStepV2) => {
-    handleStepsChange([...workflow.steps, step])
-    setSelectedStepId(step.id)
-    setSelectedTrigger(false)
+  const handleStepAdd = (step: typeof state.workflow.steps[number]) => {
+    dispatchEvent({ type: "step_added", step })
   }
 
   const handleTriggerSelect = () => {
-    setSelectedTrigger(true)
-    setSelectedStepId(null)
+    dispatchEvent({ type: "trigger_selected" })
   }
 
   const handleStepSelect = (stepId: string) => {
-    setSelectedStepId(stepId)
-    setSelectedTrigger(false)
-    setSelectedTrackStep(null)
+    dispatchEvent({ type: "step_selected", stepId })
   }
 
   const handleTrackStepAdd = (
@@ -173,28 +81,7 @@ export function WorkflowBuilderV2({
     trackId: string,
     newStep: StandardStepV2
   ) => {
-    const newSteps = workflow.steps.map((step) => {
-      if (step.id === branchId && isBranchStep(step)) {
-        return {
-          ...step,
-          tracks: step.tracks.map((track) => {
-            if (track.id === trackId) {
-              return {
-                ...track,
-                steps: [...track.steps, newStep],
-              }
-            }
-            return track
-          }) as [typeof step.tracks[0], typeof step.tracks[1]],
-        }
-      }
-      return step
-    })
-    handleStepsChange(newSteps)
-    // Select the newly added track step
-    setSelectedTrackStep({ branchId, trackId, stepId: newStep.id })
-    setSelectedStepId(null)
-    setSelectedTrigger(false)
+    dispatchEvent({ type: "track_step_added", branchId, trackId, step: newStep })
   }
 
   const handleTrackStepDelete = (
@@ -202,33 +89,7 @@ export function WorkflowBuilderV2({
     trackId: string,
     stepId: string
   ) => {
-    const newSteps = workflow.steps.map((step) => {
-      if (step.id === branchId && isBranchStep(step)) {
-        return {
-          ...step,
-          tracks: step.tracks.map((track) => {
-            if (track.id === trackId) {
-              return {
-                ...track,
-                steps: track.steps.filter((s) => s.id !== stepId),
-              }
-            }
-            return track
-          }) as [typeof step.tracks[0], typeof step.tracks[1]],
-        }
-      }
-      return step
-    })
-    handleStepsChange(newSteps)
-    // Clear selection if the deleted step was selected
-    if (
-      selectedTrackStep?.branchId === branchId &&
-      selectedTrackStep?.trackId === trackId &&
-      selectedTrackStep?.stepId === stepId
-    ) {
-      setSelectedTrackStep(null)
-      setSelectedStepId(branchId) // Select the branch itself
-    }
+    dispatchEvent({ type: "track_step_deleted", branchId, trackId, stepId })
   }
 
   const handleTrackStepSelect = (
@@ -236,17 +97,14 @@ export function WorkflowBuilderV2({
     trackId: string,
     stepId: string
   ) => {
-    setSelectedTrackStep({ branchId, trackId, stepId })
-    setSelectedStepId(null)
-    setSelectedTrigger(false)
+    dispatchEvent({
+      type: "track_step_selected",
+      selection: { branchId, trackId, stepId },
+    })
   }
 
   const handleAddVariable = (variable: WorkflowVariable) => {
-    onWorkflowChange({
-      ...workflow,
-      variables: [...workflow.variables, variable],
-      updatedAt: new Date().toISOString(),
-    })
+    dispatchEvent({ type: "variable_added", variable })
   }
 
   return (
@@ -255,13 +113,18 @@ export function WorkflowBuilderV2({
       <div className="border-b px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">{workflow.name}</h2>
-            {workflow.description && (
-              <p className="text-sm text-muted-foreground">{workflow.description}</p>
+            <h2 className="text-lg font-semibold">{state.workflow.name}</h2>
+            {state.workflow.description && (
+              <p className="text-sm text-muted-foreground">{state.workflow.description}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <WorkflowConfigDialog workflow={workflow} onChange={onWorkflowChange} />
+            <WorkflowConfigDialog
+              workflow={state.workflow}
+              onChange={(nextWorkflow) =>
+                dispatchEvent({ type: "workflow_replaced", workflow: nextWorkflow })
+              }
+            />
             <Button size="sm">
               <Save className="mr-2 size-4" />
               Save Workflow
@@ -275,39 +138,38 @@ export function WorkflowBuilderV2({
         {/* Left Panel - Step List (40%) */}
         <div className="w-[40%] border-r">
           <StepListV2
-            trigger={workflow.trigger}
-            steps={workflow.steps}
+            trigger={state.workflow.trigger}
+            steps={state.workflow.steps}
             variables={allVariables}
-            selectedStepId={selectedStepId}
-            selectedTrigger={selectedTrigger}
+            selectedStepId={state.ui.selectedStepId}
+            selectedTrigger={state.ui.selectedTrigger}
             onTriggerSelect={handleTriggerSelect}
             onStepSelect={handleStepSelect}
-            onStepsReorder={handleStepsChange}
+            onStepsReorder={(steps) => dispatchEvent({ type: "steps_reordered", steps })}
             onStepAdd={handleStepAdd}
             onStepDelete={handleStepDelete}
             onStepDuplicate={handleStepDuplicate}
-            onStepUpdate={handleStepUpdate}
             onTrackStepAdd={handleTrackStepAdd}
             onTrackStepDelete={handleTrackStepDelete}
             onTrackStepSelect={handleTrackStepSelect}
-            selectedTrackStep={selectedTrackStep}
+            selectedTrackStep={state.ui.selectedTrackStep}
           />
         </div>
 
         {/* Right Panel - Config Panel (60%) */}
         <div className="flex-1">
-          {selectedTrigger ? (
+          {state.ui.selectedTrigger ? (
             <TriggerConfigPanel
-              trigger={workflow.trigger}
+              trigger={state.workflow.trigger}
               onTriggerChange={handleTriggerChange}
-              statuses={workflow.statuses}
+              statuses={state.workflow.statuses}
             />
           ) : (
             <StepConfigPanelV2
               step={selectedStep}
-              allSteps={workflow.steps}
+              allSteps={state.workflow.steps}
               variables={allVariables}
-              statuses={workflow.statuses}
+              statuses={state.workflow.statuses}
               onStepUpdate={handleStepUpdate}
               onAddVariable={handleAddVariable}
             />
@@ -320,16 +182,16 @@ export function WorkflowBuilderV2({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setShowJsonExport(!showJsonExport)}
+          onClick={() => dispatchEvent({ type: "json_export_toggled" })}
         >
-          {showJsonExport ? "Hide" : "Show"} JSON Export
+          {state.ui.showJsonExport ? "Hide" : "Show"} JSON Export
         </Button>
       </div>
 
       {/* JSON Export Panel */}
-      {showJsonExport && (
+      {state.ui.showJsonExport && (
         <div className="border-t">
-          <WorkflowJsonExport workflow={workflow} />
+          <WorkflowJsonExport workflow={state.workflow} />
         </div>
       )}
     </div>

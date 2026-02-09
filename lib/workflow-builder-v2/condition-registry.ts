@@ -6,10 +6,9 @@ import type {
   SimpleConditionType,
   AdvancementCondition,
   SimpleCondition,
-} from "@/app/builder-test/types/workflow-v2"
+} from "./types"
 import {
   Zap,
-  Clock,
   CheckCircle,
   GitBranch,
   FileText,

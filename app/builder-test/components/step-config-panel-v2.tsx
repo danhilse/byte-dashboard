@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import type { WorkflowStepV2, WorkflowVariable, BranchStepV2, AdvancementCondition, WorkflowStatus, WorkflowAction, VariableType } from "../types/workflow-v2"
+import type { WorkflowStepV2, WorkflowVariable, BranchStepV2, AdvancementCondition, WorkflowStatus, VariableType } from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { ActionList } from "./actions/action-list"
 import { AdvancementConfig } from "./advancement/advancement-config"
@@ -395,8 +395,10 @@ export function StepConfigPanelV2({
                   <Label>Operator</Label>
                   <Select
                     value={step.condition.operator}
-                    onValueChange={(value: any) =>
-                      handleBranchConditionChange({ operator: value })
+                    onValueChange={(value) =>
+                      handleBranchConditionChange({
+                        operator: value as BranchStepV2["condition"]["operator"],
+                      })
                     }
                   >
                     <SelectTrigger>

@@ -1,6 +1,6 @@
 "use client"
 
-import type { WorkflowAction, WorkflowVariable, WorkflowStatus } from "../../../types/workflow-v2"
+import type { WorkflowAction, WorkflowStatus } from "../../../types/workflow-v2"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -9,18 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 
 interface UpdateStatusConfigProps {
   action: Extract<WorkflowAction, { type: "update_status" }>
-  variables: WorkflowVariable[]
   statuses: WorkflowStatus[]
   onChange: (action: WorkflowAction) => void
 }
 
 export function UpdateStatusConfig({
   action,
-  variables,
   statuses,
   onChange,
 }: UpdateStatusConfigProps) {
@@ -68,7 +65,7 @@ export function UpdateStatusConfig({
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          This updates the workflow execution's status (workflow-specific)
+          This updates the workflow execution status (workflow-specific)
         </p>
       </div>
     </div>

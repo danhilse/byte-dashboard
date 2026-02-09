@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
+import type { WorkflowAction } from "../../../types/workflow-v2"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2 } from "lucide-react"
@@ -18,13 +18,11 @@ import type { ContactField } from "@/lib/contact-fields-config"
 
 interface UpdateContactConfigProps {
   action: Extract<WorkflowAction, { type: "update_contact" }>
-  variables: WorkflowVariable[]
   onChange: (action: WorkflowAction) => void
 }
 
 export function UpdateContactConfig({
   action,
-  variables,
   onChange,
 }: UpdateContactConfigProps) {
   // Auto-initialize with one empty field if none exist

@@ -21,7 +21,10 @@ interface CreateTaskConfigProps {
 }
 
 export function CreateTaskConfig({ action, variables, onChange }: CreateTaskConfigProps) {
-  const handleChange = (field: keyof typeof action.config, value: any) => {
+  const handleChange = <K extends keyof typeof action.config>(
+    field: K,
+    value: (typeof action.config)[K]
+  ) => {
     onChange({
       ...action,
       config: {

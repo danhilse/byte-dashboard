@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { VariableSelector } from "../../variable-selector"
+import { createCustomVariableId } from "@/lib/workflow-builder-v2/id-utils"
 
 interface SetVariableConfigProps {
   action: Extract<WorkflowAction, { type: "set_variable" }>
@@ -61,7 +62,7 @@ export function SetVariableConfig({
     if (!newVarName.trim() || !onAddVariable) return
 
     const newVariable: WorkflowVariable = {
-      id: `custom-${Date.now()}`,
+      id: createCustomVariableId(),
       name: newVarName.trim(),
       type: "custom",
       dataType: newVarDataType,

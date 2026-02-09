@@ -18,6 +18,7 @@ import {
   getActionsByCategory,
   actionCategories,
 } from "@/lib/workflow-builder-v2/action-registry"
+import { createActionId } from "@/lib/workflow-builder-v2/id-utils"
 
 interface ActionListProps {
   actions: WorkflowAction[]
@@ -42,7 +43,7 @@ export function ActionList({ actions, variables, statuses, onChange, onAddVariab
 
     const newAction: WorkflowAction = {
       ...metadata.defaultConfig,
-      id: `action-${Date.now()}`,
+      id: createActionId(),
     } as WorkflowAction
 
     onChange([...actions, newAction])

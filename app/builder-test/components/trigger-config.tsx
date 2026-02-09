@@ -42,21 +42,6 @@ export function TriggerConfig({ trigger, onChange, statuses }: TriggerConfigProp
     }
   }
 
-  const getTriggerIcon = (type: TriggerType) => {
-    switch (type) {
-      case "manual":
-        return Play
-      case "contact_status":
-        return UserCheck
-      case "form_submission":
-        return Webhook
-      case "api":
-        return Code
-    }
-  }
-
-  const Icon = getTriggerIcon(trigger.type)
-
   return (
     <div className="space-y-4">
       <div className="space-y-2">

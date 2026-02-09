@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { mockWorkflowsV2 } from "@/lib/workflow-builder-v2/mock-workflows-v2"
 import type { WorkflowDefinitionV2 } from "./types/workflow-v2"
 import { WorkflowBuilderV2 } from "./components/workflow-builder-v2"
-import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -69,6 +68,7 @@ export default function BuilderTestPage() {
       {/* Builder */}
       <div className="flex-1 overflow-hidden">
         <WorkflowBuilderV2
+          key={workflow.id}
           workflow={workflow}
           onWorkflowChange={handleWorkflowUpdate}
         />

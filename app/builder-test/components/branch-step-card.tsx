@@ -1,10 +1,13 @@
 "use client"
 
-import { useState } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import type { BranchStepV2, StandardStepV2, WorkflowVariable } from "../types/workflow-v2"
 import { getVariableLabel, resolveDisplayValue } from "@/lib/workflow-builder-v2/variable-utils"
+import {
+  cloneStandardStep,
+  createEmptyStandardStep,
+} from "@/lib/workflow-builder-v2/workflow-operations"
 import { StepCardV2 } from "./step-card-v2"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -93,12 +96,7 @@ export function BranchStepCard({
   }
 
   const handleTrackStepAdd = (trackId: string) => {
-    const newStep: StandardStepV2 = {
-      id: `step-${Date.now()}`,
-      name: "New Step",
-      actions: [],
-      advancementCondition: { type: "automatic" },
-    }
+    const newStep = createEmptyStandardStep()
     onTrackStepAdd(trackId, newStep)
   }
 
@@ -252,17 +250,7 @@ export function BranchStepCard({
                       onSelect={() => onTrackStepSelect(trackA.id, trackStep.id)}
                       onDelete={() => onTrackStepDelete(trackA.id, trackStep.id)}
                       onDuplicate={() => {
-                        // Duplicate by creating a copy
-                        const duplicatedStep: StandardStepV2 = {
-                          ...trackStep,
-                          id: `step-${Date.now()}`,
-                          name: `${trackStep.name} (Copy)`,
-                          actions: trackStep.actions.map((action) => ({
-                            ...action,
-                            id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                          })),
-                        }
-                        onTrackStepAdd(trackA.id, duplicatedStep)
+                        onTrackStepAdd(trackA.id, cloneStandardStep(trackStep))
                       }}
                     />
                   ))
@@ -307,17 +295,7 @@ export function BranchStepCard({
                       onSelect={() => onTrackStepSelect(trackB.id, trackStep.id)}
                       onDelete={() => onTrackStepDelete(trackB.id, trackStep.id)}
                       onDuplicate={() => {
-                        // Duplicate by creating a copy
-                        const duplicatedStep: StandardStepV2 = {
-                          ...trackStep,
-                          id: `step-${Date.now()}`,
-                          name: `${trackStep.name} (Copy)`,
-                          actions: trackStep.actions.map((action) => ({
-                            ...action,
-                            id: `action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                          })),
-                        }
-                        onTrackStepAdd(trackB.id, duplicatedStep)
+                        onTrackStepAdd(trackB.id, cloneStandardStep(trackStep))
                       }}
                     />
                   ))

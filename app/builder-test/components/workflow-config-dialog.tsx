@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
+import { createCustomVariableId } from "@/lib/workflow-builder-v2/id-utils"
 import type { WorkflowDefinitionV2, WorkflowVariable, WorkflowStatus, VariableDataType } from "../types/workflow-v2"
 
 // Predefined color palette for statuses
@@ -183,7 +184,7 @@ export function WorkflowConfigDialog({ workflow, onChange }: WorkflowConfigDialo
     if (!variableFormData.name.trim()) return
 
     const newVariable: WorkflowVariable = {
-      id: `var-custom-${Date.now()}`,
+      id: createCustomVariableId(),
       name: variableFormData.name.trim(),
       type: "custom",
       dataType: variableFormData.dataType,

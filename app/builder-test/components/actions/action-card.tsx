@@ -7,7 +7,6 @@ import { roleConfig } from "@/lib/roles-config"
 import type { Role } from "@/lib/roles-config"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { SendEmailConfig } from "./action-config/send-email-config"
 import { CreateTaskConfig } from "./action-config/create-task-config"
 import { UpdateContactConfig } from "./action-config/update-contact-config"
@@ -124,16 +123,16 @@ export function ActionCard({
             <CreateTaskConfig action={action} variables={variables} onChange={onUpdate} />
           )}
           {action.type === "update_contact" && (
-            <UpdateContactConfig action={action} variables={variables} onChange={onUpdate} />
+            <UpdateContactConfig action={action} onChange={onUpdate} />
           )}
           {action.type === "update_status" && (
-            <UpdateStatusConfig action={action} variables={variables} statuses={statuses} onChange={onUpdate} />
+            <UpdateStatusConfig action={action} statuses={statuses} onChange={onUpdate} />
           )}
           {action.type === "update_task" && (
             <UpdateTaskConfig action={action} variables={variables} statuses={statuses} onChange={onUpdate} />
           )}
           {action.type === "create_contact" && (
-            <CreateContactConfig action={action} variables={variables} onChange={onUpdate} />
+            <CreateContactConfig action={action} onChange={onUpdate} />
           )}
           {action.type === "set_variable" && (
             <SetVariableConfig action={action} variables={variables} onChange={onUpdate} onAddVariable={onAddVariable} />

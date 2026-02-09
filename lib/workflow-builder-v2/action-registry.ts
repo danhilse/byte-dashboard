@@ -2,7 +2,7 @@
 // Action Registry - Metadata for all action types
 // ============================================================================
 
-import type { ActionType, WorkflowAction } from "@/app/builder-test/types/workflow-v2"
+import type { ActionType, WorkflowAction } from "./types"
 import {
   Mail,
   CheckSquare,
