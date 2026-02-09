@@ -3,45 +3,13 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflowDefinitions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
-import type { DefinitionStatus } from "@/types";
-
-function isValidDefinitionStatuses(
-  value: unknown
-): value is DefinitionStatus[] {
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  return value.every((status) => {
-    if (!status || typeof status !== "object") {
-      return false;
-    }
-
-    const candidate = status as Partial<DefinitionStatus>;
-    const hasRequiredFields =
-      typeof candidate.id === "string" &&
-      candidate.id.trim().length > 0 &&
-      typeof candidate.label === "string" &&
-      candidate.label.trim().length > 0 &&
-      typeof candidate.order === "number" &&
-      Number.isInteger(candidate.order) &&
-      candidate.order >= 0;
-
-    if (!hasRequiredFields) {
-      return false;
-    }
-
-    if (
-      candidate.color !== undefined &&
-      candidate.color !== null &&
-      typeof candidate.color !== "string"
-    ) {
-      return false;
-    }
-
-    return true;
-  });
-}
+import {
+  AuthoringCompileError,
+  compileAuthoringToRuntime,
+  persistableAuthoringPayload,
+} from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
+import type { WorkflowDefinitionV2 } from "@/lib/workflow-builder-v2/types";
+import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
 
 /**
  * GET /api/workflow-definitions
@@ -116,7 +84,6 @@ export async function GET(req: Request) {
  * {
  *   "name": "string" (required),
  *   "description": "string" (optional),
- *   "steps": WorkflowStep[] (optional),
  *   "statuses": DefinitionStatus[] (optional)
  * }
  */
@@ -129,7 +96,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, steps, statuses } = body;
+    const { name, description, statuses } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -138,42 +105,83 @@ export async function POST(req: Request) {
       );
     }
 
-    if (steps !== undefined && !Array.isArray(steps)) {
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
       return NextResponse.json(
-        { error: "steps must be an array when provided" },
+        { error: "description must be a string when provided" },
         { status: 400 }
       );
     }
 
-    if (statuses !== undefined && !isValidDefinitionStatuses(statuses)) {
+    if (body.steps !== undefined) {
       return NextResponse.json(
-        { error: "statuses must be a valid DefinitionStatus[] when provided" },
+        {
+          error:
+            "direct steps writes are not supported; use authoring payload through the workflow builder editor",
+        },
         { status: 400 }
       );
     }
 
-    const normalizedStatuses = (statuses ?? []).map((status) => ({
-      id: status.id.trim(),
-      label: status.label.trim(),
-      order: status.order,
-      color: status.color?.trim() || undefined,
-    }));
+    const statusesResult = normalizeDefinitionStatuses(statuses);
+    if (!statusesResult.ok) {
+      return NextResponse.json({ error: statusesResult.error }, { status: 400 });
+    }
+
+    const now = new Date().toISOString();
+    const authoring: WorkflowDefinitionV2 = {
+      id: "pending",
+      name: name.trim(),
+      description: typeof description === "string" ? description.trim() || undefined : undefined,
+      trigger: { type: "manual" },
+      contactRequired: true,
+      steps: [],
+      phases: [],
+      statuses: statusesResult.statuses,
+      variables: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const compiledSteps = compileAuthoringToRuntime(authoring, {
+      definitionStatuses: statusesResult.statuses,
+    });
 
     const [definition] = await db
       .insert(workflowDefinitions)
       .values({
         orgId,
         name: name.trim(),
-        description: description || null,
+        description:
+          typeof description === "string" && description.trim().length > 0
+            ? description.trim()
+            : null,
         version: 1,
-        steps: steps ?? [],
-        statuses: normalizedStatuses,
+        steps: compiledSteps,
+        statuses: statusesResult.statuses,
+        variables: persistableAuthoringPayload(authoring),
         isActive: true,
       })
       .returning();
 
     return NextResponse.json({ definition }, { status: 201 });
   } catch (error) {
+    if (error instanceof AuthoringCompileError) {
+      const compileError = error;
+      return NextResponse.json(
+        {
+          error: "Authoring validation failed",
+          details: compileError.issues.map(
+            (issue) => `${issue.path}: ${issue.message}`
+          ),
+        },
+        { status: 400 }
+      );
+    }
+
     console.error("Error creating workflow definition:", error);
     return NextResponse.json(
       {

@@ -314,10 +314,47 @@ export function validateAuthoring(
   options: { definitionStatuses?: DefinitionStatus[] } = {}
 ): AuthoringValidationIssue[] {
   const issues: AuthoringValidationIssue[] = []
+  const statuses = options.definitionStatuses?.length
+    ? options.definitionStatuses
+    : authoring.statuses ?? []
+
+  if (statuses.length === 0) {
+    issues.push({
+      code: "invalid_status",
+      path: "statuses",
+      message: "Workflow definition must include at least one status.",
+    })
+  }
+
+  const seenStatusIds = new Set<string>()
+  const seenStatusOrders = new Set<number>()
+  for (let statusIndex = 0; statusIndex < statuses.length; statusIndex++) {
+    const status = statuses[statusIndex]
+    if (seenStatusIds.has(status.id)) {
+      issues.push({
+        code: "invalid_status",
+        path: `statuses[${statusIndex}].id`,
+        message: `Duplicate status id "${status.id}".`,
+      })
+    } else {
+      seenStatusIds.add(status.id)
+    }
+
+    if (seenStatusOrders.has(status.order)) {
+      issues.push({
+        code: "invalid_status",
+        path: `statuses[${statusIndex}].order`,
+        message: `Duplicate status order "${status.order}".`,
+      })
+    } else {
+      seenStatusOrders.add(status.order)
+    }
+  }
+
   const seenTopLevelStepIds = new Set<string>()
   const seenActionIds = new Set<string>()
   const allowedStatuses = new Set(
-    (options.definitionStatuses ?? authoring.statuses ?? []).map((status) => status.id)
+    statuses.map((status) => status.id)
   )
 
   const validateStandardStep = (

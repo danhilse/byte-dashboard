@@ -3,7 +3,6 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflowDefinitions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import type { DefinitionStatus } from "@/types";
 import {
   AuthoringCompileError,
   compileAuthoringToRuntime,
@@ -11,44 +10,7 @@ import {
   hasPersistedAuthoringPayload,
   type DefinitionRecordLike,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
-
-function isValidDefinitionStatuses(
-  value: unknown
-): value is DefinitionStatus[] {
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  return value.every((status) => {
-    if (!status || typeof status !== "object") {
-      return false;
-    }
-
-    const candidate = status as Partial<DefinitionStatus>;
-    const hasRequiredFields =
-      typeof candidate.id === "string" &&
-      candidate.id.trim().length > 0 &&
-      typeof candidate.label === "string" &&
-      candidate.label.trim().length > 0 &&
-      typeof candidate.order === "number" &&
-      Number.isInteger(candidate.order) &&
-      candidate.order >= 0;
-
-    if (!hasRequiredFields) {
-      return false;
-    }
-
-    if (
-      candidate.color !== undefined &&
-      candidate.color !== null &&
-      typeof candidate.color !== "string"
-    ) {
-      return false;
-    }
-
-    return true;
-  });
-}
+import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
 
 /**
  * GET /api/workflow-definitions/:id
@@ -119,9 +81,38 @@ export async function PATCH(
     const body = await req.json();
     const { name, description, steps, phases, variables, statuses } = body;
 
-    if (statuses !== undefined && !isValidDefinitionStatuses(statuses)) {
+    if (name !== undefined && (typeof name !== "string" || !name.trim())) {
       return NextResponse.json(
-        { error: "statuses must be a valid DefinitionStatus[] when provided" },
+        { error: "name must be a non-empty string when provided" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "description must be a string when provided" },
+        { status: 400 }
+      );
+    }
+
+    if (steps !== undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "direct steps writes are not supported; use authoring payload through the workflow builder editor",
+        },
+        { status: 400 }
+      );
+    }
+
+    const statusesResult = normalizeDefinitionStatuses(statuses);
+    if (!statusesResult.ok) {
+      return NextResponse.json(
+        { error: statusesResult.error },
         { status: 400 }
       );
     }
@@ -144,34 +135,58 @@ export async function PATCH(
       );
     }
 
-    const resolvedStatuses = (statuses ??
-      existingDefinition.statuses) as DefinitionStatus[];
+    const normalizedName =
+      typeof name === "string" ? name.trim() : existingDefinition.name;
+    const normalizedDescription =
+      description === null
+        ? null
+        : typeof description === "string"
+          ? description.trim() || null
+          : undefined;
+
+    const persistedStatusesResult = normalizeDefinitionStatuses(
+      statuses ?? existingDefinition.statuses
+    );
+    if (!persistedStatusesResult.ok) {
+      return NextResponse.json(
+        { error: persistedStatusesResult.error },
+        { status: 400 }
+      );
+    }
+
+    const resolvedStatuses = persistedStatusesResult.statuses;
     const resolvedVariables =
       variables !== undefined ? variables : existingDefinition.variables;
 
-    let resolvedSteps = steps !== undefined ? steps : existingDefinition.steps;
-
-    if (hasPersistedAuthoringPayload(resolvedVariables)) {
-      const authoring = fromDefinitionToAuthoring({
-        ...(existingDefinition as DefinitionRecordLike),
-        id: existingDefinition.id,
-        name: (name ?? existingDefinition.name) as string,
-        description:
-          description !== undefined
-            ? (description as string | null)
-            : existingDefinition.description,
-        statuses: resolvedStatuses,
-        variables: resolvedVariables,
-        phases: phases !== undefined ? phases : existingDefinition.phases,
-        steps: existingDefinition.steps,
-        createdAt: existingDefinition.createdAt.toISOString(),
-        updatedAt: existingDefinition.updatedAt.toISOString(),
-      });
-
-      resolvedSteps = compileAuthoringToRuntime(authoring, {
-        definitionStatuses: resolvedStatuses,
-      });
+    if (!hasPersistedAuthoringPayload(resolvedVariables)) {
+      return NextResponse.json(
+        {
+          error:
+            "authoring payload is required on variables.__builderV2Authoring for workflow definition saves",
+        },
+        { status: 400 }
+      );
     }
+
+    const authoring = fromDefinitionToAuthoring({
+      ...(existingDefinition as DefinitionRecordLike),
+      id: existingDefinition.id,
+      name: normalizedName ?? existingDefinition.name,
+      description:
+        normalizedDescription !== undefined
+          ? normalizedDescription
+          : existingDefinition.description,
+      statuses: resolvedStatuses,
+      variables: resolvedVariables,
+      phases: phases !== undefined ? phases : existingDefinition.phases,
+      steps: existingDefinition.steps,
+      createdAt: existingDefinition.createdAt.toISOString(),
+      updatedAt: existingDefinition.updatedAt.toISOString(),
+    });
+
+    const resolvedSteps = compileAuthoringToRuntime(authoring, {
+      definitionStatuses: resolvedStatuses,
+    });
 
     // Transactional clone + deactivate to avoid concurrent edit races.
     const newDefinition = await db.transaction(async (tx) => {
@@ -195,10 +210,10 @@ export async function PATCH(
         .insert(workflowDefinitions)
         .values({
           orgId,
-          name: name !== undefined ? name : existingDefinition.name,
+          name: normalizedName ?? existingDefinition.name,
           description:
-            description !== undefined
-              ? description
+            normalizedDescription !== undefined
+              ? normalizedDescription
               : existingDefinition.description,
           version: existingDefinition.version + 1,
           steps: resolvedSteps,

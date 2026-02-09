@@ -5,19 +5,12 @@ import { Loader2, Plus } from "lucide-react"
 
 import { FormDialog } from "@/components/common/form-dialog"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import type { DefinitionStatus, WorkflowDefinition } from "@/types"
-
-const DEFAULT_INITIAL_STATUSES: DefinitionStatus[] = [
-  { id: "draft", label: "Draft", order: 0, color: "#64748b" },
-  { id: "in_review", label: "In Review", order: 1, color: "#3b82f6" },
-  { id: "approved", label: "Approved", order: 2, color: "#22c55e" },
-  { id: "rejected", label: "Rejected", order: 3, color: "#ef4444" },
-]
+import type { WorkflowDefinition } from "@/types"
+import { DEFAULT_DEFINITION_STATUSES } from "@/lib/workflow-builder-v2/status-guardrails"
 
 interface WorkflowDefinitionCreateDialogProps {
   onDefinitionCreated: (definition: WorkflowDefinition) => void
@@ -33,7 +26,6 @@ export function WorkflowDefinitionCreateDialog({
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [seedInitialStatuses, setSeedInitialStatuses] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const trimmedName = useMemo(() => name.trim(), [name])
@@ -42,7 +34,6 @@ export function WorkflowDefinitionCreateDialog({
   const resetForm = () => {
     setName("")
     setDescription("")
-    setSeedInitialStatuses(true)
     setIsSubmitting(false)
   }
 
@@ -67,7 +58,7 @@ export function WorkflowDefinitionCreateDialog({
         body: JSON.stringify({
           name: trimmedName,
           description: description.trim() || undefined,
-          statuses: seedInitialStatuses ? DEFAULT_INITIAL_STATUSES : undefined,
+          statuses: DEFAULT_DEFINITION_STATUSES,
         }),
       })
 
@@ -148,26 +139,6 @@ export function WorkflowDefinitionCreateDialog({
           disabled={isSubmitting}
         />
       </div>
-
-      <div className="rounded-lg border p-3">
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="seed-initial-statuses"
-            checked={seedInitialStatuses}
-            onCheckedChange={(checked) => setSeedInitialStatuses(checked === true)}
-            disabled={isSubmitting}
-          />
-          <div className="grid gap-1">
-            <Label htmlFor="seed-initial-statuses" className="font-medium">
-              Seed initial statuses
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Adds Draft, In Review, Approved, and Rejected.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {isSubmitting && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />

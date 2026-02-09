@@ -202,6 +202,22 @@ describe("definition-runtime-adapter", () => {
     expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
   })
 
+  it("throws compile errors when statuses are missing", () => {
+    const workflow = buildWorkflow({
+      statuses: [],
+      steps: [
+        {
+          id: "step_a",
+          name: "Any",
+          actions: [],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
+  })
+
   it("hydrates authoring from persisted variables payload", () => {
     const definition = {
       id: "def_1",

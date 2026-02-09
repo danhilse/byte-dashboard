@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_DEFINITION_STATUSES } from "@/lib/workflow-builder-v2/status-guardrails";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -97,10 +98,30 @@ describe("app/api/workflow-definitions/route", () => {
         name: "Review Flow",
         version: 1,
         isActive: true,
-        steps: [],
-        statuses: [],
+        statuses: DEFAULT_DEFINITION_STATUSES,
+        steps: expect.any(Array),
+        variables: expect.objectContaining({
+          __builderV2Authoring: expect.any(Object),
+        }),
       })
     );
+  });
+
+  it("POST rejects direct steps writes", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "Review Flow", steps: [] }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error:
+        "direct steps writes are not supported; use authoring payload through the workflow builder editor",
+    });
   });
 
   it("POST creates workflow definition with provided statuses", async () => {
