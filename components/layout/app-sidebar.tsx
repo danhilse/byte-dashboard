@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Briefcase,
-  Calendar,
   Users,
   HelpCircle,
   GitBranch,
@@ -76,8 +75,8 @@ const primaryNavItems = [
 
 const adminNavItems = [
   {
-    title: "Workflow Builder",
-    href: "/admin/workflow-builder",
+    title: "Workflow Builder V2",
+    href: "/builder-test",
     icon: GitBranch,
   },
   {

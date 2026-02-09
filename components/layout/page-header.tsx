@@ -43,7 +43,7 @@ const quickAddItems = [
   { label: "Person", icon: User, href: "/people" },
   { label: "Task", icon: CheckSquare, href: "/my-work" },
   { label: "Workflow Execution", icon: Workflow, href: "/workflows" },
-  { label: "Workflow Definition", icon: Workflow, href: "/admin/workflow-builder" },
+  { label: "Workflow Builder V2", icon: Workflow, href: "/builder-test" },
   { label: "Support Ticket", icon: Headphones, href: "/support" },
 ]
 
