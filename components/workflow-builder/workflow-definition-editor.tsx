@@ -7,41 +7,17 @@ import { useRouter } from "next/navigation"
 import { WorkflowBuilderV2 } from "@/components/workflow-builder/v2/workflow-builder-v2"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import type { DefinitionStatus } from "@/types"
-import type {
-  WorkflowDefinitionV2,
-  WorkflowPhase,
-  WorkflowStepV2,
-  WorkflowTrigger,
-  WorkflowVariable,
-} from "@/components/workflow-builder/types/workflow-v2"
+import {
+  definitionPhasesFromAuthoring,
+  fromDefinitionToAuthoring,
+  persistableAuthoringPayload,
+  type DefinitionRecordLike,
+} from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter"
+import type { WorkflowDefinitionV2 } from "@/components/workflow-builder/types/workflow-v2"
 
-const AUTHORING_STORAGE_KEY = "__builderV2Authoring"
-
-interface PersistedAuthoringPayload {
-  schemaVersion: number
-  workflow: {
-    trigger?: WorkflowTrigger
-    contactRequired?: boolean
-    steps?: WorkflowStepV2[]
-    phases?: WorkflowPhase[]
-    variables?: WorkflowVariable[]
-  }
-}
-
-interface WorkflowDefinitionRecord {
-  id: string
-  name: string
-  description?: string | null
+interface WorkflowDefinitionRecord extends DefinitionRecordLike {
   version: number
-  phases?: unknown
-  steps?: unknown
-  variables?: unknown
-  statuses?: unknown
-  createdAt: string
-  updatedAt: string
 }
 
 interface WorkflowDefinitionEditorProps {
@@ -53,157 +29,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
-function normalizeStatuses(value: unknown): DefinitionStatus[] {
-  if (!Array.isArray(value)) {
+function collectSaveErrors(payload: unknown): string[] {
+  if (!isRecord(payload) || !Array.isArray(payload.details)) {
     return []
   }
 
-  return value
-    .filter((status): status is DefinitionStatus => {
-      if (!isRecord(status)) {
-        return false
-      }
-
-      return (
-        typeof status.id === "string" &&
-        typeof status.label === "string" &&
-        typeof status.order === "number"
-      )
-    })
-    .map((status) => ({
-      id: status.id.trim(),
-      label: status.label.trim(),
-      order: status.order,
-      color: status.color?.trim() || undefined,
-    }))
-    .sort((a, b) => a.order - b.order)
-}
-
-function normalizePhases(value: unknown): WorkflowPhase[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value
-    .filter(isRecord)
-    .map((phase, index) => {
-      const id = typeof phase.id === "string" && phase.id ? phase.id : `phase_${index + 1}`
-      const name =
-        (typeof phase.name === "string" && phase.name) ||
-        (typeof phase.label === "string" && phase.label) ||
-        `Phase ${index + 1}`
-      const color = typeof phase.color === "string" ? phase.color : undefined
-      const order =
-        typeof phase.order === "number" && Number.isFinite(phase.order)
-          ? phase.order
-          : index
-
-      return { id, name, color, order }
-    })
-    .sort((a, b) => a.order - b.order)
-}
-
-function isLikelyWorkflowStepV2Array(value: unknown): value is WorkflowStepV2[] {
-  if (!Array.isArray(value)) {
-    return false
-  }
-
-  return value.every((step) => {
-    if (!isRecord(step)) {
-      return false
-    }
-
-    return (
-      typeof step.id === "string" &&
-      typeof step.name === "string" &&
-      Array.isArray(step.actions) &&
-      isRecord(step.advancementCondition)
-    )
-  })
-}
-
-function normalizeVariables(value: unknown): WorkflowVariable[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  return value.filter((variable): variable is WorkflowVariable => {
-    if (!isRecord(variable)) {
-      return false
-    }
-    return (
-      typeof variable.id === "string" &&
-      typeof variable.name === "string" &&
-      typeof variable.type === "string" &&
-      isRecord(variable.source)
-    )
-  })
-}
-
-function readPersistedAuthoring(
-  variables: unknown
-): PersistedAuthoringPayload | null {
-  if (!isRecord(variables)) {
-    return null
-  }
-
-  const raw = variables[AUTHORING_STORAGE_KEY]
-  if (!isRecord(raw) || !isRecord(raw.workflow)) {
-    return null
-  }
-
-  return raw as PersistedAuthoringPayload
-}
-
-function toEditorWorkflow(definition: WorkflowDefinitionRecord): WorkflowDefinitionV2 {
-  const persistedAuthoring = readPersistedAuthoring(definition.variables)
-  const statuses = normalizeStatuses(definition.statuses)
-  const defaultTrigger: WorkflowTrigger = { type: "manual" }
-
-  const authoringSteps = persistedAuthoring?.workflow.steps
-  const steps = Array.isArray(authoringSteps)
-    ? authoringSteps
-    : isLikelyWorkflowStepV2Array(definition.steps)
-      ? definition.steps
-      : []
-
-  const authoringVariables = persistedAuthoring?.workflow.variables
-  const variables = Array.isArray(authoringVariables)
-    ? authoringVariables
-    : normalizeVariables(definition.variables)
-
-  const authoringPhases = persistedAuthoring?.workflow.phases
-  const phases = Array.isArray(authoringPhases)
-    ? authoringPhases
-    : normalizePhases(definition.phases)
-
-  const trigger = persistedAuthoring?.workflow.trigger ?? defaultTrigger
-  const contactRequired =
-    typeof persistedAuthoring?.workflow.contactRequired === "boolean"
-      ? persistedAuthoring.workflow.contactRequired
-      : true
-
-  return {
-    id: definition.id,
-    name: definition.name,
-    description: definition.description ?? undefined,
-    trigger,
-    contactRequired,
-    steps,
-    phases,
-    statuses,
-    variables,
-    createdAt: definition.createdAt,
-    updatedAt: definition.updatedAt,
-  }
-}
-
-function toDefinitionPhases(phases: WorkflowPhase[]) {
-  return phases.map((phase, index) => ({
-    id: phase.id,
-    label: phase.name,
-    order: typeof phase.order === "number" ? phase.order : index,
-  }))
+  return payload.details.filter(
+    (detail): detail is string => typeof detail === "string" && detail.length > 0
+  )
 }
 
 export function WorkflowDefinitionEditor({
@@ -217,23 +50,25 @@ export function WorkflowDefinitionEditor({
   const [definitionRecord, setDefinitionRecord] =
     useState<WorkflowDefinitionRecord>(initialDefinition)
   const [workflow, setWorkflow] = useState<WorkflowDefinitionV2>(
-    toEditorWorkflow(initialDefinition)
+    fromDefinitionToAuthoring(initialDefinition)
   )
   const [savedSnapshot, setSavedSnapshot] = useState(
-    JSON.stringify(toEditorWorkflow(initialDefinition))
+    JSON.stringify(fromDefinitionToAuthoring(initialDefinition))
   )
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [saveErrors, setSaveErrors] = useState<string[]>([])
 
   const workflowSnapshot = useMemo(() => JSON.stringify(workflow), [workflow])
   const isDirty = workflowSnapshot !== savedSnapshot
 
   const hydrateFromRecord = useCallback((record: WorkflowDefinitionRecord) => {
-    const nextWorkflow = toEditorWorkflow(record)
+    const nextWorkflow = fromDefinitionToAuthoring(record)
     setDefinitionRecord(record)
     setWorkflow(nextWorkflow)
     setSavedSnapshot(JSON.stringify(nextWorkflow))
+    setSaveErrors([])
   }, [])
 
   const fetchDefinition = useCallback(
@@ -270,6 +105,7 @@ export function WorkflowDefinitionEditor({
   const handleSave = useCallback(
     async (nextWorkflow: WorkflowDefinitionV2) => {
       setIsSaving(true)
+      setSaveErrors([])
 
       try {
         const variableRecord = isRecord(definitionRecord.variables)
@@ -285,19 +121,10 @@ export function WorkflowDefinitionEditor({
               name: nextWorkflow.name,
               description: nextWorkflow.description ?? null,
               statuses: nextWorkflow.statuses,
-              phases: toDefinitionPhases(nextWorkflow.phases),
+              phases: definitionPhasesFromAuthoring(nextWorkflow),
               variables: {
                 ...variableRecord,
-                [AUTHORING_STORAGE_KEY]: {
-                  schemaVersion: 1,
-                  workflow: {
-                    trigger: nextWorkflow.trigger,
-                    contactRequired: nextWorkflow.contactRequired,
-                    steps: nextWorkflow.steps,
-                    phases: nextWorkflow.phases,
-                    variables: nextWorkflow.variables,
-                  },
-                } satisfies PersistedAuthoringPayload,
+                ...persistableAuthoringPayload(nextWorkflow),
               },
             }),
           }
@@ -306,6 +133,11 @@ export function WorkflowDefinitionEditor({
         const payload = await response.json().catch(() => null)
 
         if (!response.ok || !payload?.definition) {
+          const details = collectSaveErrors(payload)
+          if (details.length > 0) {
+            setSaveErrors(details)
+          }
+
           throw new Error(payload?.error || "Failed to save workflow definition")
         }
 
@@ -363,17 +195,24 @@ export function WorkflowDefinitionEditor({
     )
   }
 
-  if (isLoading && !workflow) {
-    return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-[520px] w-full" />
-      </div>
-    )
-  }
-
   return (
     <div className="h-[calc(100vh-4rem)]">
+      {saveErrors.length > 0 && (
+        <div className="border-b p-4">
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Definition cannot be saved yet</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc space-y-1 pl-4">
+                {saveErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       <WorkflowBuilderV2
         workflow={workflow}
         onWorkflowChange={setWorkflow}

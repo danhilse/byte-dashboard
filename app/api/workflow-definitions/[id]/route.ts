@@ -3,6 +3,52 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflowDefinitions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import type { DefinitionStatus } from "@/types";
+import {
+  AuthoringCompileError,
+  compileAuthoringToRuntime,
+  fromDefinitionToAuthoring,
+  hasPersistedAuthoringPayload,
+  type DefinitionRecordLike,
+} from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
+
+function isValidDefinitionStatuses(
+  value: unknown
+): value is DefinitionStatus[] {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.every((status) => {
+    if (!status || typeof status !== "object") {
+      return false;
+    }
+
+    const candidate = status as Partial<DefinitionStatus>;
+    const hasRequiredFields =
+      typeof candidate.id === "string" &&
+      candidate.id.trim().length > 0 &&
+      typeof candidate.label === "string" &&
+      candidate.label.trim().length > 0 &&
+      typeof candidate.order === "number" &&
+      Number.isInteger(candidate.order) &&
+      candidate.order >= 0;
+
+    if (!hasRequiredFields) {
+      return false;
+    }
+
+    if (
+      candidate.color !== undefined &&
+      candidate.color !== null &&
+      typeof candidate.color !== "string"
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
 
 /**
  * GET /api/workflow-definitions/:id
@@ -73,9 +119,63 @@ export async function PATCH(
     const body = await req.json();
     const { name, description, steps, phases, variables, statuses } = body;
 
+    if (statuses !== undefined && !isValidDefinitionStatuses(statuses)) {
+      return NextResponse.json(
+        { error: "statuses must be a valid DefinitionStatus[] when provided" },
+        { status: 400 }
+      );
+    }
+
+    const [existingDefinition] = await db
+      .select()
+      .from(workflowDefinitions)
+      .where(
+        and(
+          eq(workflowDefinitions.id, id),
+          eq(workflowDefinitions.orgId, orgId),
+          eq(workflowDefinitions.isActive, true)
+        )
+      );
+
+    if (!existingDefinition) {
+      return NextResponse.json(
+        { error: "Workflow definition not found" },
+        { status: 404 }
+      );
+    }
+
+    const resolvedStatuses = (statuses ??
+      existingDefinition.statuses) as DefinitionStatus[];
+    const resolvedVariables =
+      variables !== undefined ? variables : existingDefinition.variables;
+
+    let resolvedSteps = steps !== undefined ? steps : existingDefinition.steps;
+
+    if (hasPersistedAuthoringPayload(resolvedVariables)) {
+      const authoring = fromDefinitionToAuthoring({
+        ...(existingDefinition as DefinitionRecordLike),
+        id: existingDefinition.id,
+        name: (name ?? existingDefinition.name) as string,
+        description:
+          description !== undefined
+            ? (description as string | null)
+            : existingDefinition.description,
+        statuses: resolvedStatuses,
+        variables: resolvedVariables,
+        phases: phases !== undefined ? phases : existingDefinition.phases,
+        steps: existingDefinition.steps,
+        createdAt: existingDefinition.createdAt.toISOString(),
+        updatedAt: existingDefinition.updatedAt.toISOString(),
+      });
+
+      resolvedSteps = compileAuthoringToRuntime(authoring, {
+        definitionStatuses: resolvedStatuses,
+      });
+    }
+
     // Transactional clone + deactivate to avoid concurrent edit races.
     const newDefinition = await db.transaction(async (tx) => {
-      const [existing] = await tx
+      const [deactivated] = await tx
         .update(workflowDefinitions)
         .set({ isActive: false, updatedAt: new Date() })
         .where(
@@ -87,7 +187,7 @@ export async function PATCH(
         )
         .returning();
 
-      if (!existing) {
+      if (!deactivated) {
         return null;
       }
 
@@ -95,14 +195,16 @@ export async function PATCH(
         .insert(workflowDefinitions)
         .values({
           orgId,
-          name: name !== undefined ? name : existing.name,
+          name: name !== undefined ? name : existingDefinition.name,
           description:
-            description !== undefined ? description : existing.description,
-          version: existing.version + 1,
-          steps: steps !== undefined ? steps : existing.steps,
-          phases: phases !== undefined ? phases : existing.phases,
-          variables: variables !== undefined ? variables : existing.variables,
-          statuses: statuses !== undefined ? statuses : existing.statuses,
+            description !== undefined
+              ? description
+              : existingDefinition.description,
+          version: existingDefinition.version + 1,
+          steps: resolvedSteps,
+          phases: phases !== undefined ? phases : existingDefinition.phases,
+          variables: resolvedVariables,
+          statuses: resolvedStatuses,
           isActive: true,
         })
         .returning();
@@ -119,6 +221,18 @@ export async function PATCH(
 
     return NextResponse.json({ definition: newDefinition });
   } catch (error) {
+    if (error instanceof AuthoringCompileError) {
+      return NextResponse.json(
+        {
+          error: "Authoring validation failed",
+          details: error.issues.map(
+            (issue) => `${issue.path}: ${issue.message}`
+          ),
+        },
+        { status: 400 }
+      );
+    }
+
     console.error("Error updating workflow definition:", error);
     return NextResponse.json(
       {

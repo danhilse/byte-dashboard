@@ -53,19 +53,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
 
   it("PATCH returns 404 when transactional clone finds no active definition", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
-    mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
-      const tx = {
-        update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue({
-              returning: vi.fn().mockResolvedValue([]),
-            }),
-          }),
-        }),
-        insert: vi.fn(),
-      };
-      return fn(tx);
-    });
+    mocks.select.mockReturnValue(selectQuery([]));
 
     const res = await PATCH(
       new Request("http://localhost", {
@@ -77,6 +65,67 @@ describe("app/api/workflow-definitions/[id]/route", () => {
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Workflow definition not found" });
+  });
+
+  it("PATCH returns 400 when authoring payload fails compile validation", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select.mockReturnValue(
+      selectQuery([
+        {
+          id: "def_1",
+          orgId: "org_1",
+          name: "Definition",
+          description: null,
+          version: 1,
+          steps: [],
+          phases: [],
+          variables: {},
+          statuses: [{ id: "draft", label: "Draft", order: 0 }],
+          isActive: true,
+          createdAt: new Date("2026-02-09T00:00:00.000Z"),
+          updatedAt: new Date("2026-02-09T00:00:00.000Z"),
+        },
+      ])
+    );
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({
+          variables: {
+            __builderV2Authoring: {
+              schemaVersion: 1,
+              workflow: {
+                trigger: { type: "manual" },
+                contactRequired: true,
+                phases: [],
+                variables: [],
+                steps: [
+                  {
+                    id: "step_1",
+                    name: "Unsupported Step",
+                    actions: [
+                      {
+                        type: "create_contact",
+                        id: "action_1",
+                        config: { contactType: "reference", fields: [] },
+                      },
+                    ],
+                    advancementCondition: { type: "automatic" },
+                  },
+                ],
+              },
+            },
+          },
+        }),
+      }),
+      { params: Promise.resolve({ id: "def_1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Authoring validation failed",
+    });
   });
 
   it("DELETE soft-deletes and returns success payload", async () => {
