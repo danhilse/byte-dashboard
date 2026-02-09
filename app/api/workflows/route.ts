@@ -4,6 +4,12 @@ import { db } from "@/lib/db";
 import { contacts, workflows, workflowDefinitions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+import {
+  getAllowedWorkflowStatuses,
+  isAllowedWorkflowStatus,
+  resolveInitialWorkflowStatus,
+} from "@/lib/workflow-status";
+import type { DefinitionStatus } from "@/types";
 
 /**
  * GET /api/workflows
@@ -30,6 +36,7 @@ export async function GET() {
           email: contacts.email,
         },
         definitionName: workflowDefinitions.name,
+        definitionStatuses: workflowDefinitions.statuses,
       })
       .from(workflows)
       .leftJoin(
@@ -43,7 +50,7 @@ export async function GET() {
       .where(eq(workflows.orgId, orgId))
       .orderBy(desc(workflows.startedAt));
 
-    const executions = rows.map(({ workflow, contact, definitionName }) => {
+    const executions = rows.map(({ workflow, contact, definitionName, definitionStatuses }) => {
       const contactName = contact
         ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()
         : undefined;
@@ -54,6 +61,8 @@ export async function GET() {
         contactName,
         contactAvatarUrl: contact?.avatarUrl ?? undefined,
         definitionName: definitionName ?? undefined,
+        definitionStatuses:
+          (definitionStatuses as DefinitionStatus[] | null) ?? undefined,
       };
     });
 
@@ -116,9 +125,15 @@ export async function POST(req: Request) {
     // If definition provided, validate and snapshot version
     let definitionVersion: number | undefined;
     let definitionName: string | undefined;
+    let definitionStatuses: DefinitionStatus[] | undefined;
     if (workflowDefinitionId) {
       const [definition] = await db
-        .select()
+        .select({
+          id: workflowDefinitions.id,
+          name: workflowDefinitions.name,
+          version: workflowDefinitions.version,
+          statuses: workflowDefinitions.statuses,
+        })
         .from(workflowDefinitions)
         .where(
           and(
@@ -136,7 +151,28 @@ export async function POST(req: Request) {
 
       definitionVersion = definition.version;
       definitionName = definition.name;
+      definitionStatuses =
+        (definition.statuses as DefinitionStatus[] | null) ?? [];
     }
+
+    if (status !== undefined) {
+      if (!isAllowedWorkflowStatus(status, definitionStatuses)) {
+        return NextResponse.json(
+          {
+            error: "Invalid workflow status for this workflow definition",
+            allowedStatuses: getAllowedWorkflowStatuses(definitionStatuses),
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const initialStatus =
+      status ??
+      resolveInitialWorkflowStatus(
+        definitionStatuses,
+        workflowDefinitionId ? "running" : "draft"
+      );
 
     const [workflow] = await db
       .insert(workflows)
@@ -145,7 +181,7 @@ export async function POST(req: Request) {
         contactId,
         workflowDefinitionId: workflowDefinitionId || null,
         definitionVersion: definitionVersion ?? null,
-        status: status || "draft",
+        status: initialStatus,
         source: source || "manual",
         variables: variables || {},
         metadata: metadata || {},
@@ -170,6 +206,7 @@ export async function POST(req: Request) {
         contactName,
         contactAvatarUrl: contact.avatarUrl ?? undefined,
         definitionName,
+        definitionStatuses,
       },
     });
   } catch (error) {

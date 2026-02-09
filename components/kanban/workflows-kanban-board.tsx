@@ -1,16 +1,19 @@
 "use client"
 
+import { useMemo } from "react"
 import { GenericKanbanBoard, type KanbanColumn } from "./generic-kanban-board"
 import { WorkflowKanbanCard } from "./workflow-kanban-card"
-import type { Workflow, WorkflowStatus } from "@/types"
+import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
+import type { Workflow, DefinitionStatus } from "@/types"
 
 interface WorkflowsKanbanBoardProps {
   workflows: Workflow[]
-  onStatusChange?: (workflowId: string, newStatus: WorkflowStatus) => void
+  definitionStatuses?: DefinitionStatus[]
+  onStatusChange?: (workflowId: string, newStatus: string) => void
   onWorkflowClick?: (workflow: Workflow) => void
 }
 
-const columns: KanbanColumn<WorkflowStatus>[] = [
+const fallbackColumns: KanbanColumn<string>[] = [
   { id: "draft", title: "Draft", color: "border-t-slate-500" },
   { id: "in_review", title: "In Review", color: "border-t-blue-500" },
   { id: "pending", title: "Pending", color: "border-t-yellow-500" },
@@ -25,9 +28,37 @@ const columns: KanbanColumn<WorkflowStatus>[] = [
 
 export function WorkflowsKanbanBoard({
   workflows,
+  definitionStatuses,
   onStatusChange,
   onWorkflowClick,
 }: WorkflowsKanbanBoardProps) {
+  const columns = useMemo<KanbanColumn<string>[]>(() => {
+    if (definitionStatuses?.length) {
+      const baseColumns = [...definitionStatuses]
+        .sort((a, b) => a.order - b.order)
+        .map((s) => ({
+          id: s.id,
+          title: s.label,
+          borderColorHex: s.color,
+        }))
+
+      // Keep unknown/existing statuses visible even if a definition changed.
+      const knownStatusIds = new Set(baseColumns.map((column) => column.id))
+      const extraColumns = [...new Set(workflows.map((workflow) => workflow.status))]
+        .filter((statusId) => !knownStatusIds.has(statusId))
+        .map((statusId) => {
+          const display = resolveWorkflowStatusDisplay(statusId, definitionStatuses)
+          return {
+            id: statusId,
+            title: display.label,
+          }
+        })
+
+      return [...baseColumns, ...extraColumns]
+    }
+    return fallbackColumns
+  }, [definitionStatuses, workflows])
+
   return (
     <GenericKanbanBoard
       items={workflows}
@@ -38,12 +69,15 @@ export function WorkflowsKanbanBoard({
         <WorkflowKanbanCard
           key={workflow.id}
           workflow={workflow}
+          definitionStatuses={definitionStatuses}
           isDraggable={!workflow.temporalWorkflowId}
           onClick={props?.onClick}
           className={props?.className}
         />
       )}
-      renderOverlayCard={(workflow) => <WorkflowKanbanCard workflow={workflow} />}
+      renderOverlayCard={(workflow) => (
+        <WorkflowKanbanCard workflow={workflow} definitionStatuses={definitionStatuses} />
+      )}
       onStatusChange={onStatusChange}
       onItemClick={onWorkflowClick}
       gridClassName="grid h-[calc(100vh-14rem)] auto-cols-[minmax(200px,1fr)] grid-flow-col gap-4 overflow-x-auto"

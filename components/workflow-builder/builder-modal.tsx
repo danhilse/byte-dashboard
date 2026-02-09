@@ -12,7 +12,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { StepList } from "./step-list"
 import { StepConfigPanel } from "./step-config-panel"
-import type { WorkflowDefinition, WorkflowStep, WorkflowPhase } from "@/types"
+import type {
+  WorkflowDefinition,
+  WorkflowStep,
+  WorkflowPhase,
+  DefinitionStatus,
+} from "@/types"
 
 interface BuilderModalProps {
   definition: WorkflowDefinition | null
@@ -30,6 +35,7 @@ export function BuilderModal({
   const initialSteps =
     (definition?.steps as { steps: WorkflowStep[] } | null)?.steps ?? []
   const initialPhases = (definition?.phases as WorkflowPhase[]) ?? []
+  const definitionStatuses = (definition?.statuses as DefinitionStatus[]) ?? []
 
   const [steps, setSteps] = useState<WorkflowStep[]>(initialSteps)
   const [phases, setPhases] = useState<WorkflowPhase[]>(initialPhases)
@@ -114,6 +120,7 @@ export function BuilderModal({
             <StepConfigPanel
               step={selectedStep}
               steps={steps}
+              definitionStatuses={definitionStatuses}
               onStepUpdate={handleStepUpdate}
             />
           </div>

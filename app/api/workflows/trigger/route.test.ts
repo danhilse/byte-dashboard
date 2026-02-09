@@ -173,6 +173,7 @@ describe("app/api/workflows/trigger/route", () => {
         contactName: "Ada Lovelace",
         contactAvatarUrl: "https://img",
         definitionName: "Generic Review",
+        definitionStatuses: [],
       },
     });
     expect(mocks.logActivity).toHaveBeenCalledWith(

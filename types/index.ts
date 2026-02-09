@@ -21,7 +21,14 @@ export interface Contact {
   workflowsCount?: number
 }
 
-export type WorkflowStatus = "draft" | "in_review" | "pending" | "on_hold" | "approved" | "rejected" | "running" | "completed" | "failed" | "timeout"
+export type WorkflowStatus = string
+
+export interface DefinitionStatus {
+  id: string
+  label: string
+  color?: string
+  order: number
+}
 
 // ===========================
 // Workflow Phases (Display-Only Grouping)
@@ -92,7 +99,7 @@ export interface WaitForApprovalStep extends BaseStep {
 export interface UpdateStatusStep extends BaseStep {
   type: "update_status"
   config: {
-    status: WorkflowStatus
+    status: string
   }
 }
 
@@ -162,7 +169,7 @@ export interface WorkflowDefinition {
   phases: WorkflowPhase[]
   steps: { steps: WorkflowStep[] } // JSONB array of step definitions
   variables: Record<string, unknown> // JSONB variable definitions
-  statuses: unknown[] // JSONB UI status definitions
+  statuses: DefinitionStatus[] // JSONB UI status definitions
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -177,6 +184,7 @@ export interface Workflow {
   workflowDefinitionId?: string
   definitionName?: string // Joined from workflow_definitions
   definitionVersion?: number // Snapshot of definition version at execution time
+  definitionStatuses?: DefinitionStatus[] // Joined from workflow_definitions
   currentStepId?: string
   currentPhaseId?: string
   status: WorkflowStatus

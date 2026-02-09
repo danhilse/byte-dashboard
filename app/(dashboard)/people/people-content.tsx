@@ -1,6 +1,6 @@
 "use client"
 
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useCallback, useState, useMemo, useEffect } from "react"
 import { List, LayoutGrid, Trash2, FileText, Loader2 } from "lucide-react"
 import {
@@ -38,6 +38,7 @@ import { ContactFiltersDialog, type ContactFilters } from "@/components/contacts
 import { createContactColumns, contactStatusOptions } from "@/components/data-table/columns/contact-columns"
 import type { Contact } from "@/types"
 import { useToast } from "@/hooks/use-toast"
+import { usePersistedView } from "@/hooks/use-persisted-view"
 
 type ViewType = "table" | "card"
 
@@ -54,11 +55,9 @@ const defaultAdvancedFilters: ContactFilters = {
 }
 
 export function PeopleContent() {
-  const searchParams = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
-
-  const view = (searchParams.get("view") as ViewType) || "table"
+  const [view, setView] = usePersistedView<ViewType>("people", "table")
   const [contacts, setContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [advancedFilters, setAdvancedFilters] = useState<ContactFilters>(defaultAdvancedFilters)
@@ -103,14 +102,6 @@ export function PeopleContent() {
     fetchContacts()
   }, [toast])
 
-  const updateView = useCallback(
-    (newView: string) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set("view", newView)
-      router.push(`/people?${params.toString()}`)
-    },
-    [searchParams, router]
-  )
 
   const filteredContacts = useMemo(() => {
     let result = contacts
@@ -400,7 +391,7 @@ export function PeopleContent() {
             searchPlaceholder="Search contacts..."
           />
         </div>
-        <ViewToggle views={viewOptions} value={view} onChange={updateView} />
+        <ViewToggle views={viewOptions} value={view} onChange={setView as (value: string) => void} />
       </div>
 
       {/* Content */}

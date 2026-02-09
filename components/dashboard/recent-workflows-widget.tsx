@@ -1,7 +1,6 @@
 import { formatDistanceToNow } from "date-fns"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { WorkflowStatusBadge } from "@/components/common/status-badge"
-import type { WorkflowStatus } from "@/types"
 
 interface RecentWorkflow {
   id: string
@@ -44,7 +43,7 @@ export function RecentWorkflowsWidget({ workflows }: RecentWorkflowsWidgetProps)
                     })}
                   </p>
                 </div>
-                <WorkflowStatusBadge status={workflow.status as WorkflowStatus} />
+                <WorkflowStatusBadge status={workflow.status} />
               </div>
             ))}
           </div>

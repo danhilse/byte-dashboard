@@ -28,11 +28,11 @@ export interface KanbanColumn<S extends string> {
   id: S
   title: string
   color?: string
+  borderColorHex?: string
 }
 
 export interface KanbanItem {
   id: string
-  [key: string]: unknown
 }
 
 interface GenericKanbanBoardProps<T extends KanbanItem, S extends string> {
@@ -199,6 +199,7 @@ export function GenericKanbanBoard<T extends KanbanItem, S extends string>({
             id={column.id}
             title={column.title}
             color={column.color}
+            borderColorHex={column.borderColorHex}
             items={itemsByStatus[column.id]}
             renderCard={renderCard}
             onItemClick={onItemClick}
@@ -217,6 +218,7 @@ interface KanbanColumnGenericProps<T extends KanbanItem> {
   id: string
   title: string
   color?: string
+  borderColorHex?: string
   items: T[]
   renderCard: (item: T, props?: { onClick?: () => void; className?: string }) => ReactNode
   onItemClick?: (item: T) => void
@@ -227,6 +229,7 @@ const KanbanColumnGeneric = memo(function KanbanColumnGeneric<T extends KanbanIt
   id,
   title,
   color,
+  borderColorHex,
   items,
   renderCard,
   onItemClick,
@@ -235,7 +238,10 @@ const KanbanColumnGeneric = memo(function KanbanColumnGeneric<T extends KanbanIt
   const { setNodeRef, isOver } = useDroppable({ id })
 
   return (
-    <Card className={cn("flex h-full flex-col border-t-4", color || "border-t-slate-500")}>
+    <Card
+      className={cn("flex h-full flex-col border-t-4", !borderColorHex && (color || "border-t-slate-500"))}
+      style={borderColorHex ? { borderTopColor: borderColorHex } : undefined}
+    >
       <CardHeader className="p-3 pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>

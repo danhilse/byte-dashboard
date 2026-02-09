@@ -7,17 +7,9 @@ import { StepListV2 } from "./step-list-v2"
 import { StepConfigPanelV2 } from "./step-config-panel-v2"
 import { TriggerConfigPanel } from "./trigger-config-panel"
 import { WorkflowJsonExport } from "./workflow-json-export"
-import { CustomVariablesDialog } from "./custom-variables-dialog"
+import { WorkflowConfigDialog } from "./workflow-config-dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Save, ChevronDown, ChevronRight } from "lucide-react"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import { Save } from "lucide-react"
 import { getAllVariables } from "@/lib/workflow-builder-v2/variable-utils"
 
 interface WorkflowBuilderV2Props {
@@ -39,7 +31,6 @@ export function WorkflowBuilderV2({
     stepId: string
   } | null>(null)
   const [showJsonExport, setShowJsonExport] = useState(false)
-  const [showWorkflowDescription, setShowWorkflowDescription] = useState(false)
 
   // Get selected step - either from main steps or from within a branch track
   const selectedStep = useMemo(() => {
@@ -66,22 +57,6 @@ export function WorkflowBuilderV2({
   // Compute all variables (auto-detected + custom)
   const allVariables = useMemo(() => getAllVariables(workflow), [workflow])
 
-  const handleNameChange = (name: string) => {
-    onWorkflowChange({
-      ...workflow,
-      name,
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
-  const handleDescriptionChange = (description: string) => {
-    onWorkflowChange({
-      ...workflow,
-      description,
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
   const handleTriggerChange = (trigger: typeof workflow.trigger) => {
     onWorkflowChange({
       ...workflow,
@@ -94,14 +69,6 @@ export function WorkflowBuilderV2({
     onWorkflowChange({
       ...workflow,
       steps,
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
-  const handleVariablesChange = (variables: WorkflowVariable[]) => {
-    onWorkflowChange({
-      ...workflow,
-      variables,
       updatedAt: new Date().toISOString(),
     })
   }
@@ -278,56 +245,15 @@ export function WorkflowBuilderV2({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b px-6 py-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="workflow-name" className="text-xs">
-                Workflow Name
-              </Label>
-              <Input
-                id="workflow-name"
-                value={workflow.name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                className="max-w-md text-lg font-semibold"
-              />
-            </div>
-
-            {/* Collapsible Description */}
-            <Collapsible
-              open={showWorkflowDescription}
-              onOpenChange={setShowWorkflowDescription}
-            >
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-xs text-muted-foreground"
-                >
-                  {showWorkflowDescription ? (
-                    <ChevronDown className="size-3" />
-                  ) : (
-                    <ChevronRight className="size-3" />
-                  )}
-                  Description (Optional)
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <Textarea
-                  id="workflow-description"
-                  value={workflow.description || ""}
-                  onChange={(e) => handleDescriptionChange(e.target.value)}
-                  placeholder="What does this workflow do?"
-                  className="max-w-md"
-                  rows={2}
-                />
-              </CollapsibleContent>
-            </Collapsible>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">{workflow.name}</h2>
+            {workflow.description && (
+              <p className="text-sm text-muted-foreground">{workflow.description}</p>
+            )}
           </div>
-          <div className="flex items-center gap-2 pt-6">
-            <CustomVariablesDialog
-              variables={workflow.variables}
-              onChange={handleVariablesChange}
-            />
+          <div className="flex items-center gap-2">
+            <WorkflowConfigDialog workflow={workflow} onChange={onWorkflowChange} />
             <Button size="sm">
               <Save className="mr-2 size-4" />
               Save Workflow

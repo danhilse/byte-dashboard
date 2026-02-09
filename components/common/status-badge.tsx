@@ -1,11 +1,11 @@
 import { Badge } from "@/components/ui/badge"
 import {
   contactStatusConfig,
-  workflowStatusConfig,
   taskStatusConfig,
   taskPriorityConfig,
+  resolveWorkflowStatusDisplay,
 } from "@/lib/status-config"
-import type { ContactStatus, WorkflowStatus, TaskStatus, TaskPriority } from "@/types"
+import type { ContactStatus, TaskStatus, TaskPriority, DefinitionStatus } from "@/types"
 
 interface ContactStatusBadgeProps {
   status: ContactStatus
@@ -17,13 +17,23 @@ export function ContactStatusBadge({ status }: ContactStatusBadgeProps) {
 }
 
 interface WorkflowStatusBadgeProps {
-  status: WorkflowStatus
+  status: string
+  definitionStatuses?: DefinitionStatus[]
 }
 
-export function WorkflowStatusBadge({ status }: WorkflowStatusBadgeProps) {
-  const config = workflowStatusConfig[status]
-  if (!config) return <Badge variant="outline">{status}</Badge>
-  return <Badge variant={config.variant}>{config.label}</Badge>
+export function WorkflowStatusBadge({ status, definitionStatuses }: WorkflowStatusBadgeProps) {
+  const config = resolveWorkflowStatusDisplay(status, definitionStatuses)
+  return (
+    <Badge variant={config.variant}>
+      {config.color && (
+        <span
+          className="mr-1.5 inline-block size-2 rounded-full"
+          style={{ backgroundColor: config.color }}
+        />
+      )}
+      {config.label}
+    </Badge>
+  )
 }
 
 interface TaskStatusBadgeProps {

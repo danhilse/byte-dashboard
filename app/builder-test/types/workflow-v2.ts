@@ -2,6 +2,11 @@
 // Workflow Builder V2 - Type Definitions (Updated)
 // ============================================================================
 
+import type { DefinitionStatus } from "@/types"
+
+// Re-export as WorkflowStatus for V2 compatibility
+export type WorkflowStatus = DefinitionStatus
+
 // Workflow-level trigger (how workflows start)
 export type WorkflowTrigger =
   | { type: "manual" }
@@ -214,14 +219,6 @@ export interface WorkflowPhase {
   name: string
   color?: string
   order: number // Explicit ordering
-}
-
-// Workflow status definition
-export interface WorkflowStatus {
-  id: string
-  label: string
-  color?: string // Hex color for badge/UI
-  order: number // Display order
 }
 
 // ============================================================================

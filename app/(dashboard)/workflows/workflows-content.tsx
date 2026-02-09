@@ -1,8 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useSearchParams, useRouter } from "next/navigation"
-import { useCallback, useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -19,17 +18,23 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { workflowColumns, workflowStatusOptions } from "@/components/data-table/columns/workflow-columns"
+import { workflowColumns } from "@/components/data-table/columns/workflow-columns"
 import { WorkflowCreateDialog } from "@/components/workflows/workflow-create-dialog"
 import { WorkflowDetailDialog } from "@/components/workflows/workflow-detail-dialog"
 import { WorkflowDeleteDialog } from "@/components/workflows/workflow-delete-dialog"
-import { workflowStatusConfig } from "@/lib/status-config"
+import {
+  workflowStatusOptions,
+  definitionStatusOptions,
+  resolveWorkflowStatusDisplay,
+} from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
-import type { Workflow, WorkflowStatus } from "@/types"
+import { usePersistedView } from "@/hooks/use-persisted-view"
+import type { Workflow, DefinitionStatus } from "@/types"
 
 interface DefinitionOption {
   id: string
   name: string
+  statuses?: DefinitionStatus[]
 }
 
 const WorkflowsKanbanBoard = dynamic(
@@ -49,11 +54,8 @@ const WorkflowsKanbanBoard = dynamic(
 type ViewType = "table" | "kanban" | "grid"
 
 export function WorkflowsContent() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
   const { toast } = useToast()
-
-  const view = (searchParams.get("view") as ViewType) || "kanban"
+  const [view, setView] = usePersistedView<ViewType>("workflows", "kanban")
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -65,6 +67,26 @@ export function WorkflowsContent() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [deletingWorkflow, setDeletingWorkflow] = useState<Workflow | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  // Derive active definition statuses from selected definition
+  const selectedDefinition = useMemo(
+    () => (definitionFilter !== "all" ? definitions.find((d) => d.id === definitionFilter) : null),
+    [definitionFilter, definitions]
+  )
+  const activeDefinitionStatuses = selectedDefinition?.statuses
+
+  // Build status filter options based on selected definition
+  const activeStatusOptions = useMemo(() => {
+    if (activeDefinitionStatuses?.length) {
+      return definitionStatusOptions(activeDefinitionStatuses)
+    }
+    return workflowStatusOptions
+  }, [activeDefinitionStatuses])
+
+  // Reset status filter when definition changes (selected status may not exist in new definition)
+  useEffect(() => {
+    setStatusFilter("all")
+  }, [definitionFilter])
 
   const filteredWorkflows = useMemo(() => {
     let result = workflows
@@ -91,14 +113,6 @@ export function WorkflowsContent() {
     return result
   }, [workflows, definitionFilter, searchQuery, statusFilter])
 
-  const updateView = useCallback(
-    (newView: string) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set("view", newView)
-      router.push(`/workflows?${params.toString()}`)
-    },
-    [searchParams, router]
-  )
 
   useEffect(() => {
     async function fetchData() {
@@ -136,7 +150,7 @@ export function WorkflowsContent() {
   const handleCreateWorkflow = async (data: {
     contactId: string
     workflowDefinitionId?: string
-    status: WorkflowStatus
+    status: string
   }) => {
     try {
       const startsImmediately = Boolean(data.workflowDefinitionId)
@@ -206,6 +220,7 @@ export function WorkflowsContent() {
         contactName: existing?.contactName ?? updatedWorkflow.contactName,
         contactAvatarUrl: existing?.contactAvatarUrl ?? updatedWorkflow.contactAvatarUrl,
         definitionName: existing?.definitionName ?? updatedWorkflow.definitionName,
+        definitionStatuses: existing?.definitionStatuses ?? updatedWorkflow.definitionStatuses,
       }
 
       setWorkflows((prev) =>
@@ -273,7 +288,7 @@ export function WorkflowsContent() {
     setDetailOpen(true)
   }
 
-  const handleStatusChange = async (workflowId: string, newStatus: WorkflowStatus) => {
+  const handleStatusChange = async (workflowId: string, newStatus: string) => {
     const previous = workflows.find((w) => w.id === workflowId)
     if (!previous) return
 
@@ -318,9 +333,7 @@ export function WorkflowsContent() {
     }
   }
 
-  const selectedDefinitionName = definitionFilter !== "all"
-    ? definitions.find((d) => d.id === definitionFilter)?.name
-    : null
+  const selectedDefinitionName = selectedDefinition?.name ?? null
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-hidden p-4">
@@ -365,7 +378,7 @@ export function WorkflowsContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              {workflowStatusOptions.map((option) => (
+              {activeStatusOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -377,7 +390,7 @@ export function WorkflowsContent() {
           <Button
             variant={view === "table" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => updateView("table")}
+            onClick={() => setView("table")}
           >
             <List className="mr-2 size-4" />
             Table
@@ -385,7 +398,7 @@ export function WorkflowsContent() {
           <Button
             variant={view === "kanban" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => updateView("kanban")}
+            onClick={() => setView("kanban")}
           >
             <LayoutGrid className="mr-2 size-4" />
             Kanban
@@ -393,7 +406,7 @@ export function WorkflowsContent() {
           <Button
             variant={view === "grid" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => updateView("grid")}
+            onClick={() => setView("grid")}
           >
             <Grid3X3 className="mr-2 size-4" />
             Grid
@@ -422,11 +435,27 @@ export function WorkflowsContent() {
           />
         )}
         {!isLoading && !loadError && view === "kanban" && (
-          <WorkflowsKanbanBoard
-            workflows={filteredWorkflows}
-            onStatusChange={handleStatusChange}
-            onWorkflowClick={handleWorkflowClick}
-          />
+          definitionFilter === "all" ? (
+            <div className="flex h-[calc(100vh-14rem)] items-center justify-center rounded-lg border border-dashed">
+              <div className="text-center">
+                <LayoutGrid className="mx-auto mb-3 size-10 text-muted-foreground" />
+                <h3 className="text-lg font-medium">Select a workflow type</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Choose a workflow definition above to view its kanban board with definition-specific status columns.
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Use Table or Grid view to see all workflow types at once.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <WorkflowsKanbanBoard
+              workflows={filteredWorkflows}
+              definitionStatuses={activeDefinitionStatuses}
+              onStatusChange={handleStatusChange}
+              onWorkflowClick={handleWorkflowClick}
+            />
+          )
         )}
         {!isLoading && !loadError && view === "grid" && (
           <WorkflowsGridView
@@ -463,7 +492,10 @@ function WorkflowsGridView({ workflows, onWorkflowClick }: WorkflowsGridViewProp
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {workflows.map((workflow) => {
-        const statusConfig = workflowStatusConfig[workflow.status]
+        const statusConfig = resolveWorkflowStatusDisplay(
+          workflow.status,
+          workflow.definitionStatuses
+        )
         const initials = (workflow.contactName ?? "")
           .split(" ")
           .map((n) => n[0])
@@ -494,7 +526,15 @@ function WorkflowsGridView({ workflows, onWorkflowClick }: WorkflowsGridViewProp
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+                <Badge variant={statusConfig.variant}>
+                  {statusConfig.color && (
+                    <span
+                      className="mr-1.5 inline-block size-2 rounded-full"
+                      style={{ backgroundColor: statusConfig.color }}
+                    />
+                  )}
+                  {statusConfig.label}
+                </Badge>
                 <Badge variant="secondary" className="text-xs">
                   {workflow.source === "manual" ? "Manual" : workflow.source === "formstack" ? "Formstack" : "API"}
                 </Badge>

@@ -85,8 +85,8 @@ export const workflowColumns: ColumnDef<Workflow>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as Workflow["status"]
-      return <WorkflowStatusBadge status={status} />
+      const workflow = row.original
+      return <WorkflowStatusBadge status={workflow.status} definitionStatuses={workflow.definitionStatuses} />
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))

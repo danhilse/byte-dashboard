@@ -8,7 +8,7 @@
 import { db } from "@/lib/db";
 import { tasks, workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import type { TaskType, TaskPriority, WorkflowStep } from "@/types";
+import type { TaskType, TaskPriority, WorkflowStep, DefinitionStatus } from "@/types";
 import { logActivity } from "@/lib/db/log-activity";
 
 /**
@@ -85,9 +85,18 @@ export async function createTask(
  */
 export async function setWorkflowStatus(
   workflowId: string,
-  status: string
+  status: string,
+  options?: { markCompletedAt?: boolean }
 ): Promise<void> {
   console.log(`Activity: Updating workflow ${workflowId} status to "${status}"`);
+
+  const shouldSetCompletedAt =
+    options?.markCompletedAt ??
+    status === "completed" ||
+    status === "approved" ||
+    status === "rejected" ||
+    status === "failed" ||
+    status === "timeout";
 
   const [updatedWorkflow] = await db
     .update(workflows)
@@ -95,7 +104,7 @@ export async function setWorkflowStatus(
       status,
       updatedByTemporal: true, // Flag to indicate this was updated by Temporal
       updatedAt: new Date(),
-      ...(status === "completed" || status === "approved" || status === "rejected"
+      ...(shouldSetCompletedAt
         ? { completedAt: new Date() }
         : {}),
     })
@@ -313,7 +322,12 @@ export async function getTask(taskId: string) {
  */
 export async function getWorkflowDefinition(
   definitionId: string
-): Promise<{ steps: WorkflowStep[]; phases: unknown[]; variables: Record<string, unknown> }> {
+): Promise<{
+  steps: WorkflowStep[];
+  phases: unknown[];
+  variables: Record<string, unknown>;
+  statuses: DefinitionStatus[];
+}> {
   console.log(`Activity: Fetching workflow definition ${definitionId}`);
 
   const [definition] = await db
@@ -321,13 +335,14 @@ export async function getWorkflowDefinition(
       steps: workflowDefinitions.steps,
       phases: workflowDefinitions.phases,
       variables: workflowDefinitions.variables,
+      statuses: workflowDefinitions.statuses,
     })
     .from(workflowDefinitions)
     .where(eq(workflowDefinitions.id, definitionId));
 
   if (!definition) {
     console.log(`Activity: Workflow definition ${definitionId} not found`);
-    return { steps: [], phases: [], variables: {} };
+    return { steps: [], phases: [], variables: {}, statuses: [] };
   }
 
   const stepsData = definition.steps as { steps: WorkflowStep[] };
@@ -335,5 +350,6 @@ export async function getWorkflowDefinition(
     steps: stepsData.steps ?? [],
     phases: (definition.phases as unknown[]) ?? [],
     variables: (definition.variables as Record<string, unknown>) ?? {},
+    statuses: (definition.statuses as DefinitionStatus[]) ?? [],
   };
 }

@@ -1,8 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useSearchParams, useRouter } from "next/navigation"
-import { useCallback, useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 import { parseISO } from "date-fns"
 
@@ -24,6 +23,7 @@ import { TaskCreateDialog } from "@/components/tasks/task-create-dialog"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
 import { AvailableTaskCard } from "@/components/tasks/available-task-card"
 import { useToast } from "@/hooks/use-toast"
+import { usePersistedView } from "@/hooks/use-persisted-view"
 import type { Task, TaskStatus } from "@/types"
 
 const KanbanBoard = dynamic(
@@ -43,11 +43,8 @@ const KanbanBoard = dynamic(
 type ViewType = "table" | "kanban" | "grid"
 
 export function MyWorkContent() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
   const { toast } = useToast()
-
-  const view = (searchParams.get("view") as ViewType) || "kanban"
+  const [view, setView] = usePersistedView<ViewType>("my-work", "kanban")
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -120,14 +117,6 @@ export function MyWorkContent() {
   }, [])
 
 
-  const updateView = useCallback(
-    (newView: string) => {
-      const params = new URLSearchParams(searchParams.toString())
-      params.set("view", newView)
-      router.push(`/my-work?${params.toString()}`)
-    },
-    [searchParams, router]
-  )
 
   const handleCreateTask = async (taskData: Omit<Task, "id" | "createdAt" | "updatedAt">) => {
     try {
@@ -480,7 +469,7 @@ export function MyWorkContent() {
           <Button
             variant={view === "table" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => updateView("table")}
+            onClick={() => setView("table")}
           >
             <List className="mr-2 size-4" />
             Table
@@ -488,7 +477,7 @@ export function MyWorkContent() {
           <Button
             variant={view === "kanban" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => updateView("kanban")}
+            onClick={() => setView("kanban")}
           >
             <LayoutGrid className="mr-2 size-4" />
             Kanban
@@ -496,7 +485,7 @@ export function MyWorkContent() {
           <Button
             variant={view === "grid" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => updateView("grid")}
+            onClick={() => setView("grid")}
           >
             <Grid3X3 className="mr-2 size-4" />
             Grid

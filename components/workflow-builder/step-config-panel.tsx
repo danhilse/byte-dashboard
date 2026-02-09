@@ -12,17 +12,19 @@ import { SendEmailConfig } from "./step-types/send-email-config"
 import { DelayConfig } from "./step-types/delay-config"
 import { UpdateContactConfig } from "./step-types/update-contact-config"
 import { UpdateTaskConfig } from "./step-types/update-task-config"
-import type { WorkflowStep } from "@/types"
+import type { WorkflowStep, DefinitionStatus } from "@/types"
 
 interface StepConfigPanelProps {
   step: WorkflowStep | null
   steps: WorkflowStep[]
+  definitionStatuses?: DefinitionStatus[]
   onStepUpdate: (step: WorkflowStep) => void
 }
 
 export function StepConfigPanel({
   step,
   steps,
+  definitionStatuses,
   onStepUpdate,
 }: StepConfigPanelProps) {
   if (!step) {
@@ -63,7 +65,11 @@ export function StepConfigPanel({
         <WaitForApprovalConfig step={step} onUpdate={onStepUpdate} />
       )}
       {step.type === "update_status" && (
-        <UpdateStatusConfig step={step} onUpdate={onStepUpdate} />
+        <UpdateStatusConfig
+          step={step}
+          onUpdate={onStepUpdate}
+          definitionStatuses={definitionStatuses}
+        />
       )}
       {step.type === "condition" && (
         <ConditionConfig step={step} steps={steps} onUpdate={onStepUpdate} />

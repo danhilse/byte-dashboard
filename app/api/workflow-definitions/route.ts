@@ -38,13 +38,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ definitions });
     }
 
-    // Lightweight response for pickers
+    // Lightweight response for pickers (includes statuses for dynamic UI)
     const definitions = await db
       .select({
         id: workflowDefinitions.id,
         name: workflowDefinitions.name,
         description: workflowDefinitions.description,
         version: workflowDefinitions.version,
+        statuses: workflowDefinitions.statuses,
       })
       .from(workflowDefinitions)
       .where(

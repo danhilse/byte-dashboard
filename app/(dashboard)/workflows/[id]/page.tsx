@@ -15,9 +15,9 @@ import { Badge } from "@/components/ui/badge"
 import { db } from "@/lib/db"
 import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
-import { workflowStatusConfig } from "@/lib/status-config"
+import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
-import type { WorkflowStatus, WorkflowPhase, WorkflowStep } from "@/types"
+import type { WorkflowPhase, WorkflowStep, DefinitionStatus } from "@/types"
 
 interface WorkflowDetailPageProps {
   params: Promise<{ id: string }>
@@ -39,6 +39,7 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
       definitionName: workflowDefinitions.name,
       definitionPhases: workflowDefinitions.phases,
       definitionSteps: workflowDefinitions.steps,
+      definitionStatuses: workflowDefinitions.statuses,
     })
     .from(workflows)
     .leftJoin(contacts, eq(workflows.contactId, contacts.id))
@@ -52,13 +53,14 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
     notFound()
   }
 
-  const { workflow, contact, definitionName, definitionPhases, definitionSteps } = result
+  const { workflow, contact, definitionName, definitionPhases, definitionSteps, definitionStatuses } = result
   const parsedPhases = (definitionPhases as WorkflowPhase[] | null) ?? []
   const parsedSteps = (definitionSteps as { steps: WorkflowStep[] } | null)?.steps ?? []
+  const parsedStatuses = (definitionStatuses as DefinitionStatus[] | null) ?? undefined
   const contactName = contact
     ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()
     : "Unknown Contact"
-  const statusConfig = workflowStatusConfig[workflow.status as WorkflowStatus]
+  const statusConfig = resolveWorkflowStatusDisplay(workflow.status, parsedStatuses)
   const displayTitle = definitionName
     ? `${definitionName} - ${contactName}`
     : contactName
@@ -81,10 +83,10 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
         <DetailHeader
           title={displayTitle}
           subtitle={`Contact: ${contactName}`}
-          badge={statusConfig ? {
+          badge={{
             label: statusConfig.label,
             variant: statusConfig.variant,
-          } : undefined}
+          }}
         />
 
         <Tabs defaultValue="overview" className="space-y-4">
@@ -151,7 +153,8 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                         steps={parsedSteps}
                         currentStepId={workflow.currentStepId}
                         currentPhaseId={workflow.currentPhaseId}
-                        workflowStatus={workflow.status as WorkflowStatus}
+                        workflowStatus={workflow.status}
+                        definitionStatuses={parsedStatuses}
                       />
                     </div>
                   ) : (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Plus, Loader2 } from "lucide-react"
 
 import { FormDialog } from "@/components/common/form-dialog"
@@ -13,8 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { workflowStatusConfig } from "@/lib/status-config"
-import type { WorkflowStatus } from "@/types"
+import { fallbackWorkflowStatusConfig } from "@/lib/status-config"
+import type { DefinitionStatus } from "@/types"
 
 interface ContactOption {
   id: string
@@ -28,13 +28,14 @@ interface DefinitionOption {
   name: string
   description?: string | null
   version: number
+  statuses?: DefinitionStatus[]
 }
 
 interface WorkflowCreateDialogProps {
   onCreateWorkflow?: (data: {
     contactId: string
     workflowDefinitionId?: string
-    status: WorkflowStatus
+    status: string
   }) => void
   trigger?: React.ReactNode
 }
@@ -43,13 +44,36 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   const [open, setOpen] = useState(false)
   const [contactId, setContactId] = useState("")
   const [workflowDefinitionId, setWorkflowDefinitionId] = useState("")
-  const [status, setStatus] = useState<WorkflowStatus>("draft")
+  const [manualStatus, setManualStatus] = useState<string>("draft")
 
   const [contacts, setContacts] = useState<ContactOption[]>([])
   const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [loadingDefinitions, setLoadingDefinitions] = useState(false)
   const startsImmediately = Boolean(workflowDefinitionId)
+
+  // Derive status options from selected definition
+  const selectedDefinition = definitions.find((d) => d.id === workflowDefinitionId)
+  const statusOptions = useMemo(() => {
+    if (selectedDefinition?.statuses?.length) {
+      return [...selectedDefinition.statuses]
+        .sort((a, b) => a.order - b.order)
+        .map((s) => ({ value: s.id, label: s.label, color: s.color }))
+    }
+    return Object.entries(fallbackWorkflowStatusConfig).map(([value, config]) => ({
+      value,
+      label: config.label,
+      color: undefined as string | undefined,
+    }))
+  }, [selectedDefinition])
+
+  const effectiveStatus = useMemo(() => {
+    if (selectedDefinition?.statuses?.length) {
+      const sorted = [...selectedDefinition.statuses].sort((a, b) => a.order - b.order)
+      return sorted[0]?.id ?? manualStatus
+    }
+    return manualStatus
+  }, [selectedDefinition, manualStatus])
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen)
@@ -78,14 +102,14 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   const resetForm = () => {
     setContactId("")
     setWorkflowDefinitionId("")
-    setStatus("draft")
+    setManualStatus("draft")
   }
 
   const handleSubmit = () => {
     onCreateWorkflow?.({
       contactId,
       workflowDefinitionId: workflowDefinitionId || undefined,
-      status,
+      status: effectiveStatus,
     })
     resetForm()
     setOpen(false)
@@ -166,17 +190,25 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
       <div className="grid gap-2">
         <Label htmlFor="status">Initial Status</Label>
         <Select
-          value={status}
-          onValueChange={(v) => setStatus(v as WorkflowStatus)}
+          value={effectiveStatus}
+          onValueChange={setManualStatus}
           disabled={startsImmediately}
         >
           <SelectTrigger id="status" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.entries(workflowStatusConfig).map(([value, config]) => (
-              <SelectItem key={value} value={value}>
-                {config.label}
+            {statusOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                <div className="flex items-center gap-2">
+                  {opt.color && (
+                    <span
+                      className="inline-block size-2 rounded-full"
+                      style={{ backgroundColor: opt.color }}
+                    />
+                  )}
+                  {opt.label}
+                </div>
               </SelectItem>
             ))}
           </SelectContent>

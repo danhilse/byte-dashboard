@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { format } from "date-fns"
 import { Trash2, Workflow as WorkflowIcon, Calendar, Zap, Globe } from "lucide-react"
 
@@ -40,10 +40,10 @@ import { PhaseProgressStepper } from "@/components/workflows/phase-progress-step
 import { NotesSection } from "@/components/detail/notes-section"
 import { ActivityFeed } from "@/components/detail/activity-feed"
 import { AssetList, AssetUploader, AssetPreviewModal } from "@/components/assets"
-import { workflowStatusConfig } from "@/lib/status-config"
+import { fallbackWorkflowStatusConfig } from "@/lib/status-config"
 import { getAssetsByWorkflow } from "@/lib/data/assets"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
-import type { Workflow, WorkflowStatus, WorkflowDefinition, WorkflowPhase, WorkflowStep, Asset } from "@/types"
+import type { Workflow, WorkflowDefinition, WorkflowPhase, WorkflowStep, DefinitionStatus, Asset } from "@/types"
 
 const sourceLabels: Record<string, string> = {
   manual: "Manual",
@@ -88,6 +88,7 @@ export function WorkflowDetailDialog({
     definitionId: string
     phases: WorkflowPhase[]
     steps: WorkflowStep[]
+    statuses: DefinitionStatus[]
   } | null>(null)
   const workflowDefinitionId = workflow?.workflowDefinitionId
 
@@ -108,6 +109,7 @@ export function WorkflowDetailDialog({
           definitionId: workflowDefinitionId!,
           phases: (def.phases as WorkflowPhase[]) ?? [],
           steps: stepsData?.steps ?? [],
+          statuses: (def.statuses as DefinitionStatus[]) ?? [],
         })
       } catch {
         if (!cancelled) {
@@ -126,6 +128,47 @@ export function WorkflowDetailDialog({
   const handleAssetDelete = (assetId: string) => {
     console.log("Asset deleted:", assetId)
   }
+
+  // Resolve definition statuses: from fetched definition data, or from workflow's joined field
+  const defStatuses = useMemo(() => {
+    if (!workflow) return undefined
+    return (definitionData && definitionData.definitionId === workflow.workflowDefinitionId)
+      ? definitionData.statuses
+      : workflow.definitionStatuses
+  }, [definitionData, workflow])
+
+  const sortedDefStatuses = useMemo(
+    () => (defStatuses?.length ? [...defStatuses].sort((a, b) => a.order - b.order) : []),
+    [defStatuses]
+  )
+
+  // Status options for edit dropdown
+  const statusSelectOptions = useMemo(() => {
+    if (sortedDefStatuses.length) {
+      return sortedDefStatuses.map((s) => ({ value: s.id, label: s.label, color: s.color }))
+    }
+    return Object.entries(fallbackWorkflowStatusConfig).map(([value, config]) => ({
+      value,
+      label: config.label,
+      color: undefined as string | undefined,
+    }))
+  }, [sortedDefStatuses])
+
+  // Quick status buttons (show first few statuses that aren't current)
+  const quickStatuses = useMemo(() => {
+    const currentStatus = displayWorkflow?.status
+    if (!currentStatus) return []
+
+    if (sortedDefStatuses.length) {
+      return sortedDefStatuses
+        .filter((s) => s.id !== currentStatus)
+        .slice(0, 3)
+    }
+    return (["draft", "in_review", "pending", "on_hold", "approved", "rejected"] as const)
+      .filter((s) => s !== currentStatus)
+      .slice(0, 3)
+      .map((s) => ({ id: s, label: fallbackWorkflowStatusConfig[s].label }))
+  }, [sortedDefStatuses, displayWorkflow?.status])
 
   if (!workflow || !displayWorkflow) return null
 
@@ -193,21 +236,29 @@ export function WorkflowDetailDialog({
                 {isEditing ? (
                   isTemporalManaged ? (
                     <div className="flex items-center gap-2">
-                      <WorkflowStatusBadge status={displayWorkflow.status} />
+                      <WorkflowStatusBadge status={displayWorkflow.status} definitionStatuses={defStatuses} />
                       <Badge variant="secondary" className="text-xs">Temporal-managed</Badge>
                     </div>
                   ) : (
                     <Select
                       value={editedWorkflow?.status}
-                      onValueChange={(v) => updateField("status", v as WorkflowStatus)}
+                      onValueChange={(v) => updateField("status", v)}
                     >
                       <SelectTrigger className="w-[180px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(workflowStatusConfig).map(([value, config]) => (
-                          <SelectItem key={value} value={value}>
-                            {config.label}
+                        {statusSelectOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div className="flex items-center gap-2">
+                              {opt.color && (
+                                <span
+                                  className="inline-block size-2 rounded-full"
+                                  style={{ backgroundColor: opt.color }}
+                                />
+                              )}
+                              {opt.label}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -215,26 +266,23 @@ export function WorkflowDetailDialog({
                   )
                 ) : (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <WorkflowStatusBadge status={displayWorkflow.status} />
+                    <WorkflowStatusBadge status={displayWorkflow.status} definitionStatuses={defStatuses} />
                     {displayWorkflow.temporalWorkflowId && (
                       <Badge variant="secondary" className="text-xs">Temporal-managed</Badge>
                     )}
                     {!isTemporalManaged && (
                       <div className="flex gap-1 flex-wrap">
-                        {(["draft", "in_review", "pending", "on_hold", "approved", "rejected"] as WorkflowStatus[])
-                          .filter((s) => s !== displayWorkflow.status)
-                          .slice(0, 3)
-                          .map((status) => (
-                            <Button
-                              key={status}
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => handleQuickStatusUpdate(status)}
-                            >
-                              Move to {workflowStatusConfig[status].label}
-                            </Button>
-                          ))}
+                        {quickStatuses.map((qs) => (
+                          <Button
+                            key={qs.id}
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => handleQuickStatusUpdate(qs.id)}
+                          >
+                            Move to {qs.label}
+                          </Button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -276,7 +324,8 @@ export function WorkflowDetailDialog({
                     steps={definitionSteps}
                     currentStepId={displayWorkflow.currentStepId}
                     currentPhaseId={displayWorkflow.currentPhaseId}
-                    workflowStatus={displayWorkflow.status as WorkflowStatus}
+                    workflowStatus={displayWorkflow.status}
+                    definitionStatuses={defStatuses}
                   />
                 </div>
               ) : (displayWorkflow.currentStepId || displayWorkflow.currentPhaseId) ? (

@@ -4,6 +4,11 @@ import { db } from "@/lib/db";
 import { workflows, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+import {
+  getAllowedWorkflowStatuses,
+  isAllowedWorkflowStatus,
+} from "@/lib/workflow-status";
+import type { DefinitionStatus } from "@/types";
 
 /**
  * GET /api/workflows/[id]
@@ -27,6 +32,7 @@ export async function GET(
         workflow: workflows,
         contact: contacts,
         definitionName: workflowDefinitions.name,
+        definitionStatuses: workflowDefinitions.statuses,
       })
       .from(workflows)
       .leftJoin(contacts, eq(workflows.contactId, contacts.id))
@@ -53,6 +59,8 @@ export async function GET(
       contactName,
       contactAvatarUrl: result.contact?.avatarUrl ?? undefined,
       definitionName: result.definitionName ?? undefined,
+      definitionStatuses:
+        (result.definitionStatuses as DefinitionStatus[] | null) ?? undefined,
     });
   } catch (error) {
     console.error("Error getting workflow:", error);
@@ -97,6 +105,7 @@ export async function PATCH(
       .select({
         id: workflows.id,
         temporalWorkflowId: workflows.temporalWorkflowId,
+        workflowDefinitionId: workflows.workflowDefinitionId,
       })
       .from(workflows)
       .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
@@ -117,6 +126,34 @@ export async function PATCH(
         },
         { status: 409 }
       );
+    }
+
+    if (status !== undefined) {
+      let definitionStatuses: DefinitionStatus[] | undefined;
+      if (existingWorkflow.workflowDefinitionId) {
+        const [definition] = await db
+          .select({ statuses: workflowDefinitions.statuses })
+          .from(workflowDefinitions)
+          .where(
+            and(
+              eq(workflowDefinitions.id, existingWorkflow.workflowDefinitionId),
+              eq(workflowDefinitions.orgId, orgId)
+            )
+          );
+
+        definitionStatuses =
+          (definition?.statuses as DefinitionStatus[] | null) ?? undefined;
+      }
+
+      if (!isAllowedWorkflowStatus(status, definitionStatuses)) {
+        return NextResponse.json(
+          {
+            error: "Invalid workflow status for this workflow definition",
+            allowedStatuses: getAllowedWorkflowStatuses(definitionStatuses),
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const updateData: Record<string, unknown> = {

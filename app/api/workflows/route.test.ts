@@ -167,6 +167,7 @@ describe("app/api/workflows/route", () => {
         contactName: "Ada Lovelace",
         contactAvatarUrl: "https://img",
         definitionName: "Applicant Review",
+        definitionStatuses: [],
       },
     });
     expect(mocks.logActivity).toHaveBeenCalledWith(

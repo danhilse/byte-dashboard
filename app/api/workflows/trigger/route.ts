@@ -7,6 +7,8 @@ import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import type { ApplicantReviewWorkflowInput } from "@/lib/workflows/applicant-review-workflow";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
+import { resolveInitialWorkflowStatus } from "@/lib/workflow-status";
+import type { DefinitionStatus } from "@/types";
 
 /**
  * POST /api/workflows/trigger
@@ -54,12 +56,14 @@ export async function POST(req: Request) {
     // Validate optional workflow definition
     let definitionVersion: number | null = null;
     let definitionName: string | undefined;
+    let definitionStatuses: DefinitionStatus[] | undefined;
     if (workflowDefinitionId) {
       const [workflowDefinition] = await db
         .select({
           id: workflowDefinitions.id,
           name: workflowDefinitions.name,
           version: workflowDefinitions.version,
+          statuses: workflowDefinitions.statuses,
         })
         .from(workflowDefinitions)
         .where(
@@ -78,7 +82,13 @@ export async function POST(req: Request) {
 
       definitionName = workflowDefinition.name;
       definitionVersion = workflowDefinition.version;
+      definitionStatuses =
+        (workflowDefinition.statuses as DefinitionStatus[] | null) ?? [];
     }
+
+    const initialStatus = workflowDefinitionId
+      ? resolveInitialWorkflowStatus(definitionStatuses, "running")
+      : "running";
 
     // Create workflow execution record in DB
     const [workflowExecution] = await db
@@ -88,7 +98,7 @@ export async function POST(req: Request) {
         contactId,
         workflowDefinitionId: workflowDefinitionId || null,
         definitionVersion: definitionVersion ?? null,
-        status: "running",
+        status: initialStatus,
         source: "manual",
       })
       .returning();
@@ -150,7 +160,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
           workflowId: workflowExecution.id,
           temporalWorkflowId: handle.workflowId,
-          status: "running",
+          status: initialStatus,
           workflow: {
             ...workflowExecution,
             temporalWorkflowId: handle.workflowId,
@@ -158,6 +168,7 @@ export async function POST(req: Request) {
             contactName,
             contactAvatarUrl: contact.avatarUrl ?? undefined,
             definitionName,
+            definitionStatuses,
           },
         });
       } else {
@@ -200,7 +211,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
           workflowId: workflowExecution.id,
           temporalWorkflowId: handle.workflowId,
-          status: "running",
+          status: initialStatus,
           workflow: {
             ...workflowExecution,
             temporalWorkflowId: handle.workflowId,
@@ -208,16 +219,22 @@ export async function POST(req: Request) {
             contactName,
             contactAvatarUrl: contact.avatarUrl ?? undefined,
             definitionName,
+            definitionStatuses,
           },
         });
       }
     } catch (startError) {
       // Compensate so failed starts do not leave orphan "running" executions
       try {
+        const failedStatus =
+          definitionStatuses?.some((status) => status.id === "failed")
+            ? "failed"
+            : initialStatus;
+
         await db
           .update(workflows)
           .set({
-            status: "failed",
+            status: failedStatus,
             completedAt: new Date(),
             updatedAt: new Date(),
             metadata: {

@@ -8,12 +8,13 @@ import { GripVertical, Workflow as WorkflowIcon } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { workflowStatusConfig } from "@/lib/status-config"
+import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { cn } from "@/lib/utils"
-import type { Workflow } from "@/types"
+import type { Workflow, DefinitionStatus } from "@/types"
 
 interface WorkflowKanbanCardProps {
   workflow: Workflow
+  definitionStatuses?: DefinitionStatus[]
   onClick?: () => void
   className?: string
   isDraggable?: boolean
@@ -21,6 +22,7 @@ interface WorkflowKanbanCardProps {
 
 export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
   workflow,
+  definitionStatuses,
   onClick,
   className,
   isDraggable = true,
@@ -46,7 +48,10 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
     .join("")
     .toUpperCase()
 
-  const statusConfig = workflowStatusConfig[workflow.status]
+  const statusConfig = resolveWorkflowStatusDisplay(
+    workflow.status,
+    definitionStatuses ?? workflow.definitionStatuses
+  )
 
   return (
     <Card
@@ -88,6 +93,12 @@ export const WorkflowKanbanCard = memo(function WorkflowKanbanCard({
       <CardContent className="p-3 pt-2">
         <div className="flex items-center justify-between">
           <Badge variant={statusConfig.variant} className="text-[10px]">
+            {statusConfig.color && (
+              <span
+                className="mr-1 inline-block size-2 rounded-full"
+                style={{ backgroundColor: statusConfig.color }}
+              />
+            )}
             {statusConfig.label}
           </Badge>
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">

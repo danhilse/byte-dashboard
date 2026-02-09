@@ -1,18 +1,19 @@
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { WorkflowPhase, WorkflowStep, WorkflowStatus } from "@/types"
+import type { WorkflowPhase, WorkflowStep, DefinitionStatus } from "@/types"
 
 interface PhaseProgressStepperProps {
   phases: WorkflowPhase[]
   steps: WorkflowStep[]
   currentStepId?: string | null
   currentPhaseId?: string | null
-  workflowStatus?: WorkflowStatus
+  workflowStatus?: string
+  definitionStatuses?: DefinitionStatus[]
 }
 
 type PhaseState = "completed" | "current" | "upcoming"
 
-const TERMINAL_COMPLETED_STATUSES = new Set<WorkflowStatus>([
+const TERMINAL_COMPLETED_STATUSES = new Set<string>([
   "completed",
   "approved",
   "rejected",
@@ -24,12 +25,21 @@ function getPhaseStates(
   steps: WorkflowStep[],
   currentStepId?: string | null,
   explicitCurrentPhaseId?: string | null,
-  workflowStatus?: WorkflowStatus
+  workflowStatus?: string,
+  definitionStatuses?: DefinitionStatus[]
 ): PhaseState[] {
   if (!phases.length) return []
 
+  const lastDefinitionStatusId = definitionStatuses?.length
+    ? [...definitionStatuses].sort((a, b) => a.order - b.order).at(-1)?.id
+    : null
+
   // Terminal successful/ended statuses treat all phases as complete.
-  if (workflowStatus && TERMINAL_COMPLETED_STATUSES.has(workflowStatus)) {
+  if (
+    workflowStatus &&
+    (TERMINAL_COMPLETED_STATUSES.has(workflowStatus) ||
+      workflowStatus === lastDefinitionStatusId)
+  ) {
     return phases.map(() => "completed")
   }
 
@@ -62,6 +72,7 @@ export function PhaseProgressStepper({
   currentStepId,
   currentPhaseId,
   workflowStatus,
+  definitionStatuses,
 }: PhaseProgressStepperProps) {
   if (!phases.length) return null
 
@@ -70,7 +81,8 @@ export function PhaseProgressStepper({
     steps,
     currentStepId,
     currentPhaseId,
-    workflowStatus
+    workflowStatus,
+    definitionStatuses
   )
   const isFailed = workflowStatus === "failed"
 

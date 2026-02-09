@@ -49,6 +49,7 @@ export function VariableSelector({
     ? filterVariablesByDataType(variables, filterByDataType)
     : variables.map((v) => ({
         variableId: v.id,
+        fieldKey: undefined,
         label: v.name,
         dataType: v.dataType || "text",
       }))
