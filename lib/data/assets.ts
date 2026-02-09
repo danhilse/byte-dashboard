@@ -7,7 +7,7 @@ export const assets: Asset[] = [
     fileSize: 2458624, // ~2.4 MB
     fileType: "pdf",
     mimeType: "application/pdf",
-    workflowId: "w1",
+    workflowExecutionId: "w1",
     storageUrl: "https://example.com/assets/contract_draft_v2.pdf",
     uploadedBy: "user1",
     uploadedByName: "Sarah Chen",
@@ -24,7 +24,7 @@ export const assets: Asset[] = [
     fileSize: 145920, // ~142 KB
     fileType: "png",
     mimeType: "image/png",
-    workflowId: "w1",
+    workflowExecutionId: "w1",
     storageUrl: "https://example.com/assets/company_logo.png",
     uploadedBy: "user1",
     uploadedByName: "Sarah Chen",
@@ -41,7 +41,7 @@ export const assets: Asset[] = [
     fileSize: 1048576, // 1 MB
     fileType: "docx",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    workflowId: "w2",
+    workflowExecutionId: "w2",
     storageUrl: "https://example.com/assets/partnership_proposal.docx",
     uploadedBy: "user2",
     uploadedByName: "Michael Rodriguez",
@@ -75,7 +75,7 @@ export const assets: Asset[] = [
     fileSize: 3145728, // 3 MB
     fileType: "pdf",
     mimeType: "application/pdf",
-    workflowId: "w4",
+    workflowExecutionId: "w4",
     storageUrl: "https://example.com/assets/signed_agreement.pdf",
     uploadedBy: "user3",
     uploadedByName: "James Park",
@@ -92,7 +92,7 @@ export const assets: Asset[] = [
     fileSize: 987654, // ~964 KB
     fileType: "pdf",
     mimeType: "application/pdf",
-    workflowId: "w5",
+    workflowExecutionId: "w5",
     storageUrl: "https://example.com/assets/technical_requirements.pdf",
     uploadedBy: "user4",
     uploadedByName: "Amanda Foster",
@@ -109,7 +109,7 @@ export const assets: Asset[] = [
     fileSize: 245760, // ~240 KB
     fileType: "png",
     mimeType: "image/png",
-    workflowId: "w4",
+    workflowExecutionId: "w4",
     storageUrl: "https://example.com/assets/proof_of_payment.png",
     uploadedBy: "user3",
     uploadedByName: "James Park",
@@ -143,8 +143,8 @@ export function getAssetById(id: string): Asset | undefined {
   return assets.find((a) => a.id === id)
 }
 
-export function getAssetsByWorkflow(workflowId: string): Asset[] {
-  return assets.filter((a) => a.workflowId === workflowId)
+export function getAssetsByWorkflow(workflowExecutionId: string): Asset[] {
+  return assets.filter((a) => a.workflowExecutionId === workflowExecutionId)
 }
 
 export function getAssetsByContact(contactId: string): Asset[] {

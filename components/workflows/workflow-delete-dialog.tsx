@@ -10,10 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import type { Workflow } from "@/types"
+import type { WorkflowExecution } from "@/types"
 
 interface WorkflowDeleteDialogProps {
-  workflow: Workflow | null
+  workflow: WorkflowExecution | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void

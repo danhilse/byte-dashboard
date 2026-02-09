@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
-import { tasks, workflows } from "@/lib/db/schema";
+import { tasks, workflowExecutions } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
-import type { ApprovalSignal } from "@/lib/workflows/applicant-review-workflow";
+import {
+  APPROVAL_SUBMITTED_SIGNAL_NAME,
+  type ApprovalSignal,
+} from "@/lib/workflows/signal-types";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { requiresApprovalComment } from "@/lib/tasks/approval-requirements";
 import { logActivity } from "@/lib/db/log-activity";
@@ -79,7 +82,7 @@ export async function PATCH(
 
     const commentRequired = await requiresApprovalComment({
       orgId,
-      workflowId: task.workflowId,
+      workflowExecutionId: task.workflowExecutionId,
     });
 
     if (commentRequired && !normalizedComment) {
@@ -140,16 +143,16 @@ export async function PATCH(
     let workflowSignaled = false;
 
     // Signal the workflow if associated
-    if (updatedTask.workflowId) {
+    if (updatedTask.workflowExecutionId) {
       try {
         // Get workflow execution to find Temporal workflow ID
         const [workflowExecution] = await db
           .select()
-          .from(workflows)
+          .from(workflowExecutions)
           .where(
             and(
-              eq(workflows.id, updatedTask.workflowId),
-              eq(workflows.orgId, orgId)
+              eq(workflowExecutions.id, updatedTask.workflowExecutionId),
+              eq(workflowExecutions.orgId, orgId)
             )
           );
 
@@ -166,7 +169,7 @@ export async function PATCH(
             approvedBy: userId,
           };
 
-          await handle.signal("approvalSubmitted", signal);
+          await handle.signal(APPROVAL_SUBMITTED_SIGNAL_NAME, signal);
           workflowSignaled = true;
 
           console.log(

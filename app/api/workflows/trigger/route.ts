@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
-import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
+import { workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
-import type { ApplicantReviewWorkflowInput } from "@/lib/workflows/applicant-review-workflow";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
 import { resolveInitialWorkflowStatus } from "@/lib/workflow-status";
 import type { DefinitionStatus } from "@/types";
@@ -15,14 +14,12 @@ import type { DefinitionStatus } from "@/types";
  *
  * Starts a new workflow execution.
  *
- * If workflowDefinitionId is provided, starts the genericWorkflow
- * interpreter. Otherwise falls back to the hardcoded
- * applicantReviewWorkflow (legacy).
+ * Starts the generic workflow interpreter for a workflow definition.
  *
  * Request body:
  * {
  *   "contactId": "uuid",
- *   "workflowDefinitionId": "uuid" (optional)
+ *   "workflowDefinitionId": "uuid" (required)
  * }
  */
 export async function POST(req: Request) {
@@ -36,9 +33,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { contactId, workflowDefinitionId } = body;
 
-    if (!contactId) {
+    if (!contactId || typeof contactId !== "string") {
       return NextResponse.json(
         { error: "contactId is required" },
+        { status: 400 }
+      );
+    }
+    if (!workflowDefinitionId || typeof workflowDefinitionId !== "string") {
+      return NextResponse.json(
+        { error: "workflowDefinitionId is required" },
         { status: 400 }
       );
     }
@@ -53,51 +56,47 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    // Validate optional workflow definition
-    let definitionVersion: number | null = null;
-    let definitionName: string | undefined;
-    let definitionStatuses: DefinitionStatus[] | undefined;
-    if (workflowDefinitionId) {
-      const [workflowDefinition] = await db
-        .select({
-          id: workflowDefinitions.id,
-          name: workflowDefinitions.name,
-          version: workflowDefinitions.version,
-          statuses: workflowDefinitions.statuses,
-        })
-        .from(workflowDefinitions)
-        .where(
-          and(
-            eq(workflowDefinitions.id, workflowDefinitionId),
-            eq(workflowDefinitions.orgId, orgId)
-          )
-        );
+    // Validate workflow definition
+    const [workflowDefinition] = await db
+      .select({
+        id: workflowDefinitions.id,
+        name: workflowDefinitions.name,
+        version: workflowDefinitions.version,
+        statuses: workflowDefinitions.statuses,
+      })
+      .from(workflowDefinitions)
+      .where(
+        and(
+          eq(workflowDefinitions.id, workflowDefinitionId),
+          eq(workflowDefinitions.orgId, orgId)
+        )
+      );
 
-      if (!workflowDefinition) {
-        return NextResponse.json(
-          { error: "Workflow definition not found" },
-          { status: 404 }
-        );
-      }
-
-      definitionName = workflowDefinition.name;
-      definitionVersion = workflowDefinition.version;
-      definitionStatuses =
-        (workflowDefinition.statuses as DefinitionStatus[] | null) ?? [];
+    if (!workflowDefinition) {
+      return NextResponse.json(
+        { error: "Workflow definition not found" },
+        { status: 404 }
+      );
     }
 
-    const initialStatus = workflowDefinitionId
-      ? resolveInitialWorkflowStatus(definitionStatuses, "running")
-      : "running";
+    const definitionName = workflowDefinition.name;
+    const definitionVersion = workflowDefinition.version;
+    const definitionStatuses =
+      (workflowDefinition.statuses as DefinitionStatus[] | null) ?? [];
+
+    const initialStatus = resolveInitialWorkflowStatus(
+      definitionStatuses,
+      "running"
+    );
 
     // Create workflow execution record in DB
     const [workflowExecution] = await db
-      .insert(workflows)
+      .insert(workflowExecutions)
       .values({
         orgId,
         contactId,
-        workflowDefinitionId: workflowDefinitionId || null,
-        definitionVersion: definitionVersion ?? null,
+        workflowDefinitionId,
+        definitionVersion,
         status: initialStatus,
         source: "manual",
       })
@@ -117,112 +116,53 @@ export async function POST(req: Request) {
     try {
       const client = await getTemporalClient();
 
-      // Decide which workflow to start
-      const useGeneric = Boolean(workflowDefinitionId);
+      const workflowInput: GenericWorkflowInput = {
+        workflowExecutionId: workflowExecution.id,
+        orgId,
+        contactId: contact.id,
+        contactEmail: contact.email || "",
+        contactFirstName: contact.firstName,
+        contactLastName: contact.lastName || "",
+        contactPhone: contact.phone || "",
+        definitionId: workflowDefinitionId,
+      };
 
-      if (useGeneric) {
-        const genericDefinitionId = workflowDefinitionId as string;
+      const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;
+      const handle = await client.workflow.start("genericWorkflow", {
+        taskQueue: "byte-dashboard",
+        args: [workflowInput],
+        workflowId: temporalWorkflowId,
+      });
 
-        // Start generic workflow interpreter
-        const workflowInput: GenericWorkflowInput = {
-          workflowId: workflowExecution.id,
-          orgId,
-          contactId: contact.id,
-          contactEmail: contact.email || "",
-          contactFirstName: contact.firstName,
-          contactLastName: contact.lastName || "",
-          contactPhone: contact.phone || "",
-          definitionId: genericDefinitionId,
-        };
+      console.log(`Started generic workflow: ${temporalWorkflowId}`);
 
-        const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;
-        const handle = await client.workflow.start("genericWorkflow", {
-          taskQueue: "byte-dashboard",
-          args: [workflowInput],
-          workflowId: temporalWorkflowId,
-        });
-
-        console.log(`Started generic workflow: ${temporalWorkflowId}`);
-
-        await db
-          .update(workflows)
-          .set({
-            temporalWorkflowId: handle.workflowId,
-            temporalRunId: handle.firstExecutionRunId,
-          })
-          .where(
-            and(
-              eq(workflows.id, workflowExecution.id),
-              eq(workflows.orgId, orgId)
-            )
-          );
-
-        return NextResponse.json({
-          workflowId: workflowExecution.id,
+      await db
+        .update(workflowExecutions)
+        .set({
           temporalWorkflowId: handle.workflowId,
-          status: initialStatus,
-          workflow: {
-            ...workflowExecution,
-            temporalWorkflowId: handle.workflowId,
-            temporalRunId: handle.firstExecutionRunId,
-            contactName,
-            contactAvatarUrl: contact.avatarUrl ?? undefined,
-            definitionName,
-            definitionStatuses,
-          },
-        });
-      } else {
-        // Legacy: start hardcoded applicant review workflow
-        const workflowInput: ApplicantReviewWorkflowInput = {
-          workflowId: workflowExecution.id,
-          orgId,
-          contactId: contact.id,
-          contactEmail: contact.email || "",
-          contactFirstName: contact.firstName,
-        };
-
-        const temporalWorkflowId = `applicant-review-${workflowExecution.id}`;
-        const handle = await client.workflow.start(
-          "applicantReviewWorkflow",
-          {
-            taskQueue: "byte-dashboard",
-            args: [workflowInput],
-            workflowId: temporalWorkflowId,
-          }
+          temporalRunId: handle.firstExecutionRunId,
+        })
+        .where(
+          and(
+            eq(workflowExecutions.id, workflowExecution.id),
+            eq(workflowExecutions.orgId, orgId)
+          )
         );
 
-        console.log(
-          `Started applicant review workflow: ${temporalWorkflowId}`
-        );
-
-        await db
-          .update(workflows)
-          .set({
-            temporalWorkflowId: handle.workflowId,
-            temporalRunId: handle.firstExecutionRunId,
-          })
-          .where(
-            and(
-              eq(workflows.id, workflowExecution.id),
-              eq(workflows.orgId, orgId)
-            )
-          );
-
-        return NextResponse.json({
-          workflowId: workflowExecution.id,
+      return NextResponse.json({
+        workflowExecutionId: workflowExecution.id,
+        temporalWorkflowId: handle.workflowId,
+        status: initialStatus,
+        workflow: {
+          ...workflowExecution,
           temporalWorkflowId: handle.workflowId,
-          status: initialStatus,
-          workflow: {
-            ...workflowExecution,
-            temporalWorkflowId: handle.workflowId,
-            temporalRunId: handle.firstExecutionRunId,
-            contactName,
-            contactAvatarUrl: contact.avatarUrl ?? undefined,
-            definitionName,
-            definitionStatuses,
-          },
-        });
-      }
+          temporalRunId: handle.firstExecutionRunId,
+          contactName,
+          contactAvatarUrl: contact.avatarUrl ?? undefined,
+          definitionName,
+          definitionStatuses,
+        },
+      });
     } catch (startError) {
       // Compensate so failed starts do not leave orphan "running" executions
       try {
@@ -232,7 +172,7 @@ export async function POST(req: Request) {
             : initialStatus;
 
         await db
-          .update(workflows)
+          .update(workflowExecutions)
           .set({
             status: failedStatus,
             completedAt: new Date(),
@@ -246,8 +186,8 @@ export async function POST(req: Request) {
           })
           .where(
             and(
-              eq(workflows.id, workflowExecution.id),
-              eq(workflows.orgId, orgId)
+              eq(workflowExecutions.id, workflowExecution.id),
+              eq(workflowExecutions.orgId, orgId)
             )
           );
       } catch (compensationError) {

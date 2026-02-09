@@ -6,7 +6,7 @@
  */
 
 import { db } from "@/lib/db";
-import { tasks, workflows, contacts, workflowDefinitions } from "@/lib/db/schema";
+import { tasks, workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { TaskType, TaskPriority, WorkflowStep, DefinitionStatus } from "@/types";
 import { logActivity } from "@/lib/db/log-activity";
@@ -31,21 +31,21 @@ export interface CreateTaskConfig {
 /**
  * Creates a task in the database
  *
- * @param workflowId - The workflow execution ID (for workflow-created tasks)
+ * @param workflowExecutionId - The workflow execution ID (for workflow-created tasks)
  * @param config - Task configuration
  * @returns The created task ID
  */
 export async function createTask(
-  workflowId: string,
+  workflowExecutionId: string,
   config: CreateTaskConfig
 ): Promise<string> {
-  console.log(`Activity: Creating task "${config.title}" for workflow ${workflowId}`);
+  console.log(`Activity: Creating task "${config.title}" for workflow ${workflowExecutionId}`);
 
   const [task] = await db
     .insert(tasks)
     .values({
       orgId: config.orgId,
-      workflowId,
+      workflowExecutionId: workflowExecutionId,
       contactId: config.contactId,
       assignedTo: config.assignedTo,
       assignedRole: config.assignedRole,
@@ -80,15 +80,15 @@ export async function createTask(
  * IMPORTANT: This is the ONLY function that should update workflow status.
  * Status updates must come through Temporal activities to maintain consistency.
  *
- * @param workflowId - The workflow execution ID
+ * @param workflowExecutionId - The workflow execution ID
  * @param status - The new status
  */
 export async function setWorkflowStatus(
-  workflowId: string,
+  workflowExecutionId: string,
   status: string,
   options?: { markCompletedAt?: boolean }
 ): Promise<void> {
-  console.log(`Activity: Updating workflow ${workflowId} status to "${status}"`);
+  console.log(`Activity: Updating workflow ${workflowExecutionId} status to "${status}"`);
 
   const shouldSetCompletedAt =
     options?.markCompletedAt ??
@@ -99,7 +99,7 @@ export async function setWorkflowStatus(
     status === "timeout");
 
   const [updatedWorkflow] = await db
-    .update(workflows)
+    .update(workflowExecutions)
     .set({
       status,
       updatedByTemporal: true, // Flag to indicate this was updated by Temporal
@@ -108,15 +108,15 @@ export async function setWorkflowStatus(
         ? { completedAt: new Date() }
         : {}),
     })
-    .where(eq(workflows.id, workflowId))
-    .returning({ orgId: workflows.orgId });
+    .where(eq(workflowExecutions.id, workflowExecutionId))
+    .returning({ orgId: workflowExecutions.orgId });
 
   if (updatedWorkflow) {
     await logActivity({
       orgId: updatedWorkflow.orgId,
       userId: null, // System-generated (Temporal)
       entityType: "workflow",
-      entityId: workflowId,
+      entityId: workflowExecutionId,
       action: "status_changed",
       details: { status, source: "temporal" },
     });
@@ -128,25 +128,25 @@ export async function setWorkflowStatus(
 /**
  * Updates workflow execution current step/phase
  *
- * @param workflowId - The workflow execution ID
+ * @param workflowExecutionId - The workflow execution ID
  * @param stepId - Current step ID
  * @param phaseId - Current phase ID (optional)
  */
 export async function setWorkflowProgress(
-  workflowId: string,
+  workflowExecutionId: string,
   stepId: string,
   phaseId?: string
 ): Promise<void> {
-  console.log(`Activity: Updating workflow ${workflowId} progress - step: ${stepId}, phase: ${phaseId}`);
+  console.log(`Activity: Updating workflow ${workflowExecutionId} progress - step: ${stepId}, phase: ${phaseId}`);
 
   await db
-    .update(workflows)
+    .update(workflowExecutions)
     .set({
       currentStepId: stepId,
       currentPhaseId: phaseId,
       updatedAt: new Date(),
     })
-    .where(eq(workflows.id, workflowId));
+    .where(eq(workflowExecutions.id, workflowExecutionId));
 
   console.log(`Activity: Workflow progress updated`);
 }
@@ -345,9 +345,8 @@ export async function getWorkflowDefinition(
     return { steps: [], phases: [], variables: {}, statuses: [] };
   }
 
-  const stepsData = definition.steps as { steps: WorkflowStep[] };
   return {
-    steps: stepsData.steps ?? [],
+    steps: (definition.steps as WorkflowStep[]) ?? [],
     phases: (definition.phases as unknown[]) ?? [],
     variables: (definition.variables as Record<string, unknown>) ?? {},
     statuses: (definition.statuses as DefinitionStatus[]) ?? [],

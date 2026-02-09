@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { workflows, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
+import { workflowExecutions, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import {
@@ -29,18 +29,18 @@ export async function GET(
 
     const [result] = await db
       .select({
-        workflow: workflows,
+        workflow: workflowExecutions,
         contact: contacts,
         definitionName: workflowDefinitions.name,
         definitionStatuses: workflowDefinitions.statuses,
       })
-      .from(workflows)
-      .leftJoin(contacts, eq(workflows.contactId, contacts.id))
+      .from(workflowExecutions)
+      .leftJoin(contacts, eq(workflowExecutions.contactId, contacts.id))
       .leftJoin(
         workflowDefinitions,
-        eq(workflows.workflowDefinitionId, workflowDefinitions.id)
+        eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
       )
-      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
+      .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
 
     if (!result) {
       return NextResponse.json(
@@ -103,12 +103,12 @@ export async function PATCH(
 
     const [existingWorkflow] = await db
       .select({
-        id: workflows.id,
-        temporalWorkflowId: workflows.temporalWorkflowId,
-        workflowDefinitionId: workflows.workflowDefinitionId,
+        id: workflowExecutions.id,
+        temporalWorkflowId: workflowExecutions.temporalWorkflowId,
+        workflowDefinitionId: workflowExecutions.workflowDefinitionId,
       })
-      .from(workflows)
-      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
+      .from(workflowExecutions)
+      .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
 
     if (!existingWorkflow) {
       return NextResponse.json(
@@ -169,9 +169,9 @@ export async function PATCH(
       updateData.completedAt = completedAt ? new Date(completedAt) : null;
 
     const [workflow] = await db
-      .update(workflows)
+      .update(workflowExecutions)
       .set(updateData)
-      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)))
+      .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)))
       .returning();
 
     await logActivity({
@@ -216,9 +216,9 @@ export async function DELETE(
     }
 
     const [existingWorkflow] = await db
-      .select({ id: workflows.id })
-      .from(workflows)
-      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
+      .select({ id: workflowExecutions.id })
+      .from(workflowExecutions)
+      .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
 
     if (!existingWorkflow) {
       return NextResponse.json(
@@ -230,7 +230,7 @@ export async function DELETE(
     const [relatedTask] = await db
       .select({ id: tasks.id })
       .from(tasks)
-      .where(and(eq(tasks.workflowId, id), eq(tasks.orgId, orgId)))
+      .where(and(eq(tasks.workflowExecutionId, id), eq(tasks.orgId, orgId)))
       .limit(1);
 
     if (relatedTask) {
@@ -244,8 +244,8 @@ export async function DELETE(
     }
 
     await db
-      .delete(workflows)
-      .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)));
+      .delete(workflowExecutions)
+      .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
 
     await logActivity({
       orgId,

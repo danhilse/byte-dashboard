@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { contacts, notes, tasks, users, workflows } from "@/lib/db/schema";
+import { contacts, notes, tasks, users, workflowExecutions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 
@@ -135,9 +135,9 @@ export async function POST(req: Request) {
     switch (entityType) {
       case "workflow": {
         const [workflow] = await db
-          .select({ id: workflows.id })
-          .from(workflows)
-          .where(and(eq(workflows.id, entityId), eq(workflows.orgId, orgId)));
+          .select({ id: workflowExecutions.id })
+          .from(workflowExecutions)
+          .where(and(eq(workflowExecutions.id, entityId), eq(workflowExecutions.orgId, orgId)));
 
         if (!workflow) {
           return NextResponse.json(
@@ -179,14 +179,14 @@ export async function POST(req: Request) {
 
     // Set the correct soft FK based on entityType
     const softFks: {
-      workflowId?: string;
+      workflowExecutionId?: string;
       contactId?: string;
       taskId?: string;
     } = {};
 
     switch (entityType) {
       case "workflow":
-        softFks.workflowId = entityId;
+        softFks.workflowExecutionId = entityId;
         break;
       case "contact":
         softFks.contactId = entityId;

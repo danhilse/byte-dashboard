@@ -93,10 +93,10 @@ describe("app/api/tasks/[id]/approve/route", () => {
   it("approves task and returns workflowSignaled false when no workflow link", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     mocks.select.mockReturnValue(
-      selectQuery([{ id: "task_1", taskType: "approval", workflowId: null }])
+      selectQuery([{ id: "task_1", taskType: "approval", workflowExecutionId: null }])
     );
     mocks.update.mockReturnValue({
-      set: updateQuery([{ id: "task_1", workflowId: null, outcome: "approved" }]).set,
+      set: updateQuery([{ id: "task_1", workflowExecutionId: null, outcome: "approved" }]).set,
     });
 
     const res = await PATCH(
@@ -113,7 +113,7 @@ describe("app/api/tasks/[id]/approve/route", () => {
       outcome: "approved",
       comment: "Approved",
       workflowSignaled: false,
-      task: { id: "task_1", workflowId: null, outcome: "approved" },
+      task: { id: "task_1", workflowExecutionId: null, outcome: "approved" },
     });
     expect(mocks.logActivity).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -60,7 +60,7 @@ describe("logActivity", () => {
     expect(inserted.entityType).toBe("contact");
   });
 
-  it("does NOT set workflowId soft FK for delete actions", async () => {
+  it("does NOT set workflowExecutionId soft FK for delete actions", async () => {
     const values = captureInsert();
 
     await logActivity({
@@ -72,7 +72,7 @@ describe("logActivity", () => {
     });
 
     const inserted = values.mock.calls[0][0];
-    expect(inserted.workflowId).toBeUndefined();
+    expect(inserted.workflowExecutionId).toBeUndefined();
     expect(inserted.entityId).toBe("wf_123");
   });
 
@@ -92,7 +92,7 @@ describe("logActivity", () => {
     expect(inserted.entityId).toBe("task_123");
   });
 
-  it("sets workflowId soft FK for non-delete workflow actions", async () => {
+  it("sets workflowExecutionId soft FK for non-delete workflow actions", async () => {
     const values = captureInsert();
 
     await logActivity({
@@ -104,7 +104,7 @@ describe("logActivity", () => {
     });
 
     expect(values).toHaveBeenCalledWith(
-      expect.objectContaining({ workflowId: "wf_123" })
+      expect.objectContaining({ workflowExecutionId: "wf_123" })
     );
   });
 });

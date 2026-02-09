@@ -22,7 +22,7 @@ describe("lib/data/assets", () => {
     const assets = getAssetsByWorkflow("w1")
 
     expect(assets).toHaveLength(2)
-    expect(assets.every((asset) => asset.workflowId === "w1")).toBe(true)
+    expect(assets.every((asset) => asset.workflowExecutionId === "w1")).toBe(true)
   })
 
   it("filters assets by contact id", () => {

@@ -49,19 +49,19 @@ describe("app/api/workflows/hello/route", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      workflowId: "hello-ada-1",
+      temporalWorkflowId: "hello-ada-1",
       result,
     });
   });
 
-  it("GET returns 400 when workflowId is missing", async () => {
+  it("GET returns 400 when temporalWorkflowId is missing", async () => {
     const res = await GET(new Request("http://localhost/api/workflows/hello"));
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "workflowId is required" });
+    expect(await res.json()).toEqual({ error: "temporalWorkflowId is required" });
   });
 
-  it("GET returns workflow status for a valid workflowId", async () => {
+  it("GET returns workflow status for a valid temporalWorkflowId", async () => {
     mocks.getTemporalClient.mockResolvedValue({
       workflow: {
         getHandle: vi.fn().mockReturnValue({
@@ -74,12 +74,12 @@ describe("app/api/workflows/hello/route", () => {
     });
 
     const res = await GET(
-      new Request("http://localhost/api/workflows/hello?workflowId=hello-ada-1")
+      new Request("http://localhost/api/workflows/hello?temporalWorkflowId=hello-ada-1")
     );
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      workflowId: "hello-ada-1",
+      temporalWorkflowId: "hello-ada-1",
       status: "RUNNING",
       startTime: "2026-02-01T10:00:00.000Z",
     });

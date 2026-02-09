@@ -97,7 +97,7 @@ describe("app/api/workflow-definitions/route", () => {
         name: "Review Flow",
         version: 1,
         isActive: true,
-        steps: { steps: [] },
+        steps: [],
       })
     );
   });

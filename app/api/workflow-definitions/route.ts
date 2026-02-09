@@ -77,7 +77,7 @@ export async function GET(req: Request) {
  * {
  *   "name": "string" (required),
  *   "description": "string" (optional),
- *   "steps": { steps: WorkflowStep[] } (optional)
+ *   "steps": WorkflowStep[] (optional)
  * }
  */
 export async function POST(req: Request) {
@@ -98,6 +98,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (steps !== undefined && !Array.isArray(steps)) {
+      return NextResponse.json(
+        { error: "steps must be an array when provided" },
+        { status: 400 }
+      );
+    }
+
     const [definition] = await db
       .insert(workflowDefinitions)
       .values({
@@ -105,7 +112,7 @@ export async function POST(req: Request) {
         name: name.trim(),
         description: description || null,
         version: 1,
-        steps: steps || { steps: [] },
+        steps: steps ?? [],
         isActive: true,
       })
       .returning();

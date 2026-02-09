@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { contacts, workflows, workflowDefinitions } from "@/lib/db/schema";
+import { contacts, workflowExecutions, workflowDefinitions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import {
@@ -27,7 +27,7 @@ export async function GET() {
 
     const rows = await db
       .select({
-        workflow: workflows,
+        workflow: workflowExecutions,
         contact: {
           id: contacts.id,
           firstName: contacts.firstName,
@@ -38,17 +38,17 @@ export async function GET() {
         definitionName: workflowDefinitions.name,
         definitionStatuses: workflowDefinitions.statuses,
       })
-      .from(workflows)
+      .from(workflowExecutions)
       .leftJoin(
         contacts,
-        and(eq(workflows.contactId, contacts.id), eq(contacts.orgId, orgId))
+        and(eq(workflowExecutions.contactId, contacts.id), eq(contacts.orgId, orgId))
       )
       .leftJoin(
         workflowDefinitions,
-        eq(workflows.workflowDefinitionId, workflowDefinitions.id)
+        eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
       )
-      .where(eq(workflows.orgId, orgId))
-      .orderBy(desc(workflows.startedAt));
+      .where(eq(workflowExecutions.orgId, orgId))
+      .orderBy(desc(workflowExecutions.startedAt));
 
     const executions = rows.map(({ workflow, contact, definitionName, definitionStatuses }) => {
       const contactName = contact
@@ -175,7 +175,7 @@ export async function POST(req: Request) {
       );
 
     const [workflow] = await db
-      .insert(workflows)
+      .insert(workflowExecutions)
       .values({
         orgId,
         contactId,

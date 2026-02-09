@@ -30,7 +30,7 @@ interface WorkflowTriggerDialogProps {
 /**
  * Workflow Trigger Dialog
  *
- * Simple dialog for Phase 2 testing - triggers the hardcoded applicant review workflow
+ * Simple dialog for testing workflow execution triggering.
  */
 export function WorkflowTriggerDialog({
   contacts,
@@ -65,16 +65,16 @@ export function WorkflowTriggerDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Trigger Applicant Review Workflow</DialogTitle>
+          <DialogTitle>Trigger Workflow Execution</DialogTitle>
           <DialogDescription>
-            Start a new applicant review workflow for testing. This will create tasks and wait
+            Start a new workflow execution for testing. This will create tasks and wait
             for approvals.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="contact">Select Contact/Applicant</Label>
+            <Label htmlFor="contact">Select Contact</Label>
             <Select value={selectedContactId} onValueChange={setSelectedContactId}>
               <SelectTrigger id="contact">
                 <SelectValue placeholder="Choose a contact..." />

@@ -19,11 +19,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { WorkflowStatusBadge } from "@/components/common/status-badge"
 import { workflowStatusOptions } from "@/lib/status-config"
-import type { Workflow } from "@/types"
+import type { WorkflowExecution } from "@/types"
 
 export { workflowStatusOptions }
 
-export const workflowColumns: ColumnDef<Workflow>[] = [
+export const workflowColumns: ColumnDef<WorkflowExecution>[] = [
   {
     id: "select",
     header: ({ table }) => (

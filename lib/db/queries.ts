@@ -8,7 +8,7 @@
 import { db } from "@/lib/db";
 import {
   contacts,
-  workflows,
+  workflowExecutions,
   tasks,
   activityLog,
   users,
@@ -17,7 +17,7 @@ import {
 import { and, count, desc, eq, gte, sql } from "drizzle-orm";
 
 /**
- * Dashboard stats: total contacts, active workflows, pending tasks,
+ * Dashboard stats: total contacts, active workflowExecutions, pending tasks,
  * completed tasks this week.
  */
 export async function getDashboardStats(orgId: string) {
@@ -36,11 +36,11 @@ export async function getDashboardStats(orgId: string) {
       .where(eq(contacts.orgId, orgId)),
     db
       .select({ count: count() })
-      .from(workflows)
+      .from(workflowExecutions)
       .where(
         and(
-          eq(workflows.orgId, orgId),
-          sql`${workflows.status} NOT IN ('completed', 'failed', 'timeout')`
+          eq(workflowExecutions.orgId, orgId),
+          sql`${workflowExecutions.status} NOT IN ('completed', 'failed', 'timeout')`
         )
       ),
     db
@@ -78,12 +78,12 @@ export async function getDashboardStats(orgId: string) {
 export async function getWorkflowCountsByStatus(orgId: string) {
   const rows = await db
     .select({
-      status: workflows.status,
+      status: workflowExecutions.status,
       count: count(),
     })
-    .from(workflows)
-    .where(eq(workflows.orgId, orgId))
-    .groupBy(workflows.status);
+    .from(workflowExecutions)
+    .where(eq(workflowExecutions.orgId, orgId))
+    .groupBy(workflowExecutions.status);
 
   return rows;
 }
@@ -97,13 +97,13 @@ export async function getWorkflowsOverTime(orgId: string, days: number = 30) {
 
   const rows = await db
     .select({
-      date: sql<string>`DATE(${workflows.createdAt})`.as("date"),
+      date: sql<string>`DATE(${workflowExecutions.createdAt})`.as("date"),
       count: count(),
     })
-    .from(workflows)
-    .where(and(eq(workflows.orgId, orgId), gte(workflows.createdAt, startDate)))
-    .groupBy(sql`DATE(${workflows.createdAt})`)
-    .orderBy(sql`DATE(${workflows.createdAt})`);
+    .from(workflowExecutions)
+    .where(and(eq(workflowExecutions.orgId, orgId), gte(workflowExecutions.createdAt, startDate)))
+    .groupBy(sql`DATE(${workflowExecutions.createdAt})`)
+    .orderBy(sql`DATE(${workflowExecutions.createdAt})`);
 
   return rows;
 }
@@ -114,21 +114,21 @@ export async function getWorkflowsOverTime(orgId: string, days: number = 30) {
 export async function getRecentWorkflows(orgId: string, limit: number = 5) {
   const rows = await db
     .select({
-      id: workflows.id,
-      status: workflows.status,
-      startedAt: workflows.startedAt,
+      id: workflowExecutions.id,
+      status: workflowExecutions.status,
+      startedAt: workflowExecutions.startedAt,
       contactFirstName: contacts.firstName,
       contactLastName: contacts.lastName,
       definitionName: workflowDefinitions.name,
     })
-    .from(workflows)
-    .leftJoin(contacts, eq(workflows.contactId, contacts.id))
+    .from(workflowExecutions)
+    .leftJoin(contacts, eq(workflowExecutions.contactId, contacts.id))
     .leftJoin(
       workflowDefinitions,
-      eq(workflows.workflowDefinitionId, workflowDefinitions.id)
+      eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
     )
-    .where(eq(workflows.orgId, orgId))
-    .orderBy(desc(workflows.startedAt))
+    .where(eq(workflowExecutions.orgId, orgId))
+    .orderBy(desc(workflowExecutions.startedAt))
     .limit(limit);
 
   return rows.map((row) => ({

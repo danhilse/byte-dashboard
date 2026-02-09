@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import type { WorkflowStep } from "@/types";
 import { db } from "@/lib/db";
-import { workflowDefinitions, workflows } from "@/lib/db/schema";
+import { workflowDefinitions, workflowExecutions } from "@/lib/db/schema";
 
 interface ApprovalCommentRequirementInput {
   orgId: string;
-  workflowId?: string | null;
+  workflowExecutionId?: string | null;
 }
 
 /**
@@ -14,19 +14,19 @@ interface ApprovalCommentRequirementInput {
  */
 export async function requiresApprovalComment({
   orgId,
-  workflowId,
+  workflowExecutionId,
 }: ApprovalCommentRequirementInput): Promise<boolean> {
-  if (!workflowId) {
+  if (!workflowExecutionId) {
     return false;
   }
 
   const [workflowExecution] = await db
     .select({
-      workflowDefinitionId: workflows.workflowDefinitionId,
-      currentStepId: workflows.currentStepId,
+      workflowDefinitionId: workflowExecutions.workflowDefinitionId,
+      currentStepId: workflowExecutions.currentStepId,
     })
-    .from(workflows)
-    .where(and(eq(workflows.id, workflowId), eq(workflows.orgId, orgId)));
+    .from(workflowExecutions)
+    .where(and(eq(workflowExecutions.id, workflowExecutionId), eq(workflowExecutions.orgId, orgId)));
 
   if (!workflowExecution?.workflowDefinitionId || !workflowExecution.currentStepId) {
     return false;
@@ -42,8 +42,8 @@ export async function requiresApprovalComment({
       )
     );
 
-  const stepsData = definition?.steps as { steps: WorkflowStep[] } | null;
-  const currentStep = stepsData?.steps?.find(
+  const steps = (definition?.steps as WorkflowStep[] | null) ?? [];
+  const currentStep = steps.find(
     (step) => step.id === workflowExecution.currentStepId
   );
 

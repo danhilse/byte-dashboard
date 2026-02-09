@@ -9,9 +9,6 @@
  * - wait_for_approval → waits for approvalSubmitted signal with timeout
  * - update_status → updates workflow execution status
  * - condition → branches based on a variable value
- *
- * Reuses the same signal names (taskCompleted, approvalSubmitted) as the
- * hardcoded workflow so existing task API routes signal correctly.
  */
 
 import {
@@ -33,6 +30,12 @@ import type {
   UpdateContactStep,
   UpdateTaskStep,
 } from "@/types";
+import {
+  APPROVAL_SUBMITTED_SIGNAL_NAME,
+  TASK_COMPLETED_SIGNAL_NAME,
+  type ApprovalSignal,
+  type TaskCompletedSignal,
+} from "./signal-types";
 
 const {
   createTask,
@@ -52,7 +55,7 @@ const {
 // --- Input / Output ---
 
 export interface GenericWorkflowInput {
-  workflowId: string;
+  workflowExecutionId: string;
   orgId: string;
   contactId: string;
   contactEmail: string;
@@ -63,28 +66,19 @@ export interface GenericWorkflowInput {
 }
 
 export interface GenericWorkflowResult {
-  workflowId: string;
+  workflowExecutionId: string;
   finalStatus: string;
   variables: Record<string, string>;
 }
 
-// --- Signals (reuse same signal names as hardcoded workflow) ---
+// --- Signals ---
 
-type GTaskCompletedPayload = {
-  taskId: string;
-  completedBy: string;
-};
-
-type GApprovalPayload = {
-  outcome: "approved" | "rejected";
-  comment?: string;
-  approvedBy: string;
-};
-
-const taskCompletedSignal =
-  defineSignal<[GTaskCompletedPayload]>("taskCompleted");
-const approvalSubmittedSignal =
-  defineSignal<[GApprovalPayload]>("approvalSubmitted");
+const taskCompletedSignal = defineSignal<[TaskCompletedSignal]>(
+  TASK_COMPLETED_SIGNAL_NAME
+);
+const approvalSubmittedSignal = defineSignal<[ApprovalSignal]>(
+  APPROVAL_SUBMITTED_SIGNAL_NAME
+);
 
 const ALLOWED_UPDATE_TASK_FIELDS = new Set([
   "status",
@@ -100,7 +94,7 @@ export async function genericWorkflow(
   input: GenericWorkflowInput
 ): Promise<GenericWorkflowResult> {
   console.log(
-    `[GenericWorkflow] Starting for definition ${input.definitionId}, workflow ${input.workflowId}`
+    `[GenericWorkflow] Starting for definition ${input.definitionId}, execution ${input.workflowExecutionId}`
   );
 
   // Runtime variables keyed by "stepId.fieldName"
@@ -108,12 +102,12 @@ export async function genericWorkflow(
 
   // Signal state — reset before each wait step
   let taskCompleted = false;
-  let taskCompletionData: GTaskCompletedPayload | undefined;
+  let taskCompletionData: TaskCompletedSignal | undefined;
   let approvalReceived = false;
-  let approvalData: GApprovalPayload | undefined;
+  let approvalData: ApprovalSignal | undefined;
 
   // Set up signal handlers
-  setHandler(taskCompletedSignal, (data: GTaskCompletedPayload) => {
+  setHandler(taskCompletedSignal, (data: TaskCompletedSignal) => {
     console.log(
       `[GenericWorkflow] Received taskCompleted signal for task ${data.taskId}`
     );
@@ -121,7 +115,7 @@ export async function genericWorkflow(
     taskCompletionData = data;
   });
 
-  setHandler(approvalSubmittedSignal, (data: GApprovalPayload) => {
+  setHandler(approvalSubmittedSignal, (data: ApprovalSignal) => {
     console.log(
       `[GenericWorkflow] Received approvalSubmitted signal: ${data.outcome}`
     );
@@ -159,14 +153,14 @@ export async function genericWorkflow(
     console.log(`[GenericWorkflow] No steps found, completing immediately`);
     const finalStatus = resolveSystemStatus("completed");
     if (finalStatus) {
-      await setWorkflowStatus(input.workflowId, finalStatus, {
+      await setWorkflowStatus(input.workflowExecutionId, finalStatus, {
         markCompletedAt: true,
       });
       statusUpdatedInRun = true;
       lastStatusSet = finalStatus;
     }
     return {
-      workflowId: input.workflowId,
+      workflowExecutionId: input.workflowExecutionId,
       finalStatus: finalStatus ?? "completed",
       variables,
     };
@@ -197,7 +191,7 @@ export async function genericWorkflow(
         `[GenericWorkflow] Executing step ${stepIndex}: ${step.type} (${step.label})`
       );
 
-      await setWorkflowProgress(input.workflowId, step.id, step.phaseId);
+      await setWorkflowProgress(input.workflowExecutionId, step.id, step.phaseId);
 
       switch (step.type) {
         case "trigger": {
@@ -211,7 +205,7 @@ export async function genericWorkflow(
             ? new Date(Date.now() + config.dueDays * 86400000)
             : undefined;
 
-          const taskId = await createTask(input.workflowId, {
+          const taskId = await createTask(input.workflowExecutionId, {
             orgId: input.orgId,
             contactId: input.contactId,
             title: resolveVariable(config.title),
@@ -251,21 +245,21 @@ export async function genericWorkflow(
             );
             const timeoutStatus = resolveSystemStatus("timeout");
             if (timeoutStatus) {
-              await setWorkflowStatus(input.workflowId, timeoutStatus, {
+              await setWorkflowStatus(input.workflowExecutionId, timeoutStatus, {
                 markCompletedAt: true,
               });
               statusUpdatedInRun = true;
               lastStatusSet = timeoutStatus;
             }
             return {
-              workflowId: input.workflowId,
+              workflowExecutionId: input.workflowExecutionId,
               finalStatus: timeoutStatus ?? "timeout",
               variables,
             };
           }
 
           const completionData = taskCompletionData as
-            | GTaskCompletedPayload
+            | TaskCompletedSignal
             | undefined;
           variables[`${step.id}.completedBy`] = completionData?.completedBy ?? "";
           variables[`${step.id}.taskId`] = completionData?.taskId ?? "";
@@ -289,20 +283,20 @@ export async function genericWorkflow(
             );
             const timeoutStatus = resolveSystemStatus("timeout");
             if (timeoutStatus) {
-              await setWorkflowStatus(input.workflowId, timeoutStatus, {
+              await setWorkflowStatus(input.workflowExecutionId, timeoutStatus, {
                 markCompletedAt: true,
               });
               statusUpdatedInRun = true;
               lastStatusSet = timeoutStatus;
             }
             return {
-              workflowId: input.workflowId,
+              workflowExecutionId: input.workflowExecutionId,
               finalStatus: timeoutStatus ?? "timeout",
               variables,
             };
           }
 
-          const approval = approvalData as GApprovalPayload;
+          const approval = approvalData as ApprovalSignal;
           variables[`${step.id}.outcome`] = approval.outcome;
           variables[`${step.id}.comment`] = approval.comment ?? "";
           variables[`${step.id}.approvedBy`] = approval.approvedBy;
@@ -319,7 +313,7 @@ export async function genericWorkflow(
               `[GenericWorkflow] update_status misconfigured at step "${step.label}": status "${config.status}" is not defined on workflow definition`
             );
           }
-          await setWorkflowStatus(input.workflowId, config.status);
+          await setWorkflowStatus(input.workflowExecutionId, config.status);
           statusUpdatedInRun = true;
           lastStatusSet = config.status;
           break;
@@ -465,7 +459,7 @@ export async function genericWorkflow(
     if (!statusUpdatedInRun) {
       finalStatus =
         orderedDefinitionStatuses.at(-1)?.id ?? resolveSystemStatus("completed") ?? "completed";
-      await setWorkflowStatus(input.workflowId, finalStatus, {
+      await setWorkflowStatus(input.workflowExecutionId, finalStatus, {
         markCompletedAt: true,
       });
       statusUpdatedInRun = true;
@@ -476,15 +470,15 @@ export async function genericWorkflow(
       // Workflow has ended successfully. Ensure custom terminal statuses also
       // set completedAt without forcing a specific status name.
       if (!["completed", "approved", "rejected"].includes(finalStatus)) {
-        await setWorkflowStatus(input.workflowId, finalStatus, {
+        await setWorkflowStatus(input.workflowExecutionId, finalStatus, {
           markCompletedAt: true,
         });
       }
     }
-    console.log(`[GenericWorkflow] All steps completed for ${input.workflowId}`);
+    console.log(`[GenericWorkflow] All steps completed for ${input.workflowExecutionId}`);
 
     return {
-      workflowId: input.workflowId,
+      workflowExecutionId: input.workflowExecutionId,
       finalStatus,
       variables,
     };
@@ -492,13 +486,13 @@ export async function genericWorkflow(
     try {
       const failedStatus = resolveSystemStatus("failed");
       if (failedStatus) {
-        await setWorkflowStatus(input.workflowId, failedStatus, {
+        await setWorkflowStatus(input.workflowExecutionId, failedStatus, {
           markCompletedAt: true,
         });
         lastStatusSet = failedStatus;
       } else {
         console.log(
-          `[GenericWorkflow] Definition has no "failed" status. Preserving current status for ${input.workflowId}.`
+          `[GenericWorkflow] Definition has no "failed" status. Preserving current status for ${input.workflowExecutionId}.`
         );
       }
     } catch (statusError) {

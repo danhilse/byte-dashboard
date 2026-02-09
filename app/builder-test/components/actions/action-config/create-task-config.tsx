@@ -62,7 +62,9 @@ export function CreateTaskConfig({ action, variables, onChange }: CreateTaskConf
           <Label htmlFor={`${action.id}-taskType`}>Task Type</Label>
           <Select
             value={action.config.taskType}
-            onValueChange={(value) => handleChange("taskType", value)}
+            onValueChange={(value) =>
+              handleChange("taskType", value as "standard" | "approval")
+            }
           >
             <SelectTrigger id={`${action.id}-taskType`}>
               <SelectValue />
@@ -78,7 +80,9 @@ export function CreateTaskConfig({ action, variables, onChange }: CreateTaskConf
           <Label htmlFor={`${action.id}-priority`}>Priority</Label>
           <Select
             value={action.config.priority}
-            onValueChange={(value) => handleChange("priority", value)}
+            onValueChange={(value) =>
+              handleChange("priority", value as "low" | "medium" | "high")
+            }
           >
             <SelectTrigger id={`${action.id}-priority`}>
               <SelectValue />
@@ -97,12 +101,13 @@ export function CreateTaskConfig({ action, variables, onChange }: CreateTaskConf
         <div className="grid grid-cols-2 gap-2">
           <Select
             value={action.config.assignTo.type}
-            onValueChange={(value) =>
-              handleChange("assignTo", {
-                type: value,
-                ...(value === "role" ? { role: "" } : { userId: "" }),
-              })
-            }
+            onValueChange={(value) => {
+              if (value === "role") {
+                handleChange("assignTo", { type: "role", role: "" })
+                return
+              }
+              handleChange("assignTo", { type: "user", userId: "" })
+            }}
           >
             <SelectTrigger id={`${action.id}-assignType`}>
               <SelectValue />

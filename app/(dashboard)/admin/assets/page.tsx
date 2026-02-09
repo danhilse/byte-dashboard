@@ -60,9 +60,9 @@ export default function AssetsPage() {
 
     if (activeTab === "all") return matchesSearch
 
-    if (activeTab === "workflows") return matchesSearch && asset.workflowId
-    if (activeTab === "contacts") return matchesSearch && asset.contactId && !asset.workflowId
-    if (activeTab === "unattached") return matchesSearch && !asset.workflowId && !asset.contactId
+    if (activeTab === "workflows") return matchesSearch && asset.workflowExecutionId
+    if (activeTab === "contacts") return matchesSearch && asset.contactId && !asset.workflowExecutionId
+    if (activeTab === "unattached") return matchesSearch && !asset.workflowExecutionId && !asset.contactId
 
     // Filter by file type
     return matchesSearch && asset.fileType.toLowerCase() === activeTab
@@ -74,9 +74,9 @@ export default function AssetsPage() {
 
     return {
       total: assets.length,
-      workflows: assets.filter((a) => a.workflowId).length,
-      contacts: assets.filter((a) => a.contactId && !a.workflowId).length,
-      unattached: assets.filter((a) => !a.workflowId && !a.contactId).length,
+      workflows: assets.filter((a) => a.workflowExecutionId).length,
+      contacts: assets.filter((a) => a.contactId && !a.workflowExecutionId).length,
+      unattached: assets.filter((a) => !a.workflowExecutionId && !a.contactId).length,
       totalSize: totalSizeMB,
     }
   }

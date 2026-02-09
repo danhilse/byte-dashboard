@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     const result = (await handle.result()) as HelloWorkflowResult;
 
     return NextResponse.json({
-      workflowId: handle.workflowId,
+      temporalWorkflowId: handle.workflowId,
       result,
     });
   } catch (error) {
@@ -58,28 +58,28 @@ export async function POST(req: Request) {
  * API Route to get workflow status
  *
  * Example request:
- * GET /api/workflows/hello?workflowId=hello-john-123456789
+ * GET /api/workflows/hello?temporalWorkflowId=hello-john-123456789
  */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const workflowId = searchParams.get("workflowId");
+    const temporalWorkflowId = searchParams.get("temporalWorkflowId");
 
-    if (!workflowId) {
+    if (!temporalWorkflowId) {
       return NextResponse.json(
-        { error: "workflowId is required" },
+        { error: "temporalWorkflowId is required" },
         { status: 400 }
       );
     }
 
     const client = await getTemporalClient();
-    const handle = client.workflow.getHandle(workflowId);
+    const handle = client.workflow.getHandle(temporalWorkflowId);
 
     // Check if workflow is running
     const description = await handle.describe();
 
     return NextResponse.json({
-      workflowId,
+      temporalWorkflowId,
       status: description.status.name,
       startTime: description.startTime,
     });

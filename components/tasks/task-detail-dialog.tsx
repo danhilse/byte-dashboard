@@ -133,7 +133,7 @@ export function TaskDetailDialog({
             </div>
             <div className="flex items-center gap-2">
               <TaskPriorityBadge priority={displayTask.priority} />
-              {displayTask.workflowId && (
+              {displayTask.workflowExecutionId && (
                 <Badge variant="outline" className="gap-1">
                   <Workflow className="size-3" />
                   Workflow

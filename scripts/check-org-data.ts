@@ -3,8 +3,7 @@
  */
 
 import { db } from "../lib/db";
-import { contacts, tasks, workflows, workflowDefinitions } from "../lib/db/schema";
-import { sql } from "drizzle-orm";
+import { contacts, tasks, workflowExecutions, workflowDefinitions } from "../lib/db/schema";
 
 async function checkOrgData() {
   console.log("📊 Checking database for organizations with data...\n");
@@ -13,7 +12,9 @@ async function checkOrgData() {
     // Get all unique org_ids
     const allContacts = await db.select({ orgId: contacts.orgId }).from(contacts);
     const allTasks = await db.select({ orgId: tasks.orgId }).from(tasks);
-    const allWorkflows = await db.select({ orgId: workflows.orgId }).from(workflows);
+    const allWorkflows = await db
+      .select({ orgId: workflowExecutions.orgId })
+      .from(workflowExecutions);
     const allDefinitions = await db.select({ orgId: workflowDefinitions.orgId }).from(workflowDefinitions);
 
     const orgIds = new Set([

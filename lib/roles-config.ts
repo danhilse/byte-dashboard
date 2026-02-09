@@ -44,7 +44,7 @@ export const roleConfig: Record<Role, { label: string; description?: string }> =
   },
   reviewer: {
     label: "Reviewer",
-    description: "Reviews applications and submissions",
+    description: "Reviews workflow tasks and submissions",
   },
   hr_coordinator: {
     label: "HR Coordinator",

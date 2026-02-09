@@ -9,7 +9,9 @@ import {
   createEmptyStandardStep,
 } from "./workflow-operations"
 
-function createBaseWorkflow(steps = [createEmptyStandardStep("Start")]): WorkflowDefinitionV2 {
+function createBaseWorkflow(
+  steps: WorkflowDefinitionV2["steps"] = [createEmptyStandardStep("Start")]
+): WorkflowDefinitionV2 {
   const now = new Date().toISOString()
 
   return {

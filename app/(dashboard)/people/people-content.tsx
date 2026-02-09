@@ -33,9 +33,8 @@ import { ViewToggle, type ViewOption } from "@/components/common/view-toggle"
 import { ContactFormDialog } from "@/components/contacts/contact-form-dialog"
 import { ContactDeleteDialog } from "@/components/contacts/contact-delete-dialog"
 import { ContactCard } from "@/components/contacts/contact-card"
-import { CSVImportDialog } from "@/components/contacts/csv-import-dialog"
 import { ContactFiltersDialog, type ContactFilters } from "@/components/contacts/contact-filters-dialog"
-import { createContactColumns, contactStatusOptions } from "@/components/data-table/columns/contact-columns"
+import { createContactColumns } from "@/components/data-table/columns/contact-columns"
 import type { Contact } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { usePersistedView } from "@/hooks/use-persisted-view"
@@ -264,38 +263,6 @@ export function PeopleContent() {
       toast({
         title: "Error",
         description: "Failed to delete contact. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleCSVImport = async (importedContacts: Omit<Contact, "id" | "createdAt">[]) => {
-    try {
-      const results = await Promise.all(
-        importedContacts.map((c) =>
-          fetch("/api/contacts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(c),
-          }).then((res) => {
-            if (!res.ok) throw new Error("Failed to create contact")
-            return res.json()
-          })
-        )
-      )
-
-      const newContacts = results.map((r) => r.contact)
-      setContacts((prev) => [...newContacts, ...prev])
-
-      toast({
-        title: "Success",
-        description: `Imported ${newContacts.length} contact(s) successfully`,
-      })
-    } catch (error) {
-      console.error("Error importing contacts:", error)
-      toast({
-        title: "Error",
-        description: "Failed to import some contacts. Please try again.",
         variant: "destructive",
       })
     }

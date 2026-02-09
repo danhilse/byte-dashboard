@@ -74,6 +74,22 @@ describe("app/api/workflows/trigger/route", () => {
     expect(await res.json()).toEqual({ error: "contactId is required" });
   });
 
+  it("returns 400 when workflowDefinitionId is missing", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const res = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "workflowDefinitionId is required" });
+  });
+
   it("returns 404 when workflow definition is not found", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
     mocks.select
@@ -158,7 +174,7 @@ describe("app/api/workflows/trigger/route", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      workflowId: "wf_1",
+      workflowExecutionId: "wf_1",
       temporalWorkflowId: "generic-workflow-wf_1",
       status: "running",
       workflow: {

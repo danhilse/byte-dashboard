@@ -4,13 +4,13 @@ import { useMemo } from "react"
 import { GenericKanbanBoard, type KanbanColumn } from "./generic-kanban-board"
 import { WorkflowKanbanCard } from "./workflow-kanban-card"
 import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
-import type { Workflow, DefinitionStatus } from "@/types"
+import type { WorkflowExecution, DefinitionStatus } from "@/types"
 
 interface WorkflowsKanbanBoardProps {
-  workflows: Workflow[]
+  workflows: WorkflowExecution[]
   definitionStatuses?: DefinitionStatus[]
-  onStatusChange?: (workflowId: string, newStatus: string) => void
-  onWorkflowClick?: (workflow: Workflow) => void
+  onStatusChange?: (workflowExecutionId: string, newStatus: string) => void
+  onWorkflowClick?: (workflow: WorkflowExecution) => void
 }
 
 const fallbackColumns: KanbanColumn<string>[] = [

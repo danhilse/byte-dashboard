@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { tasks, contacts, workflows } from "@/lib/db/schema";
+import { tasks, contacts, workflowExecutions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import {
   buildTaskAccessContext,
@@ -50,11 +50,11 @@ export async function GET(req: Request) {
         task: tasks,
         contactFirstName: contacts.firstName,
         contactLastName: contacts.lastName,
-        workflowStatus: workflows.status,
+        workflowStatus: workflowExecutions.status,
       })
       .from(tasks)
       .leftJoin(contacts, eq(tasks.contactId, contacts.id))
-      .leftJoin(workflows, eq(tasks.workflowId, workflows.id))
+      .leftJoin(workflowExecutions, eq(tasks.workflowExecutionId, workflowExecutions.id))
       .where(eq(tasks.orgId, orgId))
       .orderBy(tasks.position, desc(tasks.createdAt));
 
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       taskType,
       assignedTo,
       assignedRole,
-      workflowId,
+      workflowExecutionId,
       contactId,
       dueDate,
       position,
@@ -163,12 +163,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Validate workflowId belongs to org if provided
-    if (workflowId) {
+    // Validate workflowExecutionId belongs to org if provided
+    if (workflowExecutionId) {
       const [workflow] = await db
-        .select({ id: workflows.id })
-        .from(workflows)
-        .where(and(eq(workflows.id, workflowId), eq(workflows.orgId, orgId)));
+        .select({ id: workflowExecutions.id })
+        .from(workflowExecutions)
+        .where(and(eq(workflowExecutions.id, workflowExecutionId), eq(workflowExecutions.orgId, orgId)));
 
       if (!workflow) {
         return NextResponse.json(
@@ -189,7 +189,7 @@ export async function POST(req: Request) {
         taskType: taskType || "standard",
         assignedTo: assignedTo || userId,
         assignedRole: assignedRole || null,
-        workflowId: workflowId || null,
+        workflowExecutionId: workflowExecutionId || null,
         contactId: contactId || null,
         dueDate: dueDate || null,
         position: position ?? 0,

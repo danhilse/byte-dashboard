@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 
 interface AssetUploaderProps {
-  workflowId?: string
+  workflowExecutionId?: string
   contactId?: string
   taskId?: string
   maxSize?: number // in bytes
@@ -17,7 +17,7 @@ interface AssetUploaderProps {
 }
 
 export function AssetUploader({
-  workflowId,
+  workflowExecutionId,
   contactId,
   taskId,
   maxSize = 10 * 1024 * 1024, // 10MB default
@@ -29,11 +29,11 @@ export function AssetUploader({
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const targetLabel = useMemo(() => {
-    if (workflowId) return "workflow"
+    if (workflowExecutionId) return "workflow"
     if (contactId) return "contact"
     if (taskId) return "task"
     return null
-  }, [workflowId, contactId, taskId])
+  }, [workflowExecutionId, contactId, taskId])
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()

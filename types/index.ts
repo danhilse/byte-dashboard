@@ -167,7 +167,7 @@ export interface WorkflowDefinition {
   description?: string
   version: number
   phases: WorkflowPhase[]
-  steps: { steps: WorkflowStep[] } // JSONB array of step definitions
+  steps: WorkflowStep[] // JSONB array of step definitions
   variables: Record<string, unknown> // JSONB variable definitions
   statuses: DefinitionStatus[] // JSONB UI status definitions
   isActive: boolean
@@ -175,7 +175,7 @@ export interface WorkflowDefinition {
   updatedAt: string
 }
 
-export interface Workflow {
+export interface WorkflowExecution {
   id: string
   orgId: string
   contactId: string
@@ -209,7 +209,7 @@ export type TaskOutcome = "approved" | "rejected" | "completed" | null
 export interface Task {
   id: string
   orgId: string
-  workflowId?: string
+  workflowExecutionId?: string
   contactId?: string
   assignedTo?: string // Specific user if claimed
   assignedRole?: string // Role if role-based assignment
@@ -258,7 +258,7 @@ export interface Asset {
   fileSize: number
   fileType: string
   mimeType: string
-  workflowId?: string
+  workflowExecutionId?: string
   contactId?: string
   taskId?: string
   storageUrl: string

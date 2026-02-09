@@ -8,7 +8,7 @@
  * - users: Synced from Clerk
  * - contacts: People/applicants
  * - workflow_definitions: Workflow blueprints (steps, phases, variables)
- * - workflows: Workflow executions (instances of definitions)
+ * - workflow_executions: Workflow execution instances
  * - tasks: Task management
  * - notes: Notes on any entity (polymorphic with soft FKs)
  * - activity_log: Audit trail (polymorphic with soft FKs)
@@ -111,7 +111,7 @@ export const workflowDefinitions = pgTable(
     description: text("description"),
     version: integer("version").default(1).notNull(), // Immutable versioning (edit = clone + increment)
     phases: jsonb("phases").default([]).notNull(), // Array of phase definitions
-    steps: jsonb("steps").default({ steps: [] }).notNull(), // Array of step definitions
+    steps: jsonb("steps").default([]).notNull(), // Array of step definitions
     variables: jsonb("variables").default({}).notNull(), // Variable definitions
     statuses: jsonb("statuses").default([]).notNull(), // UI status definitions
     isActive: boolean("is_active").default(true).notNull(),
@@ -132,11 +132,11 @@ export const workflowDefinitions = pgTable(
 );
 
 // ===========================
-// Workflows (Executions/Instances)
+// Workflow Executions
 // ===========================
 
-export const workflows = pgTable(
-  "workflows",
+export const workflowExecutions = pgTable(
+  "workflow_executions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     orgId: text("org_id").notNull(),
@@ -169,13 +169,13 @@ export const workflows = pgTable(
       .notNull(),
   },
   (table) => ({
-    orgIdx: index("idx_workflows_org").on(table.orgId),
-    contactIdx: index("idx_workflows_contact").on(table.contactId),
-    statusIdx: index("idx_workflows_status").on(table.orgId, table.status),
-    definitionIdx: index("idx_workflows_definition").on(
+    orgIdx: index("idx_workflow_executions_org").on(table.orgId),
+    contactIdx: index("idx_workflow_executions_contact").on(table.contactId),
+    statusIdx: index("idx_workflow_executions_status").on(table.orgId, table.status),
+    definitionIdx: index("idx_workflow_executions_definition").on(
       table.workflowDefinitionId
     ),
-    temporalIdx: index("idx_workflows_temporal").on(table.temporalWorkflowId),
+    temporalIdx: index("idx_workflow_executions_temporal").on(table.temporalWorkflowId),
   })
 );
 
@@ -188,7 +188,7 @@ export const tasks = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     orgId: text("org_id").notNull(),
-    workflowId: uuid("workflow_id").references(() => workflows.id),
+    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id),
     contactId: uuid("contact_id").references(() => contacts.id),
     assignedTo: text("assigned_to").references(() => users.id), // Specific user if claimed
     assignedRole: text("assigned_role"), // Role if role-based assignment
@@ -216,7 +216,7 @@ export const tasks = pgTable(
     assignedIdx: index("idx_tasks_assigned").on(table.assignedTo),
     roleIdx: index("idx_tasks_role").on(table.assignedRole),
     statusIdx: index("idx_tasks_status").on(table.orgId, table.status),
-    workflowIdx: index("idx_tasks_workflow").on(table.workflowId),
+    workflowIdx: index("idx_tasks_workflow_execution").on(table.workflowExecutionId),
     positionIdx: index("idx_tasks_position").on(
       table.orgId,
       table.status,
@@ -237,7 +237,7 @@ export const notes = pgTable(
     entityType: text("entity_type").notNull(), // 'workflow', 'contact', 'task'
     entityId: uuid("entity_id").notNull(),
     // Soft FKs for efficient queries (nullable, indexed)
-    workflowId: uuid("workflow_id").references(() => workflows.id, {
+    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id, {
       onDelete: "cascade",
     }),
     contactId: uuid("contact_id").references(() => contacts.id, {
@@ -258,14 +258,14 @@ export const notes = pgTable(
   (table) => ({
     entityIdx: index("idx_notes_entity").on(table.entityType, table.entityId),
     orgIdx: index("idx_notes_org").on(table.orgId),
-    workflowIdx: index("idx_notes_workflow").on(table.workflowId),
+    workflowIdx: index("idx_notes_workflow_execution").on(table.workflowExecutionId),
     contactIdx: index("idx_notes_contact").on(table.contactId),
     taskIdx: index("idx_notes_task").on(table.taskId),
     // Ensure only one FK is set
     oneParentOnly: check(
       "one_parent_only",
       sql`(
-        (CASE WHEN ${table.workflowId} IS NOT NULL THEN 1 ELSE 0 END) +
+        (CASE WHEN ${table.workflowExecutionId} IS NOT NULL THEN 1 ELSE 0 END) +
         (CASE WHEN ${table.contactId} IS NOT NULL THEN 1 ELSE 0 END) +
         (CASE WHEN ${table.taskId} IS NOT NULL THEN 1 ELSE 0 END)
       ) = 1`
@@ -286,7 +286,7 @@ export const activityLog = pgTable(
     entityType: text("entity_type").notNull(), // 'workflow', 'contact', 'task'
     entityId: uuid("entity_id").notNull(),
     // Soft FKs for efficient queries (nullable, indexed)
-    workflowId: uuid("workflow_id").references(() => workflows.id, {
+    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id, {
       onDelete: "cascade",
     }),
     contactId: uuid("contact_id").references(() => contacts.id, {
@@ -305,7 +305,7 @@ export const activityLog = pgTable(
     orgIdx: index("idx_activity_org").on(table.orgId),
     entityIdx: index("idx_activity_entity").on(table.entityType, table.entityId),
     timeIdx: index("idx_activity_time").on(table.createdAt),
-    workflowIdx: index("idx_activity_workflow").on(table.workflowId),
+    workflowIdx: index("idx_activity_workflow_execution").on(table.workflowExecutionId),
     contactIdx: index("idx_activity_contact").on(table.contactId),
     taskIdx: index("idx_activity_task").on(table.taskId),
   })
@@ -345,7 +345,7 @@ export const formstackSubmissions = pgTable(
     submissionId: text("submission_id").notNull(),
     rawPayload: jsonb("raw_payload").notNull(),
     processed: boolean("processed").default(false).notNull(),
-    workflowId: uuid("workflow_id").references(() => workflows.id),
+    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id),
     error: text("error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

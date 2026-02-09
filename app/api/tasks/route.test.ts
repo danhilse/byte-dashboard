@@ -239,7 +239,7 @@ describe("app/api/tasks/route", () => {
         body: JSON.stringify({
           title: "Review docs",
           contactId: "contact_1",
-          workflowId: "workflow_1",
+          workflowExecutionId: "workflow_1",
         }),
       })
     );

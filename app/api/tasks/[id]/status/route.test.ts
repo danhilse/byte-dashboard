@@ -130,7 +130,7 @@ describe("app/api/tasks/[id]/status/route", () => {
             id: "task_1",
             status: "todo",
             taskType: "standard",
-            workflowId: null,
+            workflowExecutionId: null,
           },
         ])
       )

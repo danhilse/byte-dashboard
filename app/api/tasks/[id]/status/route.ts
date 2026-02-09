@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
-import { tasks, workflows } from "@/lib/db/schema";
+import { tasks, workflowExecutions } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
-import type { TaskCompletedSignal } from "@/lib/workflows/applicant-review-workflow";
+import {
+  TASK_COMPLETED_SIGNAL_NAME,
+  type TaskCompletedSignal,
+} from "@/lib/workflows/signal-types";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { logActivity } from "@/lib/db/log-activity";
 
@@ -112,7 +115,7 @@ export async function PATCH(
       }
 
       // If task is associated with a workflow, signal the workflow
-      if (!updatedTask.workflowId) {
+      if (!updatedTask.workflowExecutionId) {
         return NextResponse.json({
           taskId,
           status,
@@ -125,11 +128,11 @@ export async function PATCH(
         // Get workflow execution to find Temporal workflow ID
         const [workflowExecution] = await db
           .select()
-          .from(workflows)
+          .from(workflowExecutions)
           .where(
             and(
-              eq(workflows.id, updatedTask.workflowId),
-              eq(workflows.orgId, orgId)
+              eq(workflowExecutions.id, updatedTask.workflowExecutionId),
+              eq(workflowExecutions.orgId, orgId)
             )
           );
 
@@ -145,7 +148,7 @@ export async function PATCH(
             completedBy: userId,
           };
 
-          await handle.signal("taskCompleted", signal);
+          await handle.signal(TASK_COMPLETED_SIGNAL_NAME, signal);
           workflowSignaled = true;
 
           console.log(

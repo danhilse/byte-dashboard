@@ -21,7 +21,7 @@ interface LogActivityParams {
  * Logs an activity entry in the activity_log table.
  *
  * Maps entityType to the correct soft FK column:
- * - 'workflow' → workflowId
+ * - 'workflow' → workflowExecutionId
  * - 'contact' → contactId
  * - 'task' → taskId
  *
@@ -40,7 +40,7 @@ export async function logActivity({
     // and inserting it would violate the foreign key constraint.
     // entityType + entityId still record what was deleted.
     const softFks: {
-      workflowId?: string;
+      workflowExecutionId?: string;
       contactId?: string;
       taskId?: string;
     } = {};
@@ -48,7 +48,7 @@ export async function logActivity({
     if (action !== "deleted") {
       switch (entityType) {
         case "workflow":
-          softFks.workflowId = entityId;
+          softFks.workflowExecutionId = entityId;
           break;
         case "contact":
           softFks.contactId = entityId;

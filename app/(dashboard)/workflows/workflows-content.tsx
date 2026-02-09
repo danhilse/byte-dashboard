@@ -29,7 +29,7 @@ import {
 } from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
 import { usePersistedView } from "@/hooks/use-persisted-view"
-import type { Workflow, DefinitionStatus } from "@/types"
+import type { WorkflowExecution, DefinitionStatus } from "@/types"
 
 interface DefinitionOption {
   id: string
@@ -56,16 +56,16 @@ type ViewType = "table" | "kanban" | "grid"
 export function WorkflowsContent() {
   const { toast } = useToast()
   const [view, setView] = usePersistedView<ViewType>("workflows", "kanban")
-  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [workflows, setWorkflows] = useState<WorkflowExecution[]>([])
   const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [definitionFilter, setDefinitionFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null)
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowExecution | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [deletingWorkflow, setDeletingWorkflow] = useState<Workflow | null>(null)
+  const [deletingWorkflow, setDeletingWorkflow] = useState<WorkflowExecution | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Derive active definition statuses from selected definition
@@ -200,7 +200,7 @@ export function WorkflowsContent() {
     }
   }
 
-  const handleUpdateWorkflow = async (updatedWorkflow: Workflow) => {
+  const handleUpdateWorkflow = async (updatedWorkflow: WorkflowExecution) => {
     try {
       const response = await fetch(`/api/workflows/${updatedWorkflow.id}`, {
         method: "PATCH",
@@ -242,8 +242,8 @@ export function WorkflowsContent() {
     }
   }
 
-  const handleDeleteWorkflow = (workflowId: string) => {
-    const workflow = workflows.find((w) => w.id === workflowId)
+  const handleDeleteWorkflow = (workflowExecutionId: string) => {
+    const workflow = workflows.find((w) => w.id === workflowExecutionId)
     if (workflow) {
       setDeletingWorkflow(workflow)
       setDeleteDialogOpen(true)
@@ -283,13 +283,13 @@ export function WorkflowsContent() {
     }
   }
 
-  const handleWorkflowClick = (workflow: Workflow) => {
+  const handleWorkflowClick = (workflow: WorkflowExecution) => {
     setSelectedWorkflow(workflow)
     setDetailOpen(true)
   }
 
-  const handleStatusChange = async (workflowId: string, newStatus: string) => {
-    const previous = workflows.find((w) => w.id === workflowId)
+  const handleStatusChange = async (workflowExecutionId: string, newStatus: string) => {
+    const previous = workflows.find((w) => w.id === workflowExecutionId)
     if (!previous) return
 
     if (previous.temporalWorkflowId) {
@@ -304,12 +304,12 @@ export function WorkflowsContent() {
     // Optimistic update
     setWorkflows((prev) =>
       prev.map((w) =>
-        w.id === workflowId ? { ...w, status: newStatus, updatedAt: new Date().toISOString() } : w
+        w.id === workflowExecutionId ? { ...w, status: newStatus, updatedAt: new Date().toISOString() } : w
       )
     )
 
     try {
-      const response = await fetch(`/api/workflows/${workflowId}`, {
+      const response = await fetch(`/api/workflows/${workflowExecutionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -323,7 +323,7 @@ export function WorkflowsContent() {
       // Rollback on error
       console.error("Error updating workflow status:", error)
       setWorkflows((prev) =>
-        prev.map((w) => (w.id === workflowId ? previous : w))
+        prev.map((w) => (w.id === workflowExecutionId ? previous : w))
       )
       toast({
         title: "Error",
@@ -484,8 +484,8 @@ export function WorkflowsContent() {
 }
 
 interface WorkflowsGridViewProps {
-  workflows: Workflow[]
-  onWorkflowClick: (workflow: Workflow) => void
+  workflows: WorkflowExecution[]
+  onWorkflowClick: (workflow: WorkflowExecution) => void
 }
 
 function WorkflowsGridView({ workflows, onWorkflowClick }: WorkflowsGridViewProps) {

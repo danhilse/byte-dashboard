@@ -10,10 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { cn } from "@/lib/utils"
-import type { Workflow, DefinitionStatus } from "@/types"
+import type { WorkflowExecution, DefinitionStatus } from "@/types"
 
 interface WorkflowKanbanCardProps {
-  workflow: Workflow
+  workflow: WorkflowExecution
   definitionStatuses?: DefinitionStatus[]
   onClick?: () => void
   className?: string

@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { db } from "@/lib/db"
-import { workflows, contacts, workflowDefinitions } from "@/lib/db/schema"
+import { workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
@@ -34,20 +34,20 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
   // Fetch workflow with joins
   const [result] = await db
     .select({
-      workflow: workflows,
+      workflow: workflowExecutions,
       contact: contacts,
       definitionName: workflowDefinitions.name,
       definitionPhases: workflowDefinitions.phases,
       definitionSteps: workflowDefinitions.steps,
       definitionStatuses: workflowDefinitions.statuses,
     })
-    .from(workflows)
-    .leftJoin(contacts, eq(workflows.contactId, contacts.id))
+    .from(workflowExecutions)
+    .leftJoin(contacts, eq(workflowExecutions.contactId, contacts.id))
     .leftJoin(
       workflowDefinitions,
-      eq(workflows.workflowDefinitionId, workflowDefinitions.id)
+      eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
     )
-    .where(and(eq(workflows.id, id), eq(workflows.orgId, orgId)))
+    .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)))
 
   if (!result) {
     notFound()
@@ -55,7 +55,7 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
 
   const { workflow, contact, definitionName, definitionPhases, definitionSteps, definitionStatuses } = result
   const parsedPhases = (definitionPhases as WorkflowPhase[] | null) ?? []
-  const parsedSteps = (definitionSteps as { steps: WorkflowStep[] } | null)?.steps ?? []
+  const parsedSteps = (definitionSteps as WorkflowStep[] | null) ?? []
   const parsedStatuses = (definitionStatuses as DefinitionStatus[] | null) ?? undefined
   const contactName = contact
     ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()

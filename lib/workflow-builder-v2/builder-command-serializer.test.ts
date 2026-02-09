@@ -11,7 +11,9 @@ import {
   createEmptyStandardStep,
 } from "./workflow-operations"
 
-function createBaseWorkflow(steps = [createEmptyStandardStep("Start")]): WorkflowDefinitionV2 {
+function createBaseWorkflow(
+  steps: WorkflowDefinitionV2["steps"] = [createEmptyStandardStep("Start")]
+): WorkflowDefinitionV2 {
   const now = new Date().toISOString()
   return {
     id: "wf-command-test",
@@ -109,13 +111,19 @@ describe("lib/workflow-builder-v2/builder-command-serializer", () => {
       stepId: source.id,
     })
 
+    expect(command).not.toBeNull()
     expect(command?.type).toBe("definition.duplicate_step")
-    expect(command?.definitionId).toBe(workflow.id)
-    expect(command?.definitionVersion).toEqual(expect.any(String))
-    expect(command?.payload).toMatchObject({
+
+    if (!command || command.type !== "definition.duplicate_step") {
+      throw new Error("Expected definition.duplicate_step command")
+    }
+
+    expect(command.definitionId).toBe(workflow.id)
+    expect(command.definitionVersion).toEqual(expect.any(String))
+    expect(command.payload).toMatchObject({
       sourceStepId: source.id,
     })
-    expect(command?.payload.duplicatedStepId).toBeTruthy()
+    expect(command.payload.duplicatedStepId).toBeTruthy()
   })
 
   it("does not serialize UI-only events", () => {

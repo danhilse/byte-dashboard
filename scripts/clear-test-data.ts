@@ -17,10 +17,9 @@ import {
   activityLog,
   formstackSubmissions,
   tasks,
-  workflows,
+  workflowExecutions,
   contacts,
   workflowDefinitions,
-  formstackConfig,
 } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -32,43 +31,43 @@ async function clearTestData() {
 
   try {
     // Step 1: Delete notes
-    const deletedNotes = await db
+    await db
       .delete(notes)
       .where(eq(notes.orgId, TARGET_ORG_ID));
     console.log(`✓ Deleted notes`);
 
     // Step 2: Delete activity log
-    const deletedActivity = await db
+    await db
       .delete(activityLog)
       .where(eq(activityLog.orgId, TARGET_ORG_ID));
     console.log(`✓ Deleted activity log`);
 
     // Step 3: Delete formstack submissions
-    const deletedSubmissions = await db
+    await db
       .delete(formstackSubmissions)
       .where(eq(formstackSubmissions.orgId, TARGET_ORG_ID));
     console.log(`✓ Deleted formstack submissions`);
 
     // Step 4: Delete tasks
-    const deletedTasks = await db
+    await db
       .delete(tasks)
       .where(eq(tasks.orgId, TARGET_ORG_ID));
     console.log(`✓ Deleted tasks`);
 
     // Step 5: Delete workflows
-    const deletedWorkflows = await db
-      .delete(workflows)
-      .where(eq(workflows.orgId, TARGET_ORG_ID));
-    console.log(`✓ Deleted workflows`);
+    await db
+      .delete(workflowExecutions)
+      .where(eq(workflowExecutions.orgId, TARGET_ORG_ID));
+    console.log(`✓ Deleted workflow executions`);
 
     // Step 6: Delete contacts
-    const deletedContacts = await db
+    await db
       .delete(contacts)
       .where(eq(contacts.orgId, TARGET_ORG_ID));
     console.log(`✓ Deleted contacts`);
 
     // Step 7: Delete workflow definitions
-    const deletedDefinitions = await db
+    await db
       .delete(workflowDefinitions)
       .where(eq(workflowDefinitions.orgId, TARGET_ORG_ID));
     console.log(`✓ Deleted workflow definitions`);

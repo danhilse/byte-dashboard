@@ -16,7 +16,7 @@ async function checkTasks() {
     console.log(`   ID: ${task.id}`);
     console.log(`   Type: ${task.taskType}`);
     console.log(`   Status: ${task.status}`);
-    console.log(`   Workflow ID: ${task.workflowId || 'none'}`);
+    console.log(`   Workflow Execution ID: ${task.workflowExecutionId || 'none'}`);
     console.log(`   Created: ${task.createdAt}`);
     console.log('');
   });

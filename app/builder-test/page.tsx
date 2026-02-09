@@ -21,10 +21,10 @@ export default function BuilderTestPage() {
     JSON.parse(JSON.stringify(mockWorkflowsV2[0]))
   )
 
-  const handleWorkflowChange = (workflowId: string) => {
-    const found = mockWorkflowsV2.find((w) => w.id === workflowId)
+  const handleWorkflowChange = (workflowDefinitionId: string) => {
+    const found = mockWorkflowsV2.find((w) => w.id === workflowDefinitionId)
     if (found) {
-      setSelectedWorkflowId(workflowId)
+      setSelectedWorkflowId(workflowDefinitionId)
       // Deep clone to avoid mutation between workflow instances
       setWorkflow(JSON.parse(JSON.stringify(found)))
     }

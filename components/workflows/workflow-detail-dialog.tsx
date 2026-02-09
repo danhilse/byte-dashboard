@@ -43,7 +43,7 @@ import { AssetList, AssetUploader, AssetPreviewModal } from "@/components/assets
 import { fallbackWorkflowStatusConfig } from "@/lib/status-config"
 import { getAssetsByWorkflow } from "@/lib/data/assets"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
-import type { Workflow, WorkflowDefinition, WorkflowPhase, WorkflowStep, DefinitionStatus, Asset } from "@/types"
+import type { WorkflowExecution, WorkflowDefinition, WorkflowPhase, WorkflowStep, DefinitionStatus, Asset } from "@/types"
 
 const sourceLabels: Record<string, string> = {
   manual: "Manual",
@@ -52,11 +52,11 @@ const sourceLabels: Record<string, string> = {
 }
 
 interface WorkflowDetailDialogProps {
-  workflow: Workflow | null
+  workflow: WorkflowExecution | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onUpdateWorkflow?: (workflow: Workflow) => void
-  onDeleteWorkflow?: (workflowId: string) => void
+  onUpdateWorkflow?: (workflow: WorkflowExecution) => void
+  onDeleteWorkflow?: (workflowExecutionId: string) => void
 }
 
 export function WorkflowDetailDialog({
@@ -104,11 +104,10 @@ export function WorkflowDetailDialog({
         const data = await res.json()
         const def = data.definition as WorkflowDefinition | undefined
         if (!def || cancelled) return
-        const stepsData = def.steps as { steps: WorkflowStep[] } | null
         setDefinitionData({
           definitionId: workflowDefinitionId!,
           phases: (def.phases as WorkflowPhase[]) ?? [],
-          steps: stepsData?.steps ?? [],
+          steps: Array.isArray(def.steps) ? def.steps : [],
           statuses: (def.statuses as DefinitionStatus[]) ?? [],
         })
       } catch {
@@ -367,7 +366,7 @@ export function WorkflowDetailDialog({
 
             <TabsContent value="assets" className="flex-1 overflow-auto space-y-4 py-4">
               <AssetUploader
-                workflowId={workflow.id}
+                workflowExecutionId={workflow.id}
                 onUpload={handleAssetUpload}
               />
               <AssetList

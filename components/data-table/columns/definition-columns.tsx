@@ -50,8 +50,7 @@ export function createDefinitionColumns(opts: {
       header: "Steps",
       cell: ({ row }) => {
         const def = row.original
-        const stepsData = def.steps as { steps: unknown[] } | null
-        const count = stepsData?.steps?.length ?? 0
+        const count = Array.isArray(def.steps) ? def.steps.length : 0
         return (
           <span className="text-muted-foreground">
             {count} {count === 1 ? "step" : "steps"}

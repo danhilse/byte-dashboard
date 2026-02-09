@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { db } from "@/lib/db"
-import { contacts, workflows } from "@/lib/db/schema"
+import { contacts, workflowExecutions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { contactStatusConfig } from "@/lib/status-config"
 import { getInitials } from "@/lib/utils"
@@ -41,11 +41,11 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
     notFound()
   }
 
-  // Fetch related workflows
+  // Fetch related workflowExecutions
   const relatedWorkflows = await db
     .select()
-    .from(workflows)
-    .where(and(eq(workflows.contactId, id), eq(workflows.orgId, orgId)))
+    .from(workflowExecutions)
+    .where(and(eq(workflowExecutions.contactId, id), eq(workflowExecutions.orgId, orgId)))
 
   const fullName = `${contact.firstName} ${contact.lastName}`
   const statusConfig = contactStatusConfig[contact.status as ContactStatus] || contactStatusConfig.active
