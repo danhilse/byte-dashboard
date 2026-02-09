@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
-import { Input } from "@/components/ui/input"
+import type { WorkflowAction, WorkflowVariable, WorkflowStatus } from "../../../types/workflow-v2"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Plus, Trash2 } from "lucide-react"
@@ -13,16 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { VariableSelector } from "../../variable-selector"
+import { FieldValueInput } from "../../field-value-input"
 import { allTaskFields, taskFieldConfig } from "@/lib/task-fields-config"
+import type { TaskField } from "@/lib/task-fields-config"
 
 interface UpdateTaskConfigProps {
   action: Extract<WorkflowAction, { type: "update_task" }>
   variables: WorkflowVariable[]
+  statuses: WorkflowStatus[]
   onChange: (action: WorkflowAction) => void
 }
 
-export function UpdateTaskConfig({ action, variables, onChange }: UpdateTaskConfigProps) {
+export function UpdateTaskConfig({ action, variables, statuses, onChange }: UpdateTaskConfigProps) {
   // Auto-initialize with one empty field if none exist
   useEffect(() => {
     if (action.config.fields.length === 0) {
@@ -35,6 +36,11 @@ export function UpdateTaskConfig({ action, variables, onChange }: UpdateTaskConf
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Get task variables from earlier actions (create_task outputs)
+  const taskVariables = variables.filter(
+    (v) => v.type === "task" && v.source.type === "action_output"
+  )
 
   const handleTaskActionIdChange = (taskActionId: string) => {
     onChange({
@@ -72,7 +78,12 @@ export function UpdateTaskConfig({ action, variables, onChange }: UpdateTaskConf
     value: string
   ) => {
     const newFields = [...action.config.fields]
-    newFields[index] = { ...newFields[index], [key]: value }
+    if (key === "field") {
+      // Clear value when field name changes to avoid stale data
+      newFields[index] = { field: value, value: "" }
+    } else {
+      newFields[index] = { ...newFields[index], [key]: value }
+    }
     onChange({
       ...action,
       config: {
@@ -85,13 +96,31 @@ export function UpdateTaskConfig({ action, variables, onChange }: UpdateTaskConf
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor={`${action.id}-taskActionId`}>Task Action ID</Label>
-        <Input
-          id={`${action.id}-taskActionId`}
-          value={action.config.taskActionId}
-          onChange={(e) => handleTaskActionIdChange(e.target.value)}
-          placeholder="ID of the create_task action (e.g., action-1)"
-        />
+        <Label htmlFor={`${action.id}-taskActionId`}>Task to Update</Label>
+        {taskVariables.length > 0 ? (
+          <Select
+            value={action.config.taskActionId}
+            onValueChange={handleTaskActionIdChange}
+          >
+            <SelectTrigger id={`${action.id}-taskActionId`}>
+              <SelectValue placeholder="Select a task from earlier steps..." />
+            </SelectTrigger>
+            <SelectContent>
+              {taskVariables.map((v) => (
+                <SelectItem
+                  key={v.source.type === "action_output" ? v.source.actionId : v.id}
+                  value={v.source.type === "action_output" ? v.source.actionId : v.id}
+                >
+                  {v.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+            No tasks created in earlier steps. Add a "Create Task" action first.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           References a task created earlier in this workflow
         </p>
@@ -106,63 +135,78 @@ export function UpdateTaskConfig({ action, variables, onChange }: UpdateTaskConf
 
       {action.config.fields.length > 0 && (
         <div className="space-y-3">
-          {action.config.fields.map((field, index) => (
-            <div key={index} className="space-y-2 rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Field {index + 1}
-                </Label>
-                {action.config.fields.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => handleRemoveField(index)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                )}
-              </div>
+          {action.config.fields.map((field, index) => {
+            const fieldConfig = field.field
+              ? taskFieldConfig[field.field as TaskField]
+              : undefined
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`field-name-${index}`} className="text-xs">
-                    Field Name
+            return (
+              <div key={index} className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Field {index + 1}
                   </Label>
-                  <Select
-                    value={field.field}
-                    onValueChange={(value) => handleFieldChange(index, "field", value)}
-                  >
-                    <SelectTrigger id={`field-name-${index}`} className="h-9 text-sm">
-                      <SelectValue placeholder="Select field..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allTaskFields.map((fieldName) => (
-                        <SelectItem key={fieldName} value={fieldName}>
-                          {taskFieldConfig[fieldName].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {action.config.fields.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => handleRemoveField(index)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor={`field-value-${index}`} className="text-xs">
-                    New Value
-                  </Label>
-                  <VariableSelector
-                    value={field.value}
-                    onChange={(value) => handleFieldChange(index, "value", value)}
-                    variables={variables}
-                    filterByDataType="text"
-                    allowManualEntry={true}
-                    placeholder="Select or enter value..."
-                    className="h-9 text-sm"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`field-name-${index}`} className="text-xs">
+                      Field Name
+                    </Label>
+                    <Select
+                      value={field.field}
+                      onValueChange={(value) => handleFieldChange(index, "field", value)}
+                    >
+                      <SelectTrigger id={`field-name-${index}`} className="h-9 text-sm">
+                        <SelectValue placeholder="Select field..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allTaskFields.map((fieldName) => (
+                          <SelectItem key={fieldName} value={fieldName}>
+                            {taskFieldConfig[fieldName].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`field-value-${index}`} className="text-xs">
+                      New Value
+                    </Label>
+                    {fieldConfig ? (
+                      <FieldValueInput
+                        inputType={fieldConfig.inputType}
+                        value={field.value}
+                        onChange={(value) => handleFieldChange(index, "value", value)}
+                        statuses={statuses}
+                        className="h-9 text-sm"
+                        placeholder={`Enter ${fieldConfig.label.toLowerCase()}...`}
+                      />
+                    ) : (
+                      <FieldValueInput
+                        inputType="text"
+                        value={field.value}
+                        onChange={(value) => handleFieldChange(index, "value", value)}
+                        className="h-9 text-sm"
+                        placeholder="Select a field first..."
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

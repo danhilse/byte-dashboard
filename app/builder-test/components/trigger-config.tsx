@@ -1,6 +1,6 @@
 "use client"
 
-import type { WorkflowTrigger, TriggerType } from "../types/workflow-v2"
+import type { WorkflowTrigger, TriggerType, WorkflowStatus } from "../types/workflow-v2"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {
@@ -11,14 +11,20 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Play, UserCheck, Webhook, Code } from "lucide-react"
-import { allContactStatuses, contactStatusConfig } from "@/lib/status-config"
+import { useMemo } from "react"
 
 interface TriggerConfigProps {
   trigger: WorkflowTrigger
   onChange: (trigger: WorkflowTrigger) => void
+  statuses: WorkflowStatus[]
 }
 
-export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
+export function TriggerConfig({ trigger, onChange, statuses }: TriggerConfigProps) {
+  // Sort statuses by order
+  const sortedStatuses = useMemo(
+    () => [...statuses].sort((a, b) => a.order - b.order),
+    [statuses]
+  )
   const handleTypeChange = (type: TriggerType) => {
     switch (type) {
       case "manual":
@@ -72,13 +78,13 @@ export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
                 When Contact Status Changes
               </div>
             </SelectItem>
-            <SelectItem value="form_submission">
+            <SelectItem value="form_submission" disabled>
               <div className="flex items-center gap-2">
                 <Webhook className="size-4" />
                 When Form Submitted
               </div>
             </SelectItem>
-            <SelectItem value="api">
+            <SelectItem value="api" disabled>
               <div className="flex items-center gap-2">
                 <Code className="size-4" />
                 API Call
@@ -108,9 +114,17 @@ export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
               <SelectValue placeholder="Select status..." />
             </SelectTrigger>
             <SelectContent>
-              {allContactStatuses.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {contactStatusConfig[status].label}
+              {sortedStatuses.map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  <div className="flex items-center gap-2">
+                    {status.color && (
+                      <span
+                        className="inline-block size-2 rounded-full"
+                        style={{ backgroundColor: status.color }}
+                      />
+                    )}
+                    {status.label}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>

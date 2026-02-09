@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import type { WorkflowStepV2, WorkflowVariable, BranchStepV2, AdvancementCondition, WorkflowStatus } from "../types/workflow-v2"
+import type { WorkflowStepV2, WorkflowVariable, BranchStepV2, AdvancementCondition, WorkflowStatus, WorkflowAction, VariableType } from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { ActionList } from "./actions/action-list"
 import { AdvancementConfig } from "./advancement/advancement-config"
 import { VariableSelector } from "./variable-selector"
+import { parseVariableRef, formatVariableRef } from "@/lib/workflow-builder-v2/variable-utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -15,7 +16,9 @@ import { Separator } from "@/components/ui/separator"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -32,6 +35,7 @@ interface StepConfigPanelV2Props {
   variables: WorkflowVariable[]
   statuses: WorkflowStatus[]
   onStepUpdate: (step: WorkflowStepV2) => void
+  onAddVariable?: (variable: WorkflowVariable) => void
 }
 
 export function StepConfigPanelV2({
@@ -40,6 +44,7 @@ export function StepConfigPanelV2({
   variables,
   statuses,
   onStepUpdate,
+  onAddVariable,
 }: StepConfigPanelV2Props) {
   const [showDescription, setShowDescription] = useState(false)
 
@@ -276,22 +281,113 @@ export function StepConfigPanelV2({
                 </p>
               </div>
 
-              {/* Variable to Check */}
-              <div className="space-y-2">
-                <Label>Variable to Check</Label>
-                <VariableSelector
-                  value={step.condition.variableRef}
-                  onChange={(value) =>
-                    handleBranchConditionChange({ variableRef: value })
+              {/* Variable to Check — Two-step selector */}
+              {(() => {
+                const variableTypeLabels: Record<VariableType, string> = {
+                  contact: "Contact Data",
+                  task: "Task Output",
+                  form_submission: "Form Data",
+                  custom: "Custom Variable",
+                  user: "User",
+                }
+
+                // Parse current ref into variable + field
+                const parsed = step.condition.variableRef
+                  ? parseVariableRef(step.condition.variableRef)
+                  : { variableId: "", fieldKey: undefined }
+                const selectedVar = variables.find((v) => v.id === parsed.variableId)
+
+                // Group variables by type (only types that have variables)
+                const typeOrder: VariableType[] = ["contact", "task", "form_submission", "custom", "user"]
+                const groupedVars = typeOrder
+                  .map((type) => ({
+                    type,
+                    label: variableTypeLabels[type],
+                    vars: variables.filter((v) => v.type === type),
+                  }))
+                  .filter((g) => g.vars.length > 0)
+
+                const handleVariableSourceChange = (variableId: string) => {
+                  const variable = variables.find((v) => v.id === variableId)
+                  if (!variable) return
+
+                  // If variable has fields, auto-select first field
+                  if (variable.fields && variable.fields.length > 0) {
+                    const ref = formatVariableRef(variableId, variable.fields[0].key)
+                    handleBranchConditionChange({ variableRef: ref })
+                  } else {
+                    handleBranchConditionChange({ variableRef: variableId })
                   }
-                  variables={variables}
-                  placeholder="Select variable..."
-                  allowManualEntry={false}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Choose any variable - options below will adapt to the variable type
-                </p>
-              </div>
+                }
+
+                const handleFieldChange = (fieldKey: string) => {
+                  if (!parsed.variableId) return
+                  const ref = formatVariableRef(parsed.variableId, fieldKey)
+                  handleBranchConditionChange({ variableRef: ref })
+                }
+
+                return (
+                  <>
+                    {/* Step 1: Variable Source */}
+                    <div className="space-y-2">
+                      <Label>Variable Source</Label>
+                      <Select
+                        value={parsed.variableId}
+                        onValueChange={handleVariableSourceChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a variable..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groupedVars.map((group) => (
+                            <SelectGroup key={group.type}>
+                              <SelectLabel>{group.label}</SelectLabel>
+                              {group.vars.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Select the data source to check
+                      </p>
+                    </div>
+
+                    {/* Step 2: Specific Field (only if variable has fields) */}
+                    {selectedVar?.fields && selectedVar.fields.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Field</Label>
+                        <Select
+                          value={parsed.fieldKey || ""}
+                          onValueChange={handleFieldChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select field..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedVar.fields.map((field) => (
+                              <SelectItem key={field.key} value={field.key}>
+                                <div className="flex items-center gap-2">
+                                  {field.label}
+                                  <span className="text-xs text-muted-foreground">
+                                    ({field.dataType})
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Choose which field to evaluate
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
 
               {/* Operator (context-aware) */}
               {step.condition.variableRef && (
@@ -461,6 +557,7 @@ export function StepConfigPanelV2({
               variables={variables}
               statuses={statuses}
               onChange={handleActionsChange}
+              onAddVariable={onAddVariable}
             />
           </div>
         )}

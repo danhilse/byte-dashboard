@@ -21,6 +21,7 @@ interface ActionCardProps {
   onToggle: () => void
   onUpdate: (action: WorkflowAction) => void
   onDelete: () => void
+  onAddVariable?: (variable: WorkflowVariable) => void
 }
 
 export function ActionCard({
@@ -31,6 +32,7 @@ export function ActionCard({
   onToggle,
   onUpdate,
   onDelete,
+  onAddVariable,
 }: ActionCardProps) {
   const metadata = getActionMetadata(action.type)
   const Icon = metadata.icon
@@ -111,13 +113,13 @@ export function ActionCard({
             <UpdateStatusConfig action={action} variables={variables} statuses={statuses} onChange={onUpdate} />
           )}
           {action.type === "update_task" && (
-            <UpdateTaskConfig action={action} variables={variables} onChange={onUpdate} />
+            <UpdateTaskConfig action={action} variables={variables} statuses={statuses} onChange={onUpdate} />
           )}
           {action.type === "create_contact" && (
             <CreateContactConfig action={action} variables={variables} onChange={onUpdate} />
           )}
           {action.type === "set_variable" && (
-            <SetVariableConfig action={action} variables={variables} onChange={onUpdate} />
+            <SetVariableConfig action={action} variables={variables} onChange={onUpdate} onAddVariable={onAddVariable} />
           )}
         </div>
       )}

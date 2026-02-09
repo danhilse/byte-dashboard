@@ -89,15 +89,10 @@ export type SimpleCondition =
       }
     }
   | {
-      type: "when_any_task_completed"
+      type: "when_multiple_tasks_completed"
       config: {
-        taskActionIds: string[] // Wait for ANY of these tasks
-      }
-    }
-  | {
-      type: "when_all_tasks_completed"
-      config: {
-        taskActionIds: string[] // Wait for ALL of these tasks
+        taskActionIds: string[] // Wait for multiple tasks
+        operator: "ANY" | "ALL" // Wait for ANY or ALL
       }
     }
   | {

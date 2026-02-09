@@ -1,6 +1,8 @@
 "use client"
 
-import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
+import { useState } from "react"
+import type { WorkflowAction, WorkflowVariable, VariableDataType } from "../../../types/workflow-v2"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -17,15 +19,19 @@ interface SetVariableConfigProps {
   action: Extract<WorkflowAction, { type: "set_variable" }>
   variables: WorkflowVariable[]
   onChange: (action: WorkflowAction) => void
-  onCreateVariable?: () => void
+  onAddVariable?: (variable: WorkflowVariable) => void
 }
 
 export function SetVariableConfig({
   action,
   variables,
   onChange,
-  onCreateVariable,
+  onAddVariable,
 }: SetVariableConfigProps) {
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [newVarName, setNewVarName] = useState("")
+  const [newVarDataType, setNewVarDataType] = useState<VariableDataType>("text")
+
   // Filter to only custom variables (ones that can be written to)
   const customVariables = variables.filter(
     (v) => v.source.type === "custom" && !v.readOnly
@@ -49,6 +55,35 @@ export function SetVariableConfig({
         value,
       },
     })
+  }
+
+  const handleCreateVariable = () => {
+    if (!newVarName.trim() || !onAddVariable) return
+
+    const newVariable: WorkflowVariable = {
+      id: `custom-${Date.now()}`,
+      name: newVarName.trim(),
+      type: "custom",
+      dataType: newVarDataType,
+      source: { type: "custom" },
+      readOnly: false,
+    }
+
+    onAddVariable(newVariable)
+
+    // Auto-select the newly created variable
+    onChange({
+      ...action,
+      config: {
+        ...action.config,
+        variableId: newVariable.id,
+      },
+    })
+
+    // Reset form
+    setNewVarName("")
+    setNewVarDataType("text")
+    setShowCreateForm(false)
   }
 
   return (
@@ -90,22 +125,72 @@ export function SetVariableConfig({
           </SelectContent>
         </Select>
 
-        {customVariables.length === 0 && onCreateVariable && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onCreateVariable}
-            className="w-full"
-          >
-            <Plus className="mr-2 size-4" />
-            Create Custom Variable
-          </Button>
+        {/* Inline Create Variable */}
+        {onAddVariable && (
+          <>
+            {!showCreateForm ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCreateForm(true)}
+                className="w-full"
+              >
+                <Plus className="mr-2 size-4" />
+                Create New Variable
+              </Button>
+            ) : (
+              <div className="space-y-2 rounded-lg border p-3">
+                <Label className="text-xs font-medium text-muted-foreground">
+                  New Variable
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={newVarName}
+                    onChange={(e) => setNewVarName(e.target.value)}
+                    placeholder="Variable name..."
+                    className="h-9 text-sm"
+                  />
+                  <Select
+                    value={newVarDataType}
+                    onValueChange={(v) => setNewVarDataType(v as VariableDataType)}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text</SelectItem>
+                      <SelectItem value="number">Number</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="boolean">Boolean</SelectItem>
+                      <SelectItem value="date">Date</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleCreateVariable}
+                    disabled={!newVarName.trim()}
+                    className="flex-1"
+                  >
+                    Create
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowCreateForm(false)
+                      setNewVarName("")
+                      setNewVarDataType("text")
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
-
-        <p className="text-xs text-muted-foreground">
-          Only custom variables can be set. Create one via the "Custom Variables"
-          button in the header.
-        </p>
       </div>
 
       {/* Value Selector */}

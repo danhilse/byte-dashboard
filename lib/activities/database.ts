@@ -92,11 +92,11 @@ export async function setWorkflowStatus(
 
   const shouldSetCompletedAt =
     options?.markCompletedAt ??
-    status === "completed" ||
+    (status === "completed" ||
     status === "approved" ||
     status === "rejected" ||
     status === "failed" ||
-    status === "timeout";
+    status === "timeout");
 
   const [updatedWorkflow] = await db
     .update(workflows)

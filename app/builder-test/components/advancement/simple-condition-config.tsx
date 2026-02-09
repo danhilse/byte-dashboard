@@ -56,8 +56,9 @@ export function SimpleConditionConfig({
             <SelectContent>
               {Object.values(conditionRegistry).map((meta) => {
                 const Icon = meta.icon
+                const isDisabled = meta.type === "when_form_submitted" || meta.type === "conditional_branches"
                 return (
-                  <SelectItem key={meta.type} value={meta.type}>
+                  <SelectItem key={meta.type} value={meta.type} disabled={isDisabled}>
                     <div className="flex items-center gap-2">
                       <Icon className="size-4" />
                       {meta.label}
@@ -84,16 +85,8 @@ export function SimpleConditionConfig({
         />
       )}
 
-      {condition.type === "when_any_task_completed" && (
-        <WhenAnyTaskCompletedConfig
-          condition={condition}
-          taskActions={taskActions}
-          onChange={onChange}
-        />
-      )}
-
-      {condition.type === "when_all_tasks_completed" && (
-        <WhenAllTasksCompletedConfig
+      {condition.type === "when_multiple_tasks_completed" && (
+        <WhenMultipleTasksCompletedConfig
           condition={condition}
           taskActions={taskActions}
           onChange={onChange}
@@ -190,12 +183,12 @@ function WhenTaskCompletedConfig({
   )
 }
 
-function WhenAnyTaskCompletedConfig({
+function WhenMultipleTasksCompletedConfig({
   condition,
   taskActions,
   onChange,
 }: {
-  condition: Extract<SimpleCondition, { type: "when_any_task_completed" }>
+  condition: Extract<SimpleCondition, { type: "when_multiple_tasks_completed" }>
   taskActions: WorkflowAction[]
   onChange: (c: SimpleCondition) => void
 }) {
@@ -203,110 +196,88 @@ function WhenAnyTaskCompletedConfig({
     return (
       <Alert>
         <AlertCircle className="size-4" />
-        <AlertDescription>No task actions in this step.</AlertDescription>
+        <AlertDescription>No task actions in this step. Add a task first.</AlertDescription>
       </Alert>
     )
   }
 
+  const selectedTaskIds = condition.config.taskActionIds
+  const operator = condition.config.operator
+
   const handleToggleTask = (taskId: string) => {
-    const ids = condition.config.taskActionIds
+    const newIds = selectedTaskIds.includes(taskId)
+      ? selectedTaskIds.filter((id) => id !== taskId)
+      : [...selectedTaskIds, taskId]
+
     onChange({
       ...condition,
       config: {
-        taskActionIds: ids.includes(taskId)
-          ? ids.filter((id) => id !== taskId)
-          : [...ids, taskId],
+        taskActionIds: newIds,
+        operator,
+      },
+    })
+  }
+
+  const handleOperatorChange = (newOperator: "ANY" | "ALL") => {
+    onChange({
+      ...condition,
+      config: {
+        taskActionIds: selectedTaskIds,
+        operator: newOperator,
       },
     })
   }
 
   return (
-    <div className="space-y-2">
-      <Label>Tasks (select multiple)</Label>
-      <div className="space-y-1">
-        {taskActions.map((action) => {
-          const taskAction = action as Extract<WorkflowAction, { type: "create_task" }>
-          const isSelected = condition.config.taskActionIds.includes(action.id)
-          return (
-            <label
-              key={action.id}
-              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted"
-            >
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => handleToggleTask(action.id)}
-              />
-              <span className="text-sm">{taskAction.config.title || `Task ${action.id}`}</span>
-            </label>
-          )
-        })}
+    <div className="space-y-4">
+      {/* ANY/ALL Selector */}
+      <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+        <span className="text-sm">Advance when</span>
+        <Select value={operator} onValueChange={handleOperatorChange}>
+          <SelectTrigger className="w-20 h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ANY">ANY</SelectItem>
+            <SelectItem value="ALL">ALL</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">of these tasks complete</span>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Advances when ANY of these tasks is completed
-      </p>
+
+      {/* Task Selection */}
+      <div className="space-y-2">
+        <Label>Tasks (select multiple)</Label>
+        <div className="space-y-1">
+          {taskActions.map((action) => {
+            const taskAction = action as Extract<WorkflowAction, { type: "create_task" }>
+            const isSelected = selectedTaskIds.includes(action.id)
+            return (
+              <label
+                key={action.id}
+                className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-muted cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => handleToggleTask(action.id)}
+                  className="cursor-pointer"
+                />
+                <span className="text-sm">{taskAction.config.title || `Task ${action.id}`}</span>
+              </label>
+            )
+          })}
+        </div>
+        {selectedTaskIds.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Select at least one task to wait for
+          </p>
+        )}
+      </div>
     </div>
   )
 }
 
-function WhenAllTasksCompletedConfig({
-  condition,
-  taskActions,
-  onChange,
-}: {
-  condition: Extract<SimpleCondition, { type: "when_all_tasks_completed" }>
-  taskActions: WorkflowAction[]
-  onChange: (c: SimpleCondition) => void
-}) {
-  if (taskActions.length === 0) {
-    return (
-      <Alert>
-        <AlertCircle className="size-4" />
-        <AlertDescription>No task actions in this step.</AlertDescription>
-      </Alert>
-    )
-  }
-
-  const handleToggleTask = (taskId: string) => {
-    const ids = condition.config.taskActionIds
-    onChange({
-      ...condition,
-      config: {
-        taskActionIds: ids.includes(taskId)
-          ? ids.filter((id) => id !== taskId)
-          : [...ids, taskId],
-      },
-    })
-  }
-
-  return (
-    <div className="space-y-2">
-      <Label>Tasks (select multiple)</Label>
-      <div className="space-y-1">
-        {taskActions.map((action) => {
-          const taskAction = action as Extract<WorkflowAction, { type: "create_task" }>
-          const isSelected = condition.config.taskActionIds.includes(action.id)
-          return (
-            <label
-              key={action.id}
-              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted"
-            >
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => handleToggleTask(action.id)}
-              />
-              <span className="text-sm">{taskAction.config.title || `Task ${action.id}`}</span>
-            </label>
-          )
-        })}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Advances when ALL of these tasks are completed
-      </p>
-    </div>
-  )
-}
 
 function WhenApprovedConfig({
   condition,

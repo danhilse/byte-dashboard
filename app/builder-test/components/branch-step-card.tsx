@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import type { BranchStepV2, StandardStepV2 } from "../types/workflow-v2"
 import { StepCardV2 } from "./step-card-v2"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +14,7 @@ import {
   Trash2,
   Copy,
   Plus,
+  GripVertical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +23,7 @@ interface BranchStepCardProps {
   stepNumber: number
   isSelected: boolean
   isExpanded: boolean
+  isAnyDragging?: boolean
   onToggleExpanded: () => void
   onSelect: () => void
   onDelete: () => void
@@ -35,6 +39,7 @@ export function BranchStepCard({
   stepNumber,
   isSelected,
   isExpanded,
+  isAnyDragging = false,
   onToggleExpanded,
   onSelect,
   onDelete,
@@ -44,6 +49,20 @@ export function BranchStepCard({
   onTrackStepSelect,
   selectedTrackStep,
 }: BranchStepCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: step.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
   const [trackA, trackB] = step.tracks
 
   // Get condition summary text
@@ -77,23 +96,48 @@ export function BranchStepCard({
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
-        "relative rounded-lg border-2 bg-card shadow-sm transition-all",
+        "group relative rounded-lg border-2 bg-card shadow-sm transition-all hover:shadow-md",
         "border-purple-500/30 bg-purple-50/50 dark:bg-purple-950/10",
-        isSelected && "ring-2 ring-primary"
+        isSelected && "ring-2 ring-primary",
+        isDragging && "opacity-50"
       )}
     >
-      {/* Step Number */}
-      <div className="absolute left-2 top-2 text-xs font-medium text-muted-foreground/40">
+      {/* Step Number - hides on hover when drag handle appears, and hides during any drag */}
+      <div
+        className={cn(
+          "absolute left-2 top-2 text-xs font-medium text-muted-foreground/40 transition-opacity",
+          isAnyDragging && "opacity-0",
+          !isAnyDragging && "group-hover:opacity-0"
+        )}
+      >
         {stepNumber}
       </div>
 
-      {/* Header - Always Visible */}
+      {/* Drag Handle - shows on hover */}
       <div
-        className="ml-6 flex cursor-pointer items-center justify-between p-3"
-        onClick={onSelect}
+        {...attributes}
+        {...listeners}
+        className={cn(
+          "absolute left-2 top-3 cursor-grab text-muted-foreground opacity-0 transition-opacity active:cursor-grabbing",
+          !isAnyDragging && "group-hover:opacity-100"
+        )}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-1 flex-col gap-1">
+        <GripVertical className="size-4" />
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center p-3 pl-8">
+
+        {/* Main Header Content */}
+        <div
+          className="flex flex-1 cursor-pointer items-center justify-between"
+          onClick={onSelect}
+        >
+          <div className="flex flex-1 flex-col gap-1">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="bg-purple-500 text-white">
               <GitBranch className="mr-1 size-3" />
@@ -121,34 +165,40 @@ export function BranchStepCard({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="size-7 p-0"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDuplicate()
-            }}
-            title="Duplicate branch"
+          {/* Action Buttons */}
+          <div
+            className={cn(
+              "flex gap-1 opacity-0 transition-opacity",
+              !isAnyDragging && "group-hover:opacity-100"
+            )}
           >
-            <Copy className="size-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="size-7 p-0"
-            onClick={(e) => {
-              e.stopPropagation()
-              if (confirm(`Delete branch "${step.name}"?`)) {
-                onDelete()
-              }
-            }}
-            title="Delete branch"
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="size-7 p-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate()
+              }}
+              title="Duplicate branch"
+            >
+              <Copy className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="size-7 p-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (confirm(`Delete branch "${step.name}"?`)) {
+                  onDelete()
+                }
+              }}
+              title="Delete branch"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 

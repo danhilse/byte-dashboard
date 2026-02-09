@@ -35,14 +35,11 @@ export function CreateTaskConfig({ action, variables, onChange }: CreateTaskConf
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-title`}>Task Title</Label>
-        <VariableSelector
+        <Input
+          id={`${action.id}-title`}
           value={action.config.title}
-          onChange={(value) => handleChange("title", value)}
-          variables={variables}
-          filterByDataType="text"
-          allowManualEntry={true}
-          placeholder="Select variable or enter task title..."
-          className="w-full"
+          onChange={(e) => handleChange("title", e.target.value)}
+          placeholder="Enter task title..."
         />
       </div>
 
@@ -93,65 +90,61 @@ export function CreateTaskConfig({ action, variables, onChange }: CreateTaskConf
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor={`${action.id}-assignType`}>Assign To</Label>
-        <Select
-          value={action.config.assignTo.type}
-          onValueChange={(value) =>
-            handleChange("assignTo", {
-              type: value,
-              ...(value === "role" ? { role: "" } : { userId: "" }),
-            })
-          }
-        >
-          <SelectTrigger id={`${action.id}-assignType`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="role">Role</SelectItem>
-            <SelectItem value="user">Specific User</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {action.config.assignTo.type === "role" && (
-        <div className="space-y-2">
-          <Label htmlFor={`${action.id}-role`}>Role</Label>
+        <Label>Assign To</Label>
+        <div className="grid grid-cols-2 gap-2">
           <Select
-            value={action.config.assignTo.role}
+            value={action.config.assignTo.type}
             onValueChange={(value) =>
-              handleChange("assignTo", { type: "role", role: value })
+              handleChange("assignTo", {
+                type: value,
+                ...(value === "role" ? { role: "" } : { userId: "" }),
+              })
             }
           >
-            <SelectTrigger id={`${action.id}-role`}>
-              <SelectValue placeholder="Select role..." />
+            <SelectTrigger id={`${action.id}-assignType`}>
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {allRoles.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {roleConfig[role].label}
-                </SelectItem>
-              ))}
+              <SelectItem value="role">Role</SelectItem>
+              <SelectItem value="user">Specific User</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-      )}
 
-      {action.config.assignTo.type === "user" && (
-        <div className="space-y-2">
-          <Label htmlFor={`${action.id}-userId`}>User</Label>
-          <VariableSelector
-            value={action.config.assignTo.userId}
-            onChange={(value) =>
-              handleChange("assignTo", { type: "user", userId: value })
-            }
-            variables={variables}
-            filterByDataType={["user", "email"]}
-            allowManualEntry={true}
-            placeholder="Select user or enter user ID..."
-            className="w-full"
-          />
+          {action.config.assignTo.type === "role" && (
+            <Select
+              value={action.config.assignTo.role}
+              onValueChange={(value) =>
+                handleChange("assignTo", { type: "role", role: value })
+              }
+            >
+              <SelectTrigger id={`${action.id}-role`}>
+                <SelectValue placeholder="Select role..." />
+              </SelectTrigger>
+              <SelectContent>
+                {allRoles.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {roleConfig[role].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {action.config.assignTo.type === "user" && (
+            <VariableSelector
+              value={action.config.assignTo.userId}
+              onChange={(value) =>
+                handleChange("assignTo", { type: "user", userId: value })
+              }
+              variables={variables}
+              filterByDataType={["user", "email"]}
+              allowManualEntry={true}
+              placeholder="Select user or enter ID..."
+              className="w-full"
+            />
+          )}
         </div>
-      )}
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-dueDays`}>Due In (Days) - Optional</Label>

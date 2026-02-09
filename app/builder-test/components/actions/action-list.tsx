@@ -24,9 +24,10 @@ interface ActionListProps {
   variables: WorkflowVariable[]
   statuses: WorkflowStatus[]
   onChange: (actions: WorkflowAction[]) => void
+  onAddVariable?: (variable: WorkflowVariable) => void
 }
 
-export function ActionList({ actions, variables, statuses, onChange }: ActionListProps) {
+export function ActionList({ actions, variables, statuses, onChange, onAddVariable }: ActionListProps) {
   const [expandedActionId, setExpandedActionId] = useState<string | null>(
     actions[0]?.id || null
   )
@@ -78,6 +79,7 @@ export function ActionList({ actions, variables, statuses, onChange }: ActionLis
               }
               onUpdate={handleUpdateAction}
               onDelete={() => handleDeleteAction(action.id)}
+              onAddVariable={onAddVariable}
             />
           ))}
         </div>

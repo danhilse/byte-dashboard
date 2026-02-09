@@ -15,7 +15,6 @@ import {
   FileText,
   Timer,
   Hand,
-  CheckCheck,
   ListChecks,
   type LucideIcon,
 } from "lucide-react"
@@ -53,29 +52,17 @@ export const conditionRegistry: Record<SimpleConditionType, ConditionMetadata> =
       },
     },
   },
-  when_any_task_completed: {
-    type: "when_any_task_completed",
-    label: "When Any Task Completed",
-    icon: CheckCheck,
-    description: "Advance when ANY of the selected tasks is completed",
-    badgeText: "When any task done",
-    defaultConfig: {
-      type: "when_any_task_completed",
-      config: {
-        taskActionIds: [],
-      },
-    },
-  },
-  when_all_tasks_completed: {
-    type: "when_all_tasks_completed",
-    label: "When All Tasks Completed",
+  when_multiple_tasks_completed: {
+    type: "when_multiple_tasks_completed",
+    label: "When Multiple Tasks Completed",
     icon: ListChecks,
-    description: "Advance when ALL selected tasks are completed",
-    badgeText: "When all tasks done",
+    description: "Advance when ANY or ALL of the selected tasks are completed",
+    badgeText: "When tasks done",
     defaultConfig: {
-      type: "when_all_tasks_completed",
+      type: "when_multiple_tasks_completed",
       config: {
         taskActionIds: [],
+        operator: "ALL",
       },
     },
   },

@@ -1,6 +1,6 @@
 "use client"
 
-import type { WorkflowTrigger } from "../types/workflow-v2"
+import type { WorkflowTrigger, WorkflowStatus } from "../types/workflow-v2"
 import { TriggerConfig } from "./trigger-config"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Zap } from "lucide-react"
@@ -8,11 +8,13 @@ import { Zap } from "lucide-react"
 interface TriggerConfigPanelProps {
   trigger: WorkflowTrigger
   onTriggerChange: (trigger: WorkflowTrigger) => void
+  statuses: WorkflowStatus[]
 }
 
 export function TriggerConfigPanel({
   trigger,
   onTriggerChange,
+  statuses,
 }: TriggerConfigPanelProps) {
   return (
     <ScrollArea className="h-full">
@@ -31,7 +33,7 @@ export function TriggerConfigPanel({
         </div>
 
         {/* Trigger Config */}
-        <TriggerConfig trigger={trigger} onChange={onTriggerChange} />
+        <TriggerConfig trigger={trigger} onChange={onTriggerChange} statuses={statuses} />
 
         {/* Info Box */}
         <div className="rounded-lg border bg-muted/50 p-4">

@@ -43,14 +43,11 @@ export function SendEmailConfig({ action, variables, onChange }: SendEmailConfig
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-subject`}>Subject</Label>
-        <VariableSelector
+        <Input
+          id={`${action.id}-subject`}
           value={action.config.subject}
-          onChange={(value) => handleChange("subject", value)}
-          variables={variables}
-          filterByDataType="text"
-          allowManualEntry={true}
-          placeholder="Select variable or enter text..."
-          className="w-full"
+          onChange={(e) => handleChange("subject", e.target.value)}
+          placeholder="Enter email subject..."
         />
       </div>
 

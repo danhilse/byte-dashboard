@@ -224,6 +224,7 @@ export function StepListV2({
                           stepNumber={index + 1}
                           isSelected={step.id === selectedStepId}
                           isExpanded={expandedBranches.has(step.id)}
+                          isAnyDragging={isDragging}
                           onToggleExpanded={() => handleToggleExpanded(step.id)}
                           onSelect={() => onStepSelect(step.id)}
                           onDelete={() => onStepDelete(step.id)}
@@ -277,6 +278,7 @@ export function StepListV2({
                       stepNumber={index + 1}
                       isSelected={step.id === selectedStepId}
                       isExpanded={expandedBranches.has(step.id)}
+                      isAnyDragging={isDragging}
                       onToggleExpanded={() => handleToggleExpanded(step.id)}
                       onSelect={() => onStepSelect(step.id)}
                       onDelete={() => onStepDelete(step.id)}

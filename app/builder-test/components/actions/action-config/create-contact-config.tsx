@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus, Trash2 } from "lucide-react"
-import { VariableSelector } from "../../variable-selector"
+import { FieldValueInput } from "../../field-value-input"
 import { allContactFields, contactFieldConfig } from "@/lib/contact-fields-config"
+import type { ContactField } from "@/lib/contact-fields-config"
 
 interface CreateContactConfigProps {
   action: Extract<WorkflowAction, { type: "create_contact" }>
@@ -75,7 +76,12 @@ export function CreateContactConfig({
     value: string
   ) => {
     const newFields = [...action.config.fields]
-    newFields[index] = { ...newFields[index], [key]: value }
+    if (key === "field") {
+      // Clear value when field name changes to avoid stale data
+      newFields[index] = { field: value, value: "" }
+    } else {
+      newFields[index] = { ...newFields[index], [key]: value }
+    }
     onChange({
       ...action,
       config: {
@@ -115,63 +121,77 @@ export function CreateContactConfig({
 
       {action.config.fields.length > 0 && (
         <div className="space-y-3">
-          {action.config.fields.map((field, index) => (
-            <div key={index} className="space-y-2 rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Field {index + 1}
-                </Label>
-                {action.config.fields.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => handleRemoveField(index)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                )}
-              </div>
+          {action.config.fields.map((field, index) => {
+            const fieldConfig = field.field
+              ? contactFieldConfig[field.field as ContactField]
+              : undefined
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`field-name-${index}`} className="text-xs">
-                    Field Name
+            return (
+              <div key={index} className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Field {index + 1}
                   </Label>
-                  <Select
-                    value={field.field}
-                    onValueChange={(value) => handleFieldChange(index, "field", value)}
-                  >
-                    <SelectTrigger id={`field-name-${index}`} className="h-9 text-sm">
-                      <SelectValue placeholder="Select field..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allContactFields.map((fieldName) => (
-                        <SelectItem key={fieldName} value={fieldName}>
-                          {contactFieldConfig[fieldName].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {action.config.fields.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => handleRemoveField(index)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor={`field-value-${index}`} className="text-xs">
-                    Value
-                  </Label>
-                  <VariableSelector
-                    value={field.value}
-                    onChange={(value) => handleFieldChange(index, "value", value)}
-                    variables={variables}
-                    filterByDataType="text"
-                    allowManualEntry={true}
-                    placeholder="Select or enter value..."
-                    className="h-9 text-sm"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`field-name-${index}`} className="text-xs">
+                      Field Name
+                    </Label>
+                    <Select
+                      value={field.field}
+                      onValueChange={(value) => handleFieldChange(index, "field", value)}
+                    >
+                      <SelectTrigger id={`field-name-${index}`} className="h-9 text-sm">
+                        <SelectValue placeholder="Select field..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allContactFields.map((fieldName) => (
+                          <SelectItem key={fieldName} value={fieldName}>
+                            {contactFieldConfig[fieldName].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`field-value-${index}`} className="text-xs">
+                      Value
+                    </Label>
+                    {fieldConfig ? (
+                      <FieldValueInput
+                        inputType={fieldConfig.inputType}
+                        value={field.value}
+                        onChange={(value) => handleFieldChange(index, "value", value)}
+                        className="h-9 text-sm"
+                        placeholder={`Enter ${fieldConfig.label.toLowerCase()}...`}
+                      />
+                    ) : (
+                      <FieldValueInput
+                        inputType="text"
+                        value={field.value}
+                        onChange={(value) => handleFieldChange(index, "value", value)}
+                        className="h-9 text-sm"
+                        placeholder="Select a field first..."
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

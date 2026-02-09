@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import type { WorkflowDefinitionV2, WorkflowStepV2, WorkflowVariable, StandardStepV2 } from "../types/workflow-v2"
+import type { WorkflowDefinitionV2, WorkflowStepV2, WorkflowVariable, StandardStepV2, VariableDataType } from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { StepListV2 } from "./step-list-v2"
 import { StepConfigPanelV2 } from "./step-config-panel-v2"
@@ -241,6 +241,14 @@ export function WorkflowBuilderV2({
     setSelectedTrigger(false)
   }
 
+  const handleAddVariable = (variable: WorkflowVariable) => {
+    onWorkflowChange({
+      ...workflow,
+      variables: [...workflow.variables, variable],
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -291,6 +299,7 @@ export function WorkflowBuilderV2({
             <TriggerConfigPanel
               trigger={workflow.trigger}
               onTriggerChange={handleTriggerChange}
+              statuses={workflow.statuses}
             />
           ) : (
             <StepConfigPanelV2
@@ -299,6 +308,7 @@ export function WorkflowBuilderV2({
               variables={allVariables}
               statuses={workflow.statuses}
               onStepUpdate={handleStepUpdate}
+              onAddVariable={handleAddVariable}
             />
           )}
         </div>
