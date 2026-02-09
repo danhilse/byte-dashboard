@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import type { BranchStepV2, StandardStepV2 } from "../types/workflow-v2"
+import type { BranchStepV2, StandardStepV2, WorkflowVariable } from "../types/workflow-v2"
+import { getVariableLabel, resolveDisplayValue } from "@/lib/workflow-builder-v2/variable-utils"
 import { StepCardV2 } from "./step-card-v2"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils"
 
 interface BranchStepCardProps {
   step: BranchStepV2
+  variables: WorkflowVariable[]
   stepNumber: number
   isSelected: boolean
   isExpanded: boolean
@@ -36,6 +38,7 @@ interface BranchStepCardProps {
 
 export function BranchStepCard({
   step,
+  variables,
   stepNumber,
   isSelected,
   isExpanded,
@@ -65,9 +68,11 @@ export function BranchStepCard({
 
   const [trackA, trackB] = step.tracks
 
-  // Get condition summary text
+  // Get condition summary text with clean display names
   const getConditionSummary = () => {
-    const varLabel = step.condition.variableRef || "variable"
+    const varLabel = step.condition.variableRef
+      ? getVariableLabel(step.condition.variableRef, variables)
+      : "variable"
     const opLabel =
       step.condition.operator === "equals" ? "=" :
       step.condition.operator === "not_equals" ? "≠" :
@@ -77,9 +82,12 @@ export function BranchStepCard({
       step.condition.operator === "not_in" ? "is not one of" :
       "="
 
-    const value = Array.isArray(step.condition.compareValue)
+    const rawValue = Array.isArray(step.condition.compareValue)
       ? step.condition.compareValue.join(", ")
-      : step.condition.compareValue || "value"
+      : step.condition.compareValue || ""
+    const value = rawValue
+      ? resolveDisplayValue(rawValue, variables, "value")
+      : "value"
 
     return `${varLabel} ${opLabel} ${value}`
   }

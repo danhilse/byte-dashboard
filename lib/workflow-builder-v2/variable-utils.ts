@@ -225,3 +225,22 @@ export function getVariableLabel(
 
   return variable.name
 }
+
+/**
+ * Resolve any value for display — returns clean label for variable refs,
+ * original string for literal values, or fallback for empty values.
+ */
+export function resolveDisplayValue(
+  value: string | undefined,
+  variables: WorkflowVariable[],
+  fallback = "(not set)"
+): string {
+  if (!value) return fallback
+
+  // Variable references start with "var-" or "custom-"
+  if (value.startsWith("var-") || value.startsWith("custom-")) {
+    return getVariableLabel(value, variables)
+  }
+
+  return value
+}

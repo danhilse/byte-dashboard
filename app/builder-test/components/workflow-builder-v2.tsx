@@ -277,6 +277,7 @@ export function WorkflowBuilderV2({
           <StepListV2
             trigger={workflow.trigger}
             steps={workflow.steps}
+            variables={allVariables}
             selectedStepId={selectedStepId}
             selectedTrigger={selectedTrigger}
             onTriggerSelect={handleTriggerSelect}

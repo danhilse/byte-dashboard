@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import type { WorkflowStepV2, WorkflowTrigger, StandardStepV2, BranchStepV2 } from "../types/workflow-v2"
+import type { WorkflowStepV2, WorkflowTrigger, StandardStepV2, BranchStepV2, WorkflowVariable } from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { StepCardV2 } from "./step-card-v2"
 import { BranchStepCard } from "./branch-step-card"
@@ -33,6 +33,7 @@ import { Plus, GitBranch } from "lucide-react"
 interface StepListV2Props {
   trigger: WorkflowTrigger
   steps: WorkflowStepV2[]
+  variables: WorkflowVariable[]
   selectedStepId: string | null
   selectedTrigger: boolean
   onTriggerSelect: () => void
@@ -51,6 +52,7 @@ interface StepListV2Props {
 export function StepListV2({
   trigger,
   steps,
+  variables,
   selectedStepId,
   selectedTrigger,
   onTriggerSelect,
@@ -221,6 +223,7 @@ export function StepListV2({
                         <BranchStepCard
                           key={step.id}
                           step={step}
+                          variables={variables}
                           stepNumber={index + 1}
                           isSelected={step.id === selectedStepId}
                           isExpanded={expandedBranches.has(step.id)}
@@ -275,6 +278,7 @@ export function StepListV2({
                     <BranchStepCard
                       key={step.id}
                       step={step}
+                      variables={variables}
                       stepNumber={index + 1}
                       isSelected={step.id === selectedStepId}
                       isExpanded={expandedBranches.has(step.id)}
