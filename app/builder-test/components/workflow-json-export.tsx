@@ -2,18 +2,31 @@
 
 import { useState } from "react"
 import type { WorkflowDefinitionV2 } from "../types/workflow-v2"
+import type { BuilderCommand } from "@/lib/workflow-builder-v2/builder-command-serializer"
 import { Button } from "@/components/ui/button"
 import { Copy, Download, Check } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface WorkflowJsonExportProps {
   workflow: WorkflowDefinitionV2
+  commands?: BuilderCommand[]
+  onClearCommands?: () => void
 }
 
-export function WorkflowJsonExport({ workflow }: WorkflowJsonExportProps) {
+export function WorkflowJsonExport({
+  workflow,
+  commands,
+  onClearCommands,
+}: WorkflowJsonExportProps) {
   const [copied, setCopied] = useState(false)
 
-  const jsonString = JSON.stringify(workflow, null, 2)
+  const exportPayload = commands
+    ? {
+        workflow,
+        definitionCommandLog: commands,
+      }
+    : workflow
+  const jsonString = JSON.stringify(exportPayload, null, 2)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(jsonString)
@@ -39,10 +52,15 @@ export function WorkflowJsonExport({ workflow }: WorkflowJsonExportProps) {
         <div>
           <h3 className="text-sm font-semibold">JSON Export</h3>
           <p className="text-xs text-muted-foreground">
-            Debug panel showing workflow definition
+            Debug panel showing workflow definition{commands ? ` + ${commands.length} definition command(s)` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {onClearCommands && commands && commands.length > 0 && (
+            <Button variant="outline" size="sm" onClick={onClearCommands}>
+              Clear Commands
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleCopy}>
             {copied ? (
               <>

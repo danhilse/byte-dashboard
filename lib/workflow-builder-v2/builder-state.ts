@@ -23,12 +23,14 @@ export interface BuilderState {
   ui: BuilderUiState
 }
 
-export type BuilderEvent =
-  | { type: "workflow_replaced"; workflow: WorkflowDefinitionV2 }
+export type BuilderUiEvent =
   | { type: "trigger_selected" }
   | { type: "step_selected"; stepId: string }
   | { type: "track_step_selected"; selection: TrackStepSelection }
   | { type: "json_export_toggled" }
+
+export type DefinitionAuthoringEvent =
+  | { type: "workflow_replaced"; workflow: WorkflowDefinitionV2 }
   | { type: "trigger_changed"; trigger: WorkflowTrigger }
   | { type: "steps_reordered"; steps: WorkflowStepV2[] }
   | { type: "step_updated"; step: WorkflowStepV2 }
@@ -38,6 +40,33 @@ export type BuilderEvent =
   | { type: "track_step_added"; branchId: string; trackId: string; step: StandardStepV2 }
   | { type: "track_step_deleted"; branchId: string; trackId: string; stepId: string }
   | { type: "variable_added"; variable: WorkflowVariable }
+
+export type BuilderEvent = DefinitionAuthoringEvent | BuilderUiEvent
+
+export function isDefinitionAuthoringEvent(
+  event: BuilderEvent
+): event is DefinitionAuthoringEvent {
+  switch (event.type) {
+    case "workflow_replaced":
+    case "trigger_changed":
+    case "steps_reordered":
+    case "step_updated":
+    case "step_added":
+    case "step_deleted":
+    case "step_duplicated":
+    case "track_step_added":
+    case "track_step_deleted":
+    case "variable_added":
+      return true
+    case "trigger_selected":
+    case "step_selected":
+    case "track_step_selected":
+    case "json_export_toggled":
+      return false
+    default:
+      return false
+  }
+}
 
 function withWorkflowUpdate(
   workflow: WorkflowDefinitionV2,

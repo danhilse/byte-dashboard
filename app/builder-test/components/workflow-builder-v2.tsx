@@ -11,9 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Save } from "lucide-react"
 import { getAllVariables } from "@/lib/workflow-builder-v2/variable-utils"
 import {
-  builderStateReducer,
-  createInitialBuilderState,
-} from "@/lib/workflow-builder-v2/builder-state"
+  builderSessionReducer,
+  createInitialBuilderSessionState,
+} from "@/lib/workflow-builder-v2/builder-session-state"
 import { findSelectedStep } from "@/lib/workflow-builder-v2/workflow-operations"
 
 interface WorkflowBuilderV2Props {
@@ -25,10 +25,10 @@ export function WorkflowBuilderV2({
   workflow,
   onWorkflowChange,
 }: WorkflowBuilderV2Props) {
-  const [state, dispatchEvent] = useReducer(
-    builderStateReducer,
+  const [session, dispatchEvent] = useReducer(
+    builderSessionReducer,
     workflow,
-    createInitialBuilderState
+    createInitialBuilderSessionState
   )
   const hasSyncedInitialWorkflow = useRef(false)
 
@@ -37,22 +37,34 @@ export function WorkflowBuilderV2({
       hasSyncedInitialWorkflow.current = true
       return
     }
-    onWorkflowChange(state.workflow)
-  }, [onWorkflowChange, state.workflow])
+    onWorkflowChange(session.builder.workflow)
+  }, [onWorkflowChange, session.builder.workflow])
 
   const selectedStep = useMemo(
-    () => findSelectedStep(state.workflow.steps, state.ui.selectedStepId, state.ui.selectedTrackStep),
-    [state.workflow.steps, state.ui.selectedStepId, state.ui.selectedTrackStep]
+    () =>
+      findSelectedStep(
+        session.builder.workflow.steps,
+        session.builder.ui.selectedStepId,
+        session.builder.ui.selectedTrackStep
+      ),
+    [
+      session.builder.workflow.steps,
+      session.builder.ui.selectedStepId,
+      session.builder.ui.selectedTrackStep,
+    ]
   )
 
   // Compute all variables (auto-detected + custom)
-  const allVariables = useMemo(() => getAllVariables(state.workflow), [state.workflow])
+  const allVariables = useMemo(
+    () => getAllVariables(session.builder.workflow),
+    [session.builder.workflow]
+  )
 
   const handleTriggerChange = (trigger: typeof workflow.trigger) => {
     dispatchEvent({ type: "trigger_changed", trigger })
   }
 
-  const handleStepUpdate = (updatedStep: typeof state.workflow.steps[number]) => {
+  const handleStepUpdate = (updatedStep: typeof session.builder.workflow.steps[number]) => {
     dispatchEvent({ type: "step_updated", step: updatedStep })
   }
 
@@ -64,7 +76,7 @@ export function WorkflowBuilderV2({
     dispatchEvent({ type: "step_duplicated", stepId })
   }
 
-  const handleStepAdd = (step: typeof state.workflow.steps[number]) => {
+  const handleStepAdd = (step: typeof session.builder.workflow.steps[number]) => {
     dispatchEvent({ type: "step_added", step })
   }
 
@@ -113,14 +125,14 @@ export function WorkflowBuilderV2({
       <div className="border-b px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">{state.workflow.name}</h2>
-            {state.workflow.description && (
-              <p className="text-sm text-muted-foreground">{state.workflow.description}</p>
+            <h2 className="text-lg font-semibold">{session.builder.workflow.name}</h2>
+            {session.builder.workflow.description && (
+              <p className="text-sm text-muted-foreground">{session.builder.workflow.description}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
             <WorkflowConfigDialog
-              workflow={state.workflow}
+              workflow={session.builder.workflow}
               onChange={(nextWorkflow) =>
                 dispatchEvent({ type: "workflow_replaced", workflow: nextWorkflow })
               }
@@ -138,11 +150,11 @@ export function WorkflowBuilderV2({
         {/* Left Panel - Step List (40%) */}
         <div className="w-[40%] border-r">
           <StepListV2
-            trigger={state.workflow.trigger}
-            steps={state.workflow.steps}
+            trigger={session.builder.workflow.trigger}
+            steps={session.builder.workflow.steps}
             variables={allVariables}
-            selectedStepId={state.ui.selectedStepId}
-            selectedTrigger={state.ui.selectedTrigger}
+            selectedStepId={session.builder.ui.selectedStepId}
+            selectedTrigger={session.builder.ui.selectedTrigger}
             onTriggerSelect={handleTriggerSelect}
             onStepSelect={handleStepSelect}
             onStepsReorder={(steps) => dispatchEvent({ type: "steps_reordered", steps })}
@@ -152,24 +164,24 @@ export function WorkflowBuilderV2({
             onTrackStepAdd={handleTrackStepAdd}
             onTrackStepDelete={handleTrackStepDelete}
             onTrackStepSelect={handleTrackStepSelect}
-            selectedTrackStep={state.ui.selectedTrackStep}
+            selectedTrackStep={session.builder.ui.selectedTrackStep}
           />
         </div>
 
         {/* Right Panel - Config Panel (60%) */}
         <div className="flex-1">
-          {state.ui.selectedTrigger ? (
+          {session.builder.ui.selectedTrigger ? (
             <TriggerConfigPanel
-              trigger={state.workflow.trigger}
+              trigger={session.builder.workflow.trigger}
               onTriggerChange={handleTriggerChange}
-              statuses={state.workflow.statuses}
+              statuses={session.builder.workflow.statuses}
             />
           ) : (
             <StepConfigPanelV2
               step={selectedStep}
-              allSteps={state.workflow.steps}
+              allSteps={session.builder.workflow.steps}
               variables={allVariables}
-              statuses={state.workflow.statuses}
+              statuses={session.builder.workflow.statuses}
               onStepUpdate={handleStepUpdate}
               onAddVariable={handleAddVariable}
             />
@@ -184,14 +196,18 @@ export function WorkflowBuilderV2({
           size="sm"
           onClick={() => dispatchEvent({ type: "json_export_toggled" })}
         >
-          {state.ui.showJsonExport ? "Hide" : "Show"} JSON Export
+          {session.builder.ui.showJsonExport ? "Hide" : "Show"} JSON Export
         </Button>
       </div>
 
       {/* JSON Export Panel */}
-      {state.ui.showJsonExport && (
+      {session.builder.ui.showJsonExport && (
         <div className="border-t">
-          <WorkflowJsonExport workflow={state.workflow} />
+          <WorkflowJsonExport
+            workflow={session.builder.workflow}
+            commands={session.definitionCommandLog}
+            onClearCommands={() => dispatchEvent({ type: "definition_command_log_cleared" })}
+          />
         </div>
       )}
     </div>
