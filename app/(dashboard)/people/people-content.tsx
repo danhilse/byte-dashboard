@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useCallback, useState, useMemo, useEffect } from "react"
-import { List, LayoutGrid, Trash2, FileText, Loader2 } from "lucide-react"
+import { List, LayoutGrid, Trash2, FileText, Loader2, Upload } from "lucide-react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -341,7 +341,13 @@ export function PeopleContent() {
             Manage your contacts and their information.
           </p>
         </div>
-        <ContactFormDialog mode="create" onSubmit={handleCreateContact} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" disabled title="Coming soon">
+            <Upload className="size-4" />
+            Import from CSV
+          </Button>
+          <ContactFormDialog mode="create" onSubmit={handleCreateContact} />
+        </div>
       </div>
 
       {/* Table controls */}
