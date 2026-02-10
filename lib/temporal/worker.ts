@@ -12,6 +12,7 @@
  * Environment Variables:
  * - TEMPORAL_ADDRESS: Temporal server address
  * - TEMPORAL_NAMESPACE: Temporal namespace
+ * - TEMPORAL_TASK_QUEUE: Temporal task queue name (default: byte-dashboard)
  * - TEMPORAL_API_KEY: API key for Temporal Cloud (AWS endpoints)
  * - TEMPORAL_CLIENT_CERT: Client certificate for mTLS (base64 encoded)
  * - TEMPORAL_CLIENT_KEY: Client private key for mTLS (base64 encoded)
@@ -20,10 +21,12 @@
 import { NativeConnection, Worker } from "@temporalio/worker";
 import * as activities from "../activities";
 import * as path from "path";
+import { getTemporalTaskQueue } from "./task-queue";
 
 export async function createWorker() {
   const address = process.env.TEMPORAL_ADDRESS || "localhost:7233";
   const namespace = process.env.TEMPORAL_NAMESPACE || "default";
+  const taskQueue = getTemporalTaskQueue();
 
   // Determine connection type based on address and available credentials
   const isTmprlCloud = address.includes("tmprl.cloud");
@@ -84,12 +87,14 @@ export async function createWorker() {
     );
   }
 
-  console.log(`Worker connected to Temporal at ${address} (namespace: ${namespace})`);
+  console.log(
+    `Worker connected to Temporal at ${address} (namespace: ${namespace}, taskQueue: ${taskQueue})`
+  );
 
   const worker = await Worker.create({
     connection,
     namespace,
-    taskQueue: "byte-dashboard",
+    taskQueue,
     workflowsPath: path.join(__dirname, "../workflows"),
     activities,
   });

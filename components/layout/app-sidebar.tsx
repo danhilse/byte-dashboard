@@ -118,12 +118,16 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              className="overflow-visible group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
+            >
               <Link href="/dashboard" className="group/logo">
-                <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm transition-all duration-200 group-hover/logo:shadow-md group-hover/logo:scale-105">
-                  <span className="text-[15px] font-bold tracking-tight">B</span>
+                <div className="flex aspect-square size-9 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-sm transition-[border-radius,box-shadow] duration-200 group-hover/logo:shadow-md group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:rounded-md group-data-[collapsible=icon]:shadow-none">
+                  <span className="text-[15px] font-bold leading-none tracking-tight">B</span>
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold tracking-tight">Byte</span>
                   <span className="truncate text-xs text-muted-foreground">Workflow Platform</span>
                 </div>

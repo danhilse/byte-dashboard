@@ -78,9 +78,9 @@ export function ApprovalTaskDecisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px] border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15">
+      <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 pr-10">
             <div className="space-y-1">
               <DialogTitle className="text-lg">{task.title}</DialogTitle>
               <DialogDescription>
@@ -133,7 +133,7 @@ export function ApprovalTaskDecisionDialog({
           </div>
 
           {links.length > 0 && (
-            <div className="space-y-1 rounded-md border border-amber-200/70 bg-background/70 p-3 dark:border-amber-900/40">
+            <div className="space-y-1 rounded-md border border-border/60 bg-muted/20 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Links</p>
               {links.map((link) => (
                 <a
@@ -171,9 +171,6 @@ export function ApprovalTaskDecisionDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
           {isPending && (
             <>
               <Button

@@ -177,33 +177,6 @@ export function WorkflowCreateDialog({
       submitDisabled={!contactId}
     >
       <div className="grid gap-2">
-        <Label htmlFor="contact">Contact *</Label>
-        {loadingContacts ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
-            <Loader2 className="size-4 animate-spin" />
-            Loading contacts...
-          </div>
-        ) : (
-          <Select value={contactId} onValueChange={setContactId}>
-            <SelectTrigger id="contact" className="w-full">
-              <SelectValue placeholder="Select a contact" />
-            </SelectTrigger>
-            <SelectContent>
-              {contacts.map((contact) => (
-                <SelectItem key={contact.id} value={contact.id}>
-                  {contact.firstName} {contact.lastName}
-                  {contact.email ? ` (${contact.email})` : ""}
-                </SelectItem>
-              ))}
-              {contacts.length === 0 && (
-                <div className="p-2 text-sm text-muted-foreground">No contacts found</div>
-              )}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-
-      <div className="grid gap-2">
         <Label htmlFor="definition">Workflow Definition</Label>
         {loadingDefinitions ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
@@ -249,6 +222,33 @@ export function WorkflowCreateDialog({
             Usage: {selectedDefinitionRunSummary}
           </p>
         ) : null}
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="contact">Contact *</Label>
+        {loadingContacts ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
+            <Loader2 className="size-4 animate-spin" />
+            Loading contacts...
+          </div>
+        ) : (
+          <Select value={contactId} onValueChange={setContactId}>
+            <SelectTrigger id="contact" className="w-full">
+              <SelectValue placeholder="Select a contact" />
+            </SelectTrigger>
+            <SelectContent>
+              {contacts.map((contact) => (
+                <SelectItem key={contact.id} value={contact.id}>
+                  {contact.firstName} {contact.lastName}
+                  {contact.email ? ` (${contact.email})` : ""}
+                </SelectItem>
+              ))}
+              {contacts.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground">No contacts found</div>
+              )}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {startsImmediately ? (

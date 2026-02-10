@@ -149,8 +149,8 @@ export const workflowExecutions = pgTable(
     ),
     definitionVersion: integer("definition_version"), // Snapshot of definition version at execution time
     currentStepId: text("current_step_id"), // Which step is currently executing
-    currentPhaseId: text("current_phase_id"), // Track current phase for UI
-    status: text("status").default("running").notNull(), // Presentation-only (Temporal is authoritative)
+    currentPhaseId: text("current_phase_id"), // Legacy optional step-grouping pointer
+    status: text("status").default("running").notNull(), // Business status
     workflowExecutionState: text("workflow_execution_state")
       .default("running")
       .notNull(), // Internal runtime state: running/completed/error/timeout/cancelled

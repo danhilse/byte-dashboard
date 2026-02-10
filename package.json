@@ -15,8 +15,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:clear": "tsx --env-file=.env.local scripts/clear-test-data.ts",
-    "worker:dev": "tsx --env-file=.env.local lib/temporal/worker.ts",
-    "worker:start": "tsx -r dotenv/config lib/temporal/worker.ts"
+    "worker:dev": "tsx watch --env-file=.env.local lib/temporal/worker.ts",
+    "worker:start": "tsx --env-file=.env.local lib/temporal/worker.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.1",

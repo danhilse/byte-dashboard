@@ -573,7 +573,28 @@ export function WorkflowConfigDialog({
 
             {/* Statuses List */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Workflow Statuses</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Workflow Statuses</Label>
+                {sortedStatuses.length > 0 && (
+                  <ConfirmAction
+                    title="Delete all statuses?"
+                    description={`This will remove all ${sortedStatuses.length} statuses. Actions that reference these statuses may break.`}
+                    confirmLabel="Delete All"
+                    onConfirm={() =>
+                      onChange({
+                        ...workflow,
+                        statuses: [],
+                        updatedAt: new Date().toISOString(),
+                      })
+                    }
+                  >
+                    <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-destructive">
+                      <Trash2 className="mr-1 size-3" />
+                      Delete All
+                    </Button>
+                  </ConfirmAction>
+                )}
+              </div>
               {sortedStatuses.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                   No statuses defined yet. Add one above to get started.

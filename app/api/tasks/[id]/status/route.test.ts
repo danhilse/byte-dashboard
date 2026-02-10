@@ -29,6 +29,7 @@ vi.mock("@/lib/temporal/client", () => ({
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
 
 import { PATCH } from "@/app/api/tasks/[id]/status/route";
+import { TASK_COMPLETED_SIGNAL_NAME } from "@/lib/workflows/signal-types";
 
 function selectQuery(result: unknown[]) {
   return {
@@ -151,6 +152,62 @@ describe("app/api/tasks/[id]/status/route", () => {
       status: "done",
       workflowSignaled: false,
       task: { id: "task_1", status: "done" },
+    });
+  });
+
+  it("signals temporal workflow when linked task is completed", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "task_1",
+            status: "todo",
+            taskType: "standard",
+            workflowExecutionId: "wf_exec_1",
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "wf_exec_1",
+            orgId: "org_1",
+            temporalWorkflowId: "generic-workflow-wf_exec_1",
+          },
+        ])
+      );
+    mocks.update.mockReturnValue({
+      set: updateQuery([{ id: "task_1", status: "done", workflowExecutionId: "wf_exec_1" }]).set,
+    });
+
+    const signal = vi.fn().mockResolvedValue(undefined);
+    const getHandle = vi.fn().mockReturnValue({ signal });
+    mocks.getTemporalClient.mockResolvedValue({
+      workflow: {
+        getHandle,
+      },
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "done" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      taskId: "task_1",
+      status: "done",
+      workflowSignaled: true,
+      task: { id: "task_1", status: "done", workflowExecutionId: "wf_exec_1" },
+    });
+    expect(getHandle).toHaveBeenCalledWith("generic-workflow-wf_exec_1");
+    expect(signal).toHaveBeenCalledWith(TASK_COMPLETED_SIGNAL_NAME, {
+      taskId: "task_1",
+      completedBy: "user_1",
     });
   });
 });

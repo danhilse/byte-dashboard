@@ -62,6 +62,10 @@ function cloneActionWithNewId(action: WorkflowAction): WorkflowAction {
   }
 }
 
+export function cloneWorkflowAction(action: WorkflowAction): WorkflowAction {
+  return cloneActionWithNewId(action)
+}
+
 export function cloneStandardStep(
   step: StandardStepV2,
   options?: { rename?: boolean }
@@ -184,6 +188,25 @@ export function duplicateStepInList(
   ]
 
   return { nextSteps, duplicatedStepId: duplicatedStep.id }
+}
+
+export function duplicateActionInList(
+  actions: WorkflowAction[],
+  actionId: string
+): { nextActions: WorkflowAction[]; duplicatedActionId: string | null } {
+  const actionIndex = actions.findIndex((action) => action.id === actionId)
+  if (actionIndex < 0) {
+    return { nextActions: actions, duplicatedActionId: null }
+  }
+
+  const duplicatedAction = cloneWorkflowAction(actions[actionIndex])
+  const nextActions = [
+    ...actions.slice(0, actionIndex + 1),
+    duplicatedAction,
+    ...actions.slice(actionIndex + 1),
+  ]
+
+  return { nextActions, duplicatedActionId: duplicatedAction.id }
 }
 
 export function addTrackStepToBranch(

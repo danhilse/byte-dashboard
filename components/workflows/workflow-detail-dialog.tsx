@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { format } from "date-fns"
-import { Trash2, Workflow as WorkflowIcon, Calendar, Zap, Globe } from "lucide-react"
+import { Trash2, Workflow as WorkflowIcon, Calendar, Zap, Globe, RotateCcw, Loader2 } from "lucide-react"
 
 import {
   Dialog,
@@ -58,6 +58,7 @@ interface WorkflowDetailDialogProps {
   onOpenChange: (open: boolean) => void
   onUpdateWorkflow?: (workflow: WorkflowExecution) => void
   onDeleteWorkflow?: (workflowExecutionId: string) => void
+  onRerunWorkflow?: (workflow: WorkflowExecution) => Promise<void> | void
 }
 
 export function WorkflowDetailDialog({
@@ -66,6 +67,7 @@ export function WorkflowDetailDialog({
   onOpenChange,
   onUpdateWorkflow,
   onDeleteWorkflow,
+  onRerunWorkflow,
 }: WorkflowDetailDialogProps) {
   const {
     isEditing,
@@ -85,6 +87,7 @@ export function WorkflowDetailDialog({
   })
 
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null)
+  const [isRerunning, setIsRerunning] = useState(false)
   const [definitionData, setDefinitionData] = useState<{
     definitionId: string
     phases: WorkflowPhase[]
@@ -191,6 +194,17 @@ export function WorkflowDetailDialog({
       : null
   const definitionPhases = activeDefinitionData?.phases ?? []
   const definitionSteps = activeDefinitionData?.steps ?? []
+  const canRerun = Boolean(displayWorkflow.workflowDefinitionId && displayWorkflow.contactId)
+
+  const handleRerun = async () => {
+    if (!canRerun || !onRerunWorkflow || isRerunning) return
+    setIsRerunning(true)
+    try {
+      await onRerunWorkflow(displayWorkflow)
+    } finally {
+      setIsRerunning(false)
+    }
+  }
 
   return (
     <>
@@ -332,7 +346,7 @@ export function WorkflowDetailDialog({
 
               {definitionPhases.length > 0 ? (
                 <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs uppercase">Phase Progress</Label>
+                  <Label className="text-muted-foreground text-xs uppercase">Workflow Progress</Label>
                   <PhaseProgressStepper
                     phases={definitionPhases}
                     steps={definitionSteps}
@@ -353,7 +367,7 @@ export function WorkflowDetailDialog({
                   )}
                   {displayWorkflow.currentPhaseId && (
                     <div className="space-y-1">
-                      <Label className="text-muted-foreground text-xs uppercase">Current Phase</Label>
+                      <Label className="text-muted-foreground text-xs uppercase">Current Group (Legacy)</Label>
                       <p className="text-sm">{displayWorkflow.currentPhaseId}</p>
                     </div>
                   )}
@@ -433,9 +447,21 @@ export function WorkflowDetailDialog({
                   <Button onClick={handleSave}>Save Changes</Button>
                 </>
               ) : (
-                <Button variant="outline" onClick={handleEdit} disabled={isTemporalManaged}>
-                  Edit Workflow
-                </Button>
+                <>
+                  {canRerun && onRerunWorkflow && (
+                    <Button variant="outline" onClick={handleRerun} disabled={isRerunning}>
+                      {isRerunning ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="mr-2 size-4" />
+                      )}
+                      {isRerunning ? "Starting..." : "Re-Run"}
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={handleEdit} disabled={isTemporalManaged}>
+                    Edit Workflow
+                  </Button>
+                </>
               )}
             </div>
           </DialogFooter>

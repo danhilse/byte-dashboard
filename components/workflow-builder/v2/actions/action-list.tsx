@@ -19,6 +19,7 @@ import {
   actionCategories,
 } from "@/lib/workflow-builder-v2/action-registry"
 import { createActionId } from "@/lib/workflow-builder-v2/id-utils"
+import { duplicateActionInList } from "@/lib/workflow-builder-v2/workflow-operations"
 import type { OrganizationUserOption } from "../organization-user-option"
 
 interface ActionListProps {
@@ -72,6 +73,13 @@ export function ActionList({
     }
   }
 
+  const handleDuplicateAction = (actionId: string) => {
+    const { nextActions, duplicatedActionId } = duplicateActionInList(actions, actionId)
+    if (!duplicatedActionId) return
+    onChange(nextActions)
+    setExpandedActionId(duplicatedActionId)
+  }
+
   const actionsByCategory = getActionsByCategory()
 
   return (
@@ -92,6 +100,7 @@ export function ActionList({
                 setExpandedActionId(expandedActionId === action.id ? null : action.id)
               }
               onUpdate={handleUpdateAction}
+              onDuplicate={() => handleDuplicateAction(action.id)}
               onDelete={() => handleDeleteAction(action.id)}
               onAddVariable={onAddVariable}
             />

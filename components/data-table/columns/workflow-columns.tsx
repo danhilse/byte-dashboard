@@ -1,7 +1,7 @@
 "use client"
 
 import { type ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal, Eye, Trash2, ArrowUpDown } from "lucide-react"
+import { MoreHorizontal, Eye, Trash2, ArrowUpDown, RotateCcw } from "lucide-react"
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,9 @@ export { workflowStatusOptions }
 
 export interface WorkflowColumnActions {
   onViewDetails?: (workflow: WorkflowExecution) => void
+  onRerun?: (workflow: WorkflowExecution) => void
   onDelete?: (workflow: WorkflowExecution) => void
+  rerunningWorkflowId?: string | null
 }
 
 export function createWorkflowColumns(
@@ -222,6 +224,8 @@ export function createWorkflowColumns(
       id: "actions",
       cell: ({ row }) => {
         const workflow = row.original
+        const isRerunning = actions?.rerunningWorkflowId === workflow.id
+        const canRerun = Boolean(workflow.workflowDefinitionId && workflow.contactId)
 
         return (
           <DropdownMenu>
@@ -247,6 +251,21 @@ export function createWorkflowColumns(
                 <Eye className="mr-2 size-4" />
                 View details
               </DropdownMenuItem>
+              {canRerun && (
+                <DropdownMenuItem
+                  disabled={isRerunning}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (!isRerunning) {
+                      actions?.onRerun?.(workflow)
+                    }
+                  }}
+                >
+                  <RotateCcw className="mr-2 size-4" />
+                  {isRerunning ? "Starting..." : "Re-Run"}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={(e) => {

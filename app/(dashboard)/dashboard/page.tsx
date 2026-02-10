@@ -6,8 +6,6 @@ import {
   ArrowRight,
   CalendarClock,
   CircleDot,
-  Clock3,
-  ContactRound,
   Layers3,
   ListTodo,
   Sparkles,
@@ -16,6 +14,7 @@ import {
 import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { PageHeader } from "@/components/layout/page-header"
+import { DashboardRecentActivityCard } from "@/components/dashboard/dashboard-recent-activity-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,7 +28,6 @@ import {
 } from "@/lib/db/queries"
 import { cn, formatStatus } from "@/lib/utils"
 
-type RecentActivity = Awaited<ReturnType<typeof getRecentActivity>>[number]
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
 
 const BLOCKED_STATUS_KEYWORDS = ["error", "failed", "timeout", "cancel", "reject", "hold"]
@@ -66,16 +64,6 @@ function parseMaybeDate(value: string | Date | null): Date | null {
   const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value
   const parsed = new Date(normalizedValue)
   return Number.isNaN(parsed.getTime()) ? null : parsed
-}
-
-function formatAction(action: string): string {
-  return action.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
-}
-
-function activityDotClass(entityType: RecentActivity["entityType"]): string {
-  if (entityType === "workflow") return "bg-blue-500/80"
-  if (entityType === "task") return "bg-emerald-500/80"
-  return "bg-amber-500/80"
 }
 
 function WorkflowLane({
@@ -133,7 +121,7 @@ async function DashboardContent() {
     getWorkflowCountsByStatus(orgId),
     getMyTasks(orgId, userId, 8),
     getRecentWorkflows(orgId, 8),
-    getRecentActivity(orgId, 8),
+    getRecentActivity(orgId, 30),
   ])
 
   const totalWorkflows = workflowsByStatus.reduce((sum, row) => sum + toNumber(row.count), 0)
@@ -190,14 +178,6 @@ async function DashboardContent() {
       includesStatusKeyword(normalized, ATTENTION_STATUS_KEYWORDS)
     )
   })
-
-  const activityByEntity = recentActivity.reduce(
-    (acc, item) => {
-      acc[item.entityType] += 1
-      return acc
-    },
-    { workflow: 0, task: 0, contact: 0 }
-  )
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -422,63 +402,7 @@ async function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-2 hover-lift">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock3 className="size-4" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription>Latest updates across workflows, tasks, and contacts.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg border bg-muted/20 p-3">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Workflow className="size-3.5" />
-                  Workflows
-                </div>
-                <p className="mt-1 text-lg font-semibold">{activityByEntity.workflow}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/20 p-3">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ListTodo className="size-3.5" />
-                  Tasks
-                </div>
-                <p className="mt-1 text-lg font-semibold">{activityByEntity.task}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/20 p-3">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ContactRound className="size-3.5" />
-                  Contacts
-                </div>
-                <p className="mt-1 text-lg font-semibold">{activityByEntity.contact}</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {recentActivity.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No recent activity logged.</p>
-              ) : (
-                recentActivity.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3">
-                    <span className={cn("mt-1 size-2 rounded-full", activityDotClass(item.entityType))} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">
-                        <span className="font-medium">{item.userName}</span>{" "}
-                        <span className="text-muted-foreground">
-                          {formatAction(item.action).toLowerCase()} a {item.entityType}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <DashboardRecentActivityCard activities={recentActivity} />
       </section>
     </div>
   )

@@ -60,6 +60,7 @@ export async function PATCH(
       .select({
         id: tasks.id,
         orgId: tasks.orgId,
+        workflowExecutionId: tasks.workflowExecutionId,
         assignedTo: tasks.assignedTo,
         assignedRole: tasks.assignedRole,
         taskType: tasks.taskType,
@@ -121,6 +122,7 @@ export async function PATCH(
       .returning({
         id: tasks.id,
         orgId: tasks.orgId,
+        workflowExecutionId: tasks.workflowExecutionId,
         contactId: tasks.contactId,
         assignedTo: tasks.assignedTo,
         assignedRole: tasks.assignedRole,

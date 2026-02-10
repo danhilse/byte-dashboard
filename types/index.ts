@@ -195,10 +195,10 @@ export interface WorkflowDefinition {
   name: string
   description?: string
   version: number
-  phases: WorkflowPhase[]
+  phases: WorkflowPhase[] // Legacy optional step-grouping metadata
   steps: WorkflowStep[] // JSONB array of step definitions
   variables: Record<string, unknown> // JSONB variable definitions
-  statuses: DefinitionStatus[] // JSONB UI status definitions
+  statuses: DefinitionStatus[] // Business statuses for workflow progression
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -215,9 +215,9 @@ export interface WorkflowExecution {
   definitionVersion?: number // Snapshot of definition version at execution time
   definitionStatuses?: DefinitionStatus[] // Joined from workflow_definitions
   currentStepId?: string
-  currentPhaseId?: string
-  status: WorkflowStatus
-  workflowExecutionState?: WorkflowExecutionState
+  currentPhaseId?: string // Legacy optional step-grouping pointer
+  status: WorkflowStatus // Business status
+  workflowExecutionState?: WorkflowExecutionState // Internal runtime state
   errorDefinition?: string
   updatedByTemporal: boolean // Flag to prevent race conditions
   source: "manual" | "formstack" | "api"

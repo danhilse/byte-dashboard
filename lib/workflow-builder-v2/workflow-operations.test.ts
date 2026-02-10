@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest"
 import {
   addTrackStepToBranch,
   cloneBranchStep,
+  cloneWorkflowAction,
   cloneStandardStep,
   createEmptyBranchStep,
   createEmptyStandardStep,
+  duplicateActionInList,
   duplicateStepInList,
   findSelectedStep,
   removeTrackStepFromBranch,
@@ -73,6 +75,30 @@ describe("lib/workflow-builder-v2/workflow-operations", () => {
     expect(duplicatedStepId).toBeTruthy()
     expect(nextSteps).toHaveLength(3)
     expect(nextSteps[1].name).toBe("First (Copy)")
+  })
+
+  it("duplicates an action in list and inserts right after original", () => {
+    const firstAction = cloneWorkflowAction({
+      type: "send_email",
+      id: "action-1",
+      config: { to: "var-contact.email", subject: "Hello", body: "World" },
+    })
+    const secondAction = cloneWorkflowAction({
+      type: "update_status",
+      id: "action-2",
+      config: { status: "in_progress" },
+    })
+
+    const { nextActions, duplicatedActionId } = duplicateActionInList(
+      [firstAction, secondAction],
+      firstAction.id
+    )
+
+    expect(duplicatedActionId).toBeTruthy()
+    expect(nextActions).toHaveLength(3)
+    expect(nextActions[1].type).toBe(firstAction.type)
+    expect(nextActions[1].id).not.toBe(firstAction.id)
+    expect(nextActions[2].id).toBe(secondAction.id)
   })
 
   it("adds and removes track step from branch", () => {

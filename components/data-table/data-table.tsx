@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import { DataTableToolbar } from "./data-table-toolbar"
 import { DataTablePagination } from "./data-table-pagination"
 
@@ -34,6 +35,7 @@ interface DataTableProps<TData, TValue> {
   filterColumn?: string
   filterOptions?: { label: string; value: string }[]
   onRowClick?: (row: Row<TData>) => void
+  rowClassName?: string | ((row: Row<TData>) => string | undefined)
 }
 
 export function DataTable<TData, TValue>({
@@ -44,6 +46,7 @@ export function DataTable<TData, TValue>({
   filterColumn,
   filterOptions,
   onRowClick,
+  rowClassName,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -79,7 +82,7 @@ export function DataTable<TData, TValue>({
         filterColumn={filterColumn}
         filterOptions={filterOptions}
       />
-      <div className="rounded-md border">
+      <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -105,7 +108,11 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={onRowClick ? "table-row-optimized cursor-pointer" : "table-row-optimized"}
+                  className={cn(
+                    "table-row-optimized",
+                    onRowClick && "cursor-pointer",
+                    typeof rowClassName === "function" ? rowClassName(row) : rowClassName
+                  )}
                   onClick={() => onRowClick?.(row)}
                 >
                   {row.getVisibleCells().map((cell) => (

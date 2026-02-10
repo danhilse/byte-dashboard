@@ -66,6 +66,7 @@ export function WorkflowsContent() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [deletingWorkflow, setDeletingWorkflow] = useState<WorkflowExecution | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [rerunningWorkflowId, setRerunningWorkflowId] = useState<string | null>(null)
 
   // Derive active definition statuses from selected definition
   const selectedDefinition = useMemo(
@@ -238,6 +239,76 @@ export function WorkflowsContent() {
     }
   }, [workflows])
 
+  const handleRerunWorkflow = useCallback(
+    async (workflow: WorkflowExecution) => {
+      if (!workflow.workflowDefinitionId) {
+        toast({
+          title: "Re-run unavailable",
+          description: "This execution is not linked to a workflow definition.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!workflow.contactId) {
+        toast({
+          title: "Re-run unavailable",
+          description: "This execution is missing a contact reference.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      try {
+        setRerunningWorkflowId(workflow.id)
+
+        const response = await fetch("/api/workflows/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contactId: workflow.contactId,
+            workflowDefinitionId: workflow.workflowDefinitionId,
+          }),
+        })
+
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(
+            payload?.error ||
+            payload?.details ||
+            "Failed to re-run workflow"
+          )
+        }
+
+        const rerunWorkflow = payload?.workflow as WorkflowExecution | undefined
+        if (!rerunWorkflow) {
+          throw new Error("Workflow response was missing payload")
+        }
+
+        setWorkflows((prev) => [rerunWorkflow, ...prev.filter((w) => w.id !== rerunWorkflow.id)])
+        setSelectedWorkflow(rerunWorkflow)
+        setDetailOpen(true)
+
+        toast({
+          title: "Workflow re-run started",
+          description: "A new workflow execution has been created.",
+        })
+      } catch (error) {
+        console.error("Error re-running workflow:", error)
+        toast({
+          title: "Error",
+          description: error instanceof Error
+            ? error.message
+            : "Failed to re-run workflow. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setRerunningWorkflowId((current) => (current === workflow.id ? null : current))
+      }
+    },
+    [toast]
+  )
+
   const handleConfirmDelete = async () => {
     if (!deletingWorkflow) return
 
@@ -280,9 +351,11 @@ export function WorkflowsContent() {
     () =>
       createWorkflowColumns({
         onViewDetails: handleWorkflowClick,
+        onRerun: handleRerunWorkflow,
         onDelete: (workflow) => handleDeleteWorkflow(workflow.id),
+        rerunningWorkflowId,
       }),
-    [handleDeleteWorkflow, handleWorkflowClick]
+    [handleDeleteWorkflow, handleRerunWorkflow, handleWorkflowClick, rerunningWorkflowId]
   )
 
   const handleStatusChange = async (workflowExecutionId: string, newStatus: string) => {
@@ -468,6 +541,7 @@ export function WorkflowsContent() {
         onOpenChange={setDetailOpen}
         onUpdateWorkflow={handleUpdateWorkflow}
         onDeleteWorkflow={handleDeleteWorkflow}
+        onRerunWorkflow={handleRerunWorkflow}
       />
 
       <WorkflowDeleteDialog

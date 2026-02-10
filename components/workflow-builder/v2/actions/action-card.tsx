@@ -6,7 +6,7 @@ import { resolveDisplayValue } from "@/lib/workflow-builder-v2/variable-utils"
 import { roleConfig } from "@/lib/roles-config"
 import type { Role } from "@/lib/roles-config"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronRight, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronRight, Copy, Trash2 } from "lucide-react"
 import { ConfirmAction } from "../confirm-action"
 import { SendEmailConfig } from "./action-config/send-email-config"
 import { CreateTaskConfig } from "./action-config/create-task-config"
@@ -27,6 +27,7 @@ interface ActionCardProps {
   isExpanded: boolean
   onToggle: () => void
   onUpdate: (action: WorkflowAction) => void
+  onDuplicate: () => void
   onDelete: () => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
@@ -40,6 +41,7 @@ export function ActionCard({
   isExpanded,
   onToggle,
   onUpdate,
+  onDuplicate,
   onDelete,
   onAddVariable,
 }: ActionCardProps) {
@@ -130,6 +132,18 @@ export function ActionCard({
             )}
           </div>
         </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="size-7 p-0"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDuplicate()
+          }}
+          title="Duplicate action"
+        >
+          <Copy className="size-3.5" />
+        </Button>
         <ConfirmAction
           title={`Delete this ${metadata.label.toLowerCase()} action?`}
           description="This action will be removed from the step configuration."

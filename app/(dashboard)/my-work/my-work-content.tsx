@@ -718,6 +718,11 @@ export function MyWorkContent() {
             columns={myWorkColumns}
             data={filteredTasks}
             onRowClick={(row) => handleTaskClick(row.original)}
+            rowClassName={(row) =>
+              row.original.taskType === "approval"
+                ? "border-primary/25 bg-gradient-to-br from-slate-950/5 via-slate-900/4 to-primary/10 hover:bg-gradient-to-br hover:from-slate-950/8 hover:via-slate-900/6 hover:to-primary/14 dark:border-white/20 dark:from-white/10 dark:via-white/6 dark:to-primary/20 dark:hover:from-white/14 dark:hover:via-white/10 dark:hover:to-primary/24"
+                : undefined
+            }
           />
         )}
         {!isLoading && !loadError && view === "kanban" && (
@@ -837,7 +842,7 @@ function TasksGridView({ tasks, onTaskClick }: TasksGridViewProps) {
             key={task.id}
             className={`cursor-pointer transition-colors hover:bg-muted/50 grid-card-optimized ${
               task.taskType === "approval"
-                ? "border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15"
+                ? "border-primary/25 bg-gradient-to-br from-slate-950/5 via-slate-900/4 to-primary/10 dark:border-white/20 dark:from-white/10 dark:via-white/6 dark:to-primary/20"
                 : ""
             }`}
             onClick={() => onTaskClick(task)}

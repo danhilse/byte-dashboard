@@ -40,10 +40,36 @@ export interface CreateTaskConfig {
   assignedRole?: string;
   assignedTo?: string;
   priority?: TaskPriority;
-  dueDate?: Date;
+  dueDate?: Date | string | number;
   contactId?: string;
   createdByStepId?: string;
   metadata?: Record<string, unknown>;
+}
+
+function toTaskDueDate(dueDate: CreateTaskConfig["dueDate"]): string | undefined {
+  if (dueDate === undefined || dueDate === null || dueDate === "") {
+    return undefined;
+  }
+
+  if (typeof dueDate === "string") {
+    const trimmedDueDate = dueDate.trim();
+    if (!trimmedDueDate) {
+      return undefined;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedDueDate)) {
+      return trimmedDueDate;
+    }
+
+    dueDate = trimmedDueDate;
+  }
+
+  const parsedDueDate = dueDate instanceof Date ? dueDate : new Date(dueDate);
+  if (Number.isNaN(parsedDueDate.getTime())) {
+    return undefined;
+  }
+
+  return parsedDueDate.toISOString().split("T")[0];
 }
 
 /**
@@ -58,6 +84,13 @@ export async function createTask(
   config: CreateTaskConfig
 ): Promise<string> {
   console.log(`Activity: Creating task "${config.title}" for workflow ${workflowExecutionId}`);
+  const dueDate = toTaskDueDate(config.dueDate);
+  if (config.dueDate !== undefined && dueDate === undefined) {
+    console.warn(
+      `Activity: Received invalid dueDate for task "${config.title}". Skipping due date assignment.`,
+      config.dueDate
+    );
+  }
 
   const [task] = await db
     .insert(tasks)
@@ -72,7 +105,7 @@ export async function createTask(
       taskType: config.taskType || "standard",
       status: "todo",
       priority: config.priority || "medium",
-      dueDate: config.dueDate ? config.dueDate.toISOString().split('T')[0] : undefined,
+      dueDate,
       createdByStepId: config.createdByStepId,
       metadata: normalizeTaskMetadata(config.metadata),
     })
@@ -237,7 +270,11 @@ export async function setWorkflowProgress(
   stepId: string,
   phaseId?: string
 ): Promise<void> {
-  console.log(`Activity: Updating workflow ${workflowExecutionId} progress - step: ${stepId}, phase: ${phaseId}`);
+  console.log(
+    `Activity: Updating workflow ${workflowExecutionId} progress - step: ${stepId}${
+      phaseId ? `, phase: ${phaseId}` : ""
+    }`
+  );
 
   await db
     .update(workflowExecutions)

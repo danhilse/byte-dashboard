@@ -33,6 +33,7 @@ vi.mock("@/lib/temporal/client", () => ({
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
 
 import { PATCH } from "@/app/api/tasks/[id]/reject/route";
+import { APPROVAL_SUBMITTED_SIGNAL_NAME } from "@/lib/workflows/signal-types";
 
 function selectQuery(result: unknown[]) {
   return {
@@ -120,5 +121,64 @@ describe("app/api/tasks/[id]/reject/route", () => {
         action: "status_changed",
       })
     );
+  });
+
+  it("signals temporal workflow when approval task is rejected", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "task_1",
+            taskType: "approval",
+            workflowExecutionId: "wf_exec_1",
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "wf_exec_1",
+            orgId: "org_1",
+            temporalWorkflowId: "generic-workflow-wf_exec_1",
+          },
+        ])
+      );
+    mocks.update.mockReturnValue({
+      set: updateQuery([
+        { id: "task_1", workflowExecutionId: "wf_exec_1", outcome: "rejected" },
+      ]).set,
+    });
+
+    const signal = vi.fn().mockResolvedValue(undefined);
+    const getHandle = vi.fn().mockReturnValue({ signal });
+    mocks.getTemporalClient.mockResolvedValue({
+      workflow: {
+        getHandle,
+      },
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ comment: "Not ready" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      taskId: "task_1",
+      outcome: "rejected",
+      comment: "Not ready",
+      workflowSignaled: true,
+      task: { id: "task_1", workflowExecutionId: "wf_exec_1", outcome: "rejected" },
+    });
+    expect(getHandle).toHaveBeenCalledWith("generic-workflow-wf_exec_1");
+    expect(signal).toHaveBeenCalledWith(APPROVAL_SUBMITTED_SIGNAL_NAME, {
+      outcome: "rejected",
+      comment: "Not ready",
+      approvedBy: "user_1",
+    });
   });
 });

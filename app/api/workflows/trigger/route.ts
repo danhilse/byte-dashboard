@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
 import type { DefinitionStatus } from "@/types";
+import { getTemporalTaskQueue } from "@/lib/temporal/task-queue";
 
 /**
  * POST /api/workflows/trigger
@@ -125,13 +126,16 @@ export async function POST(req: Request) {
       };
 
       const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;
+      const taskQueue = getTemporalTaskQueue();
       const handle = await client.workflow.start("genericWorkflow", {
-        taskQueue: "byte-dashboard",
+        taskQueue,
         args: [workflowInput],
         workflowId: temporalWorkflowId,
       });
 
-      console.log(`Started generic workflow: ${temporalWorkflowId}`);
+      console.log(
+        `Started generic workflow: ${temporalWorkflowId} (taskQueue: ${taskQueue})`
+      );
 
       await db
         .update(workflowExecutions)

@@ -48,7 +48,6 @@ import {
 import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
 import { getTaskLinks, toTaskLinkHref } from "@/lib/tasks/presentation"
-import { cn } from "@/lib/utils"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
 import type { Task, TaskStatus, TaskPriority } from "@/types"
 
@@ -130,15 +129,9 @@ export function TaskDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(
-          "sm:max-w-[550px]",
-          isApprovalTask &&
-            "border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15"
-        )}
-      >
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 pr-10">
             <div className="flex-1">
               {isEditing ? (
                 <Input
@@ -304,7 +297,7 @@ export function TaskDetailDialog({
           )}
 
           {isApprovalTask && (
-            <div className="grid gap-3 rounded-lg border border-amber-200/70 bg-gradient-to-br from-amber-50/70 via-background to-emerald-50/50 p-4 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15">
+            <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4">
               <Label className="text-xs uppercase font-semibold">Approval Decision</Label>
               {displayTask.outcome ? (
                 <div className="space-y-2">
