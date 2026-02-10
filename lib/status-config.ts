@@ -46,6 +46,10 @@ export function resolveWorkflowStatusDisplay(
   statusId: string,
   definitionStatuses?: DefinitionStatus[]
 ): { label: string; variant: BadgeVariant; color?: string } {
+  if (!statusId || statusId.trim().length === 0) {
+    return { label: "--", variant: "outline" }
+  }
+
   if (definitionStatuses?.length) {
     const defStatus = definitionStatuses.find((s) => s.id === statusId)
     if (defStatus) {

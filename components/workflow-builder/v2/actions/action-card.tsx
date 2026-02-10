@@ -14,6 +14,7 @@ import { UpdateStatusConfig } from "./action-config/update-status-config"
 import { UpdateTaskConfig } from "./action-config/update-task-config"
 import { CreateContactConfig } from "./action-config/create-contact-config"
 import { SetVariableConfig } from "./action-config/set-variable-config"
+import { NotificationConfig } from "./action-config/notification-config"
 
 interface ActionCardProps {
   action: WorkflowAction
@@ -71,6 +72,18 @@ export function ActionCard({
         const varName = variables.find((v) => v.id === action.config.variableId)?.name || "(variable)"
         const valueLabel = resolveDisplayValue(action.config.value, variables, "(not set)")
         return `${varName} = ${valueLabel}`
+      }
+      case "notification": {
+        const targetLabel =
+          action.config.recipients.type === "organization"
+            ? "All organization users"
+            : action.config.recipients.type === "role"
+              ? `Role: ${roleConfig[action.config.recipients.role as Role]?.label || action.config.recipients.role || "(none)"}`
+              : action.config.recipients.type === "group"
+                ? `${action.config.recipients.groupIds.length} group${action.config.recipients.groupIds.length === 1 ? "" : "s"}`
+                : `User: ${resolveDisplayValue(action.config.recipients.userId, variables, "(not set)")}`
+
+        return `${targetLabel}, Title: ${action.config.title || "(no title)"}`
       }
       default:
         return ""
@@ -136,6 +149,9 @@ export function ActionCard({
           )}
           {action.type === "set_variable" && (
             <SetVariableConfig action={action} variables={variables} onChange={onUpdate} onAddVariable={onAddVariable} />
+          )}
+          {action.type === "notification" && (
+            <NotificationConfig action={action} variables={variables} onChange={onUpdate} />
           )}
         </div>
       )}

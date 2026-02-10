@@ -71,7 +71,12 @@ interface BaseStep {
 export interface TriggerStep extends BaseStep {
   type: "trigger"
   config: {
-    triggerType: "manual" | "form_submission"
+    triggerType:
+      | "manual"
+      | "contact_created"
+      | "contact_field_changed"
+      | "form_submission"
+    watchedFields?: string[]
   }
 }
 

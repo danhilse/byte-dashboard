@@ -1,6 +1,6 @@
 "use client"
 
-import type { WorkflowTrigger, WorkflowStatus } from "../types/workflow-v2"
+import type { WorkflowTrigger } from "../types/workflow-v2"
 import { TriggerConfig } from "./trigger-config"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Zap } from "lucide-react"
@@ -8,13 +8,11 @@ import { Zap } from "lucide-react"
 interface TriggerConfigPanelProps {
   trigger: WorkflowTrigger
   onTriggerChange: (trigger: WorkflowTrigger) => void
-  statuses: WorkflowStatus[]
 }
 
 export function TriggerConfigPanel({
   trigger,
   onTriggerChange,
-  statuses,
 }: TriggerConfigPanelProps) {
   return (
     <ScrollArea className="h-full">
@@ -33,7 +31,7 @@ export function TriggerConfigPanel({
         </div>
 
         {/* Trigger Config */}
-        <TriggerConfig trigger={trigger} onChange={onTriggerChange} statuses={statuses} />
+        <TriggerConfig trigger={trigger} onChange={onTriggerChange} />
 
         {/* Info Box */}
         <div className="rounded-lg border bg-muted/50 p-4">
@@ -43,7 +41,10 @@ export function TriggerConfigPanel({
               • <strong>Manual:</strong> Start workflow by selecting a contact
             </li>
             <li>
-              • <strong>Contact Status:</strong> Auto-start when contact reaches a status
+              • <strong>Contact Created:</strong> Auto-start when a new contact is added
+            </li>
+            <li>
+              • <strong>Contact Field Changed:</strong> Auto-start when watched fields change
             </li>
             <li>
               • <strong>Form Submission:</strong> Start when external form is submitted

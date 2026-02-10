@@ -34,7 +34,8 @@ function detectFromTrigger(trigger: WorkflowTrigger): WorkflowVariable[] {
 
   switch (trigger.type) {
     case "manual":
-    case "contact_status":
+    case "contact_created":
+    case "contact_field_changed":
     case "api":
       // These triggers provide a contact
       variables.push({

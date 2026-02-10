@@ -1,8 +1,9 @@
 "use client"
 
-import type { WorkflowTrigger, TriggerType, WorkflowStatus } from "../types/workflow-v2"
+import type { WorkflowTrigger, TriggerType } from "../types/workflow-v2"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -10,28 +11,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Play, UserCheck, Webhook, Code } from "lucide-react"
-import { useMemo } from "react"
+import { Play, UserCheck, UserPlus, Webhook, Code } from "lucide-react"
 
 interface TriggerConfigProps {
   trigger: WorkflowTrigger
   onChange: (trigger: WorkflowTrigger) => void
-  statuses: WorkflowStatus[]
 }
 
-export function TriggerConfig({ trigger, onChange, statuses }: TriggerConfigProps) {
-  // Sort statuses by order
-  const sortedStatuses = useMemo(
-    () => [...statuses].sort((a, b) => a.order - b.order),
-    [statuses]
-  )
+const CONTACT_FIELD_OPTIONS = [
+  { value: "firstName", label: "First Name" },
+  { value: "lastName", label: "Last Name" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "company", label: "Company" },
+  { value: "role", label: "Role" },
+  { value: "status", label: "Status" },
+  { value: "tags", label: "Tags" },
+]
+
+export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
   const handleTypeChange = (type: TriggerType) => {
     switch (type) {
       case "manual":
         onChange({ type: "manual" })
         break
-      case "contact_status":
-        onChange({ type: "contact_status", statusValue: "" })
+      case "contact_created":
+        onChange({ type: "contact_created" })
+        break
+      case "contact_field_changed":
+        onChange({ type: "contact_field_changed", watchedFields: [] })
         break
       case "form_submission":
         onChange({ type: "form_submission", formId: "" })
@@ -40,6 +48,21 @@ export function TriggerConfig({ trigger, onChange, statuses }: TriggerConfigProp
         onChange({ type: "api" })
         break
     }
+  }
+
+  const toggleWatchedField = (field: string, checked: boolean) => {
+    if (trigger.type !== "contact_field_changed") {
+      return
+    }
+
+    const nextFields = checked
+      ? [...new Set([...trigger.watchedFields, field])]
+      : trigger.watchedFields.filter((item) => item !== field)
+
+    onChange({
+      type: "contact_field_changed",
+      watchedFields: nextFields,
+    })
   }
 
   return (
@@ -57,10 +80,16 @@ export function TriggerConfig({ trigger, onChange, statuses }: TriggerConfigProp
                 Manual Start
               </div>
             </SelectItem>
-            <SelectItem value="contact_status">
+            <SelectItem value="contact_created">
+              <div className="flex items-center gap-2">
+                <UserPlus className="size-4" />
+                When Contact Is Created
+              </div>
+            </SelectItem>
+            <SelectItem value="contact_field_changed">
               <div className="flex items-center gap-2">
                 <UserCheck className="size-4" />
-                When Contact Status Changes
+                When Contact Fields Change
               </div>
             </SelectItem>
             <SelectItem value="form_submission" disabled>
@@ -86,36 +115,32 @@ export function TriggerConfig({ trigger, onChange, statuses }: TriggerConfigProp
         </div>
       )}
 
-      {trigger.type === "contact_status" && (
+      {trigger.type === "contact_created" && (
+        <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+          <p>Workflow starts automatically when a new contact is created.</p>
+        </div>
+      )}
+
+      {trigger.type === "contact_field_changed" && (
         <div className="space-y-2">
-          <Label htmlFor="status-value">Status Value</Label>
-          <Select
-            value={trigger.statusValue}
-            onValueChange={(value) =>
-              onChange({ type: "contact_status", statusValue: value })
-            }
-          >
-            <SelectTrigger id="status-value">
-              <SelectValue placeholder="Select status..." />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedStatuses.map((status) => (
-                <SelectItem key={status.id} value={status.id}>
-                  <div className="flex items-center gap-2">
-                    {status.color && (
-                      <span
-                        className="inline-block size-2 rounded-full"
-                        style={{ backgroundColor: status.color }}
-                      />
-                    )}
-                    {status.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Fields to Watch</Label>
+          <div className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
+            {CONTACT_FIELD_OPTIONS.map((field) => (
+              <label key={field.value} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={trigger.watchedFields.includes(field.value)}
+                  onCheckedChange={(checked) =>
+                    toggleWatchedField(field.value, Boolean(checked))
+                  }
+                />
+                <span>{field.label}</span>
+              </label>
+            ))}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Workflow starts when contact reaches this status
+            {trigger.watchedFields.length === 0
+              ? "No fields selected: workflow will trigger on any contact field change."
+              : "Workflow will trigger when any selected field changes."}
           </p>
         </div>
       )}

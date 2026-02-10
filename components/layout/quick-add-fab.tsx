@@ -118,7 +118,7 @@ export function QuickAddFab() {
   )
 
   const handleCreateWorkflow = useCallback(
-    async (data: { contactId: string; workflowDefinitionId?: string; status: string }) => {
+    async (data: { contactId: string; workflowDefinitionId?: string; status?: string }) => {
       try {
         const startsImmediately = Boolean(data.workflowDefinitionId)
         const endpoint = startsImmediately ? "/api/workflows/trigger" : "/api/workflows"
@@ -225,7 +225,11 @@ export function QuickAddFab() {
                 "will-change-transform transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                 expanded ? "translate-y-0 scale-100 opacity-100" : "translate-y-14 scale-95 opacity-0"
               )}
-              style={{ transitionDelay: expanded ? `${80 + index * 65}ms` : "0ms" }}
+              style={{
+                transitionDelay: expanded
+                  ? `${80 + (quickAddOptions.length - 1 - index) * 65}ms`
+                  : `${index * 45}ms`,
+              }}
             >
               <Button
                 type="button"
@@ -247,7 +251,8 @@ export function QuickAddFab() {
         <Button
           type="button"
           className={cn(
-            "h-12 overflow-hidden rounded-full bg-primary text-primary-foreground shadow-xl cursor-pointer transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-2xl hover:bg-primary/90",
+            "h-12 overflow-hidden rounded-full bg-primary text-primary-foreground shadow-xl cursor-pointer transition-all ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-2xl hover:bg-primary/90",
+            expanded ? "delay-0 duration-400" : "delay-[220ms] duration-300",
             expanded ? `${quickAddWidthClass} justify-between px-4` : "w-12 justify-center px-0"
           )}
           onMouseEnter={() => setExpanded(true)}

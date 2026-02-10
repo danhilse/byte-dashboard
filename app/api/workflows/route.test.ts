@@ -142,7 +142,7 @@ describe("app/api/workflows/route", () => {
         contactId: "contact_1",
         workflowDefinitionId: "def_1",
         definitionVersion: 3,
-        status: "draft",
+        status: "",
       },
     ]);
     mocks.insert.mockReturnValue({ values: q.values });
@@ -164,7 +164,7 @@ describe("app/api/workflows/route", () => {
         contactId: "contact_1",
         workflowDefinitionId: "def_1",
         definitionVersion: 3,
-        status: "draft",
+        status: "",
         workflowExecutionState: "running",
         contactName: "Ada Lovelace",
         contactAvatarUrl: "https://img",

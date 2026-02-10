@@ -189,7 +189,6 @@ export function WorkflowBuilderV2({
             <TriggerConfigPanel
               trigger={session.builder.workflow.trigger}
               onTriggerChange={handleTriggerChange}
-              statuses={session.builder.workflow.statuses}
             />
           ) : (
             <StepConfigPanelV2

@@ -4,6 +4,64 @@ import { db } from "@/lib/db";
 import { contacts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+import { triggerWorkflowDefinitionsForContactUpdated } from "@/lib/workflow-triggers";
+
+const TRACKED_CONTACT_FIELDS = [
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "company",
+  "role",
+  "status",
+  "avatarUrl",
+  "lastContactedAt",
+  "addressLine1",
+  "addressLine2",
+  "city",
+  "state",
+  "zip",
+  "tags",
+  "metadata",
+] as const;
+
+function normalizeComparableValue(value: unknown): unknown {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return value;
+}
+
+function areEquivalentValues(left: unknown, right: unknown): boolean {
+  const normalizedLeft = normalizeComparableValue(left);
+  const normalizedRight = normalizeComparableValue(right);
+
+  if (
+    normalizedLeft !== null &&
+    normalizedRight !== null &&
+    typeof normalizedLeft === "object" &&
+    typeof normalizedRight === "object"
+  ) {
+    return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+  }
+
+  return normalizedLeft === normalizedRight;
+}
+
+function detectChangedContactFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): string[] {
+  const changedFields: string[] = [];
+
+  for (const field of TRACKED_CONTACT_FIELDS) {
+    if (!areEquivalentValues(before[field], after[field])) {
+      changedFields.push(field);
+    }
+  }
+
+  return changedFields;
+}
 
 /**
  * GET /api/contacts/:id
@@ -59,6 +117,15 @@ export async function PATCH(
 
     if (!userId || !orgId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const [existingContact] = await db
+      .select()
+      .from(contacts)
+      .where(and(eq(contacts.id, id), eq(contacts.orgId, orgId)));
+
+    if (!existingContact) {
+      return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
     const body = await req.json();
@@ -120,6 +187,25 @@ export async function PATCH(
       entityId: id,
       action: "updated",
     });
+
+    const changedFields = detectChangedContactFields(
+      existingContact as Record<string, unknown>,
+      contact as Record<string, unknown>
+    );
+
+    if (changedFields.length > 0) {
+      try {
+        await triggerWorkflowDefinitionsForContactUpdated({
+          orgId,
+          userId,
+          contact,
+          changedFields,
+        });
+      } catch (triggerError) {
+        // Auto-triggering should not fail contact updates.
+        console.error("Failed to run contact_field_changed workflow triggers:", triggerError);
+      }
+    }
 
     return NextResponse.json({ contact });
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import type { WorkflowTrigger } from "../types/workflow-v2"
 import { Badge } from "@/components/ui/badge"
-import { Play, UserCheck, Webhook, Code } from "lucide-react"
+import { Play, UserCheck, UserPlus, Webhook, Code } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TriggerCardProps {
@@ -20,11 +20,20 @@ export function TriggerCard({ trigger, isSelected, onSelect }: TriggerCardProps)
           label: "Manual Start",
           description: "User initiates workflow for a contact",
         }
-      case "contact_status":
+      case "contact_created":
+        return {
+          icon: UserPlus,
+          label: "Contact Created",
+          description: "Automatically starts when a new contact is created",
+        }
+      case "contact_field_changed":
         return {
           icon: UserCheck,
-          label: "Contact Status Change",
-          description: `When contact reaches: ${trigger.statusValue || "(not set)"}`,
+          label: "Contact Field Changed",
+          description:
+            trigger.watchedFields.length > 0
+              ? `Watching: ${trigger.watchedFields.join(", ")}`
+              : "Watching: any contact field",
         }
       case "form_submission":
         return {

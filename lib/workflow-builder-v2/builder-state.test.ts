@@ -93,12 +93,12 @@ describe("lib/workflow-builder-v2/builder-state", () => {
 
     const next = builderStateReducer(state, {
       type: "trigger_changed",
-      trigger: { type: "contact_status", statusValue: "in_review" },
+      trigger: { type: "contact_field_changed", watchedFields: ["email"] },
     })
 
     expect(next.workflow.trigger).toEqual({
-      type: "contact_status",
-      statusValue: "in_review",
+      type: "contact_field_changed",
+      watchedFields: ["email"],
     })
   })
 

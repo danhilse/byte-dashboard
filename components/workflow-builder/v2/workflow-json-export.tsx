@@ -19,6 +19,7 @@ export function WorkflowJsonExport({
   onClearCommands,
 }: WorkflowJsonExportProps) {
   const [copied, setCopied] = useState(false)
+  const commandCount = commands?.length ?? 0
 
   const exportPayload = commands
     ? {
@@ -48,17 +49,24 @@ export function WorkflowJsonExport({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/40">
-      <div className="flex items-center justify-between border-b px-4 py-2">
-        <div>
+      <div className="flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold">JSON Export</h3>
           <p className="text-xs text-muted-foreground">
-            Debug panel showing workflow definition{commands ? ` + ${commands.length} definition command(s)` : ""}
+            Debug panel showing workflow definition
+            {commands ? ` + ${commandCount} definition command(s)` : ""}
           </p>
+          {commands && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              The command log is diagnostic only. Clearing it does not modify
+              the workflow definition.
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onClearCommands && commands && commands.length > 0 && (
             <Button variant="outline" size="sm" onClick={onClearCommands}>
-              Clear Commands
+              Clear Command Log
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handleCopy}>

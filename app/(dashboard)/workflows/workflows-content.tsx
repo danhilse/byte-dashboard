@@ -23,8 +23,7 @@ import { WorkflowCreateDialog } from "@/components/workflows/workflow-create-dia
 import { WorkflowDetailDialog } from "@/components/workflows/workflow-detail-dialog"
 import { WorkflowDeleteDialog } from "@/components/workflows/workflow-delete-dialog"
 import {
-  workflowStatusOptions,
-  definitionStatusOptions,
+  workflowExecutionStateOptions,
   resolveWorkflowStatusDisplay,
 } from "@/lib/status-config"
 import { useToast } from "@/hooks/use-toast"
@@ -62,7 +61,7 @@ export function WorkflowsContent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [definitionFilter, setDefinitionFilter] = useState<string>("all")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [stateFilter, setStateFilter] = useState<string>("all")
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowExecution | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [deletingWorkflow, setDeletingWorkflow] = useState<WorkflowExecution | null>(null)
@@ -74,19 +73,6 @@ export function WorkflowsContent() {
     [definitionFilter, definitions]
   )
   const activeDefinitionStatuses = selectedDefinition?.statuses
-
-  // Build status filter options based on selected definition
-  const activeStatusOptions = useMemo(() => {
-    if (activeDefinitionStatuses?.length) {
-      return definitionStatusOptions(activeDefinitionStatuses)
-    }
-    return workflowStatusOptions
-  }, [activeDefinitionStatuses])
-
-  // Reset status filter when definition changes (selected status may not exist in new definition)
-  useEffect(() => {
-    setStatusFilter("all")
-  }, [definitionFilter])
 
   const filteredWorkflows = useMemo(() => {
     let result = workflows
@@ -105,13 +91,15 @@ export function WorkflowsContent() {
       )
     }
 
-    // Apply status filter
-    if (statusFilter !== "all") {
-      result = result.filter((workflow) => workflow.status === statusFilter)
+    // Apply execution state filter
+    if (stateFilter !== "all") {
+      result = result.filter(
+        (workflow) => workflow.workflowExecutionState === stateFilter
+      )
     }
 
     return result
-  }, [workflows, definitionFilter, searchQuery, statusFilter])
+  }, [workflows, definitionFilter, searchQuery, stateFilter])
 
 
   useEffect(() => {
@@ -150,7 +138,7 @@ export function WorkflowsContent() {
   const handleCreateWorkflow = async (data: {
     contactId: string
     workflowDefinitionId?: string
-    status: string
+    status?: string
   }) => {
     try {
       const startsImmediately = Boolean(data.workflowDefinitionId)
@@ -381,13 +369,13 @@ export function WorkflowsContent() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 w-[200px] lg:w-[300px]"
           />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={stateFilter} onValueChange={setStateFilter}>
             <SelectTrigger className="h-9 w-[130px]">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="State" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {activeStatusOptions.map((option) => (
+              <SelectItem value="all">All States</SelectItem>
+              {workflowExecutionStateOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

@@ -5,6 +5,7 @@
 import type { ActionType, WorkflowAction } from "./types"
 import {
   Mail,
+  Bell,
   CheckSquare,
   User,
   Flag,
@@ -37,6 +38,22 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
         to: "{{contact.email}}",
         subject: "",
         body: "",
+      },
+    },
+  },
+  notification: {
+    type: "notification",
+    label: "Notification",
+    icon: Bell,
+    description: "Send an in-app notification to users",
+    category: "communication",
+    defaultConfig: {
+      type: "notification",
+      id: "",
+      config: {
+        recipients: { type: "organization" },
+        title: "",
+        message: "",
       },
     },
   },

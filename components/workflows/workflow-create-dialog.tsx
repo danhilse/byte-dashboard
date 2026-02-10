@@ -36,7 +36,7 @@ interface WorkflowCreateDialogProps {
   onCreateWorkflow?: (data: {
     contactId: string
     workflowDefinitionId?: string
-    status: string
+    status?: string
   }) => void
   trigger?: React.ReactNode
   open?: boolean
@@ -53,7 +53,7 @@ export function WorkflowCreateDialog({
   const [internalOpen, setInternalOpen] = useState(false)
   const [contactId, setContactId] = useState("")
   const [workflowDefinitionId, setWorkflowDefinitionId] = useState("")
-  const [manualStatus, setManualStatus] = useState<string>("draft")
+  const [manualStatus, setManualStatus] = useState<string>("")
 
   const [contacts, setContacts] = useState<ContactOption[]>([])
   const [definitions, setDefinitions] = useState<DefinitionOption[]>([])
@@ -75,20 +75,23 @@ export function WorkflowCreateDialog({
 
   const manualStatusOptions = useMemo(
     () =>
-      Object.entries(fallbackWorkflowStatusConfig).map(([value, config]) => ({
-        value,
-        label: config.label,
-        color: undefined as string | undefined,
-      })),
+      [
+        { value: "__unset__", label: "--" },
+        ...Object.entries(fallbackWorkflowStatusConfig).map(([value, config]) => ({
+          value,
+          label: config.label,
+          color: undefined as string | undefined,
+        })),
+      ],
     []
   )
 
   const effectiveStatus = useMemo(() => {
     if (startsImmediately) {
-      return definitionStatusOptions[0]?.value ?? "running"
+      return ""
     }
     return manualStatus
-  }, [startsImmediately, definitionStatusOptions, manualStatus])
+  }, [startsImmediately, manualStatus])
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (open === undefined) {
@@ -121,14 +124,14 @@ export function WorkflowCreateDialog({
   const resetForm = () => {
     setContactId("")
     setWorkflowDefinitionId("")
-    setManualStatus("draft")
+    setManualStatus("")
   }
 
   const handleSubmit = () => {
     onCreateWorkflow?.({
       contactId,
       workflowDefinitionId: workflowDefinitionId || undefined,
-      status: effectiveStatus,
+      status: effectiveStatus || undefined,
     })
     resetForm()
     handleOpenChange(false)
@@ -237,17 +240,22 @@ export function WorkflowCreateDialog({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              This definition has no configured statuses; the run will initialize as running.
+              This definition has no configured statuses.
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            Status values for this run come from the selected workflow definition.
+            This run starts with no status (`--`) until an action or user update sets one.
           </p>
         </div>
       ) : (
         <div className="grid gap-2">
-          <Label htmlFor="status">Initial Status</Label>
-          <Select value={effectiveStatus} onValueChange={setManualStatus}>
+          <Label htmlFor="status">Initial Status (Optional)</Label>
+          <Select
+            value={effectiveStatus || "__unset__"}
+            onValueChange={(value) =>
+              setManualStatus(value === "__unset__" ? "" : value)
+            }
+          >
             <SelectTrigger id="status" className="w-full">
               <SelectValue />
             </SelectTrigger>

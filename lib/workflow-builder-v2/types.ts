@@ -4,7 +4,8 @@ export type WorkflowStatus = DefinitionStatus
 
 export type WorkflowTrigger =
   | { type: "manual" }
-  | { type: "contact_status"; statusValue: string }
+  | { type: "contact_created" }
+  | { type: "contact_field_changed"; watchedFields: string[] }
   | { type: "form_submission"; formId: string }
   | { type: "api" }
 
@@ -17,6 +18,19 @@ export type WorkflowAction =
         subject: string
         body: string
         from?: string
+      }
+    }
+  | {
+      type: "notification"
+      id: string
+      config: {
+        recipients:
+          | { type: "user"; userId: string }
+          | { type: "group"; groupIds: string[] }
+          | { type: "role"; role: string }
+          | { type: "organization" }
+        title: string
+        message: string
       }
     }
   | {

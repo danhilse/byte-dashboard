@@ -7,7 +7,6 @@ import { logActivity } from "@/lib/db/log-activity";
 import {
   getAllowedWorkflowStatuses,
   isAllowedWorkflowStatus,
-  resolveInitialWorkflowStatus,
 } from "@/lib/workflow-status";
 import type { DefinitionStatus } from "@/types";
 
@@ -171,12 +170,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const initialStatus =
-      status ??
-      resolveInitialWorkflowStatus(
-        definitionStatuses,
-        workflowDefinitionId ? "running" : "draft"
-      );
+    const initialStatus = status ?? "";
 
     const [workflow] = await db
       .insert(workflowExecutions)

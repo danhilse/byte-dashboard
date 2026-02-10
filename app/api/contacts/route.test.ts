@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
   logActivity: vi.fn(),
+  triggerWorkflowDefinitionsForContactCreated: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -22,6 +23,10 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/db/log-activity", () => ({
   logActivity: mocks.logActivity,
+}));
+vi.mock("@/lib/workflow-triggers", () => ({
+  triggerWorkflowDefinitionsForContactCreated:
+    mocks.triggerWorkflowDefinitionsForContactCreated,
 }));
 
 import { GET, POST } from "@/app/api/contacts/route";
@@ -45,6 +50,10 @@ describe("app/api/contacts/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.triggerWorkflowDefinitionsForContactCreated.mockResolvedValue({
+      started: [],
+      failed: [],
+    });
   });
 
   it("returns 401 for unauthenticated GET requests", async () => {
@@ -130,6 +139,13 @@ describe("app/api/contacts/route", () => {
         entityType: "contact",
         entityId: "contact_1",
         action: "created",
+      })
+    );
+    expect(mocks.triggerWorkflowDefinitionsForContactCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org_1",
+        userId: "user_1",
+        contact: expect.objectContaining({ id: "contact_1" }),
       })
     );
   });

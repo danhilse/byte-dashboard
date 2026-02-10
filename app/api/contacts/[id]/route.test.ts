@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   delete: vi.fn(),
   logActivity: vi.fn(),
+  triggerWorkflowDefinitionsForContactUpdated: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -19,6 +20,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
+vi.mock("@/lib/workflow-triggers", () => ({
+  triggerWorkflowDefinitionsForContactUpdated:
+    mocks.triggerWorkflowDefinitionsForContactUpdated,
+}));
 
 import { DELETE, GET, PATCH } from "@/app/api/contacts/[id]/route";
 
@@ -46,6 +51,10 @@ describe("app/api/contacts/[id]/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.triggerWorkflowDefinitionsForContactUpdated.mockResolvedValue({
+      started: [],
+      failed: [],
+    });
   });
 
   it("GET returns 401 when unauthenticated", async () => {
@@ -73,6 +82,9 @@ describe("app/api/contacts/[id]/route", () => {
 
   it("PATCH updates contact and logs activity", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select.mockReturnValue(
+      selectQuery([{ id: "contact_1", firstName: "Old", status: "lead" }])
+    );
     const q = updateQuery([{ id: "contact_1", firstName: "Ada", status: "active" }]);
     mocks.update.mockReturnValue({ set: q.set });
 
@@ -98,6 +110,13 @@ describe("app/api/contacts/[id]/route", () => {
         entityType: "contact",
         entityId: "contact_1",
         action: "updated",
+      })
+    );
+    expect(mocks.triggerWorkflowDefinitionsForContactUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org_1",
+        userId: "user_1",
+        contact: expect.objectContaining({ id: "contact_1" }),
       })
     );
   });

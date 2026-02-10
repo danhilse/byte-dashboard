@@ -203,6 +203,34 @@ describe("definition-runtime-adapter", () => {
     expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
   })
 
+  it("accepts notification actions as authoring-only steps", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "step_a",
+          name: "Notify Team",
+          actions: [
+            {
+              type: "notification",
+              id: "notify_1",
+              config: {
+                recipients: { type: "role", role: "manager" },
+                title: "Application ready",
+                message: "A candidate is ready for review.",
+              },
+            },
+          ],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    const runtimeSteps = compileAuthoringToRuntime(workflow)
+
+    expect(runtimeSteps.map((step) => step.type)).toEqual(["trigger", "trigger", "trigger"])
+    expect(runtimeSteps[1]?.label).toBe("Notify Team: Anchor")
+  })
+
   it("throws compile errors when statuses are missing", () => {
     const workflow = buildWorkflow({
       statuses: [],
@@ -530,12 +558,40 @@ describe("definition-runtime-adapter", () => {
     const authoring = fromDefinitionToAuthoring(definition)
 
     expect(authoring.trigger).toEqual({
-      type: "contact_status",
-      statusValue: "active",
+      type: "contact_field_changed",
+      watchedFields: ["status"],
     })
     expect(authoring.contactRequired).toBe(false)
     expect(authoring.steps).toHaveLength(1)
     expect(authoring.steps[0].id).toBe("step_1")
+  })
+
+  it("emits trigger metadata for contact field changed triggers", () => {
+    const workflow = buildWorkflow({
+      trigger: {
+        type: "contact_field_changed",
+        watchedFields: ["email", "phone"],
+      },
+      steps: [
+        {
+          id: "step_a",
+          name: "Noop",
+          actions: [],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    const runtimeSteps = compileAuthoringToRuntime(workflow)
+    const triggerStep = runtimeSteps[0]
+
+    expect(triggerStep.type).toBe("trigger")
+    if (triggerStep.type === "trigger") {
+      expect(triggerStep.config).toEqual({
+        triggerType: "contact_field_changed",
+        watchedFields: ["email", "phone"],
+      })
+    }
   })
 
   it("maps authoring phases to persisted definition phases", () => {

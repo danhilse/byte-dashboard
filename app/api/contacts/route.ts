@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { contacts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+import { triggerWorkflowDefinitionsForContactCreated } from "@/lib/workflow-triggers";
 
 /**
  * GET /api/contacts
@@ -108,6 +109,17 @@ export async function POST(req: Request) {
       action: "created",
       details: { firstName, lastName, email },
     });
+
+    try {
+      await triggerWorkflowDefinitionsForContactCreated({
+        orgId,
+        userId,
+        contact,
+      });
+    } catch (triggerError) {
+      // Auto-triggering should not fail contact creation.
+      console.error("Failed to run contact_created workflow triggers:", triggerError);
+    }
 
     return NextResponse.json({ contact });
   } catch (error) {

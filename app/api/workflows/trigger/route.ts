@@ -6,7 +6,6 @@ import { workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/sche
 import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
-import { resolveInitialWorkflowStatus } from "@/lib/workflow-status";
 import type { DefinitionStatus } from "@/types";
 
 /**
@@ -84,10 +83,7 @@ export async function POST(req: Request) {
     const definitionStatuses =
       (workflowDefinition.statuses as DefinitionStatus[] | null) ?? [];
 
-    const initialStatus = resolveInitialWorkflowStatus(
-      definitionStatuses,
-      "running"
-    );
+    const initialStatus = "";
 
     // Create workflow execution record in DB
     const [workflowExecution] = await db

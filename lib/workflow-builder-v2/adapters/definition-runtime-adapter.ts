@@ -21,12 +21,14 @@ const DEFAULT_WAIT_TIMEOUT_DAYS = 7
 
 type SupportedActionType =
   | "send_email"
+  | "notification"
   | "create_task"
   | "update_contact"
   | "update_status"
 
 const SUPPORTED_ACTION_TYPES = new Set<SupportedActionType>([
   "send_email",
+  "notification",
   "create_task",
   "update_contact",
   "update_status",
@@ -216,11 +218,28 @@ function normalizeTrigger(trigger: unknown): WorkflowTrigger {
   switch (trigger.type) {
     case "manual":
       return { type: "manual" }
-    case "contact_status":
+    case "contact_created":
+      return { type: "contact_created" }
+    case "contact_field_changed": {
+      const watchedFields = Array.isArray(trigger.watchedFields)
+        ? [...new Set(
+            trigger.watchedFields.filter(
+              (field): field is string =>
+                typeof field === "string" && field.trim().length > 0
+            )
+          )]
+        : []
+
       return {
-        type: "contact_status",
-        statusValue:
-          typeof trigger.statusValue === "string" ? trigger.statusValue : "",
+        type: "contact_field_changed",
+        watchedFields,
+      }
+    }
+    case "contact_status":
+      // Backward compatibility for older persisted authoring payloads.
+      return {
+        type: "contact_field_changed",
+        watchedFields: ["status"],
       }
     case "form_submission":
       return {
@@ -420,6 +439,8 @@ export function validateAuthoring(
             action.config.from ?? ""
           )
           break
+        case "notification":
+          break
         case "create_task":
           variableSensitiveValues.push(
             action.config.title,
@@ -601,12 +622,24 @@ function createRuntimeStepId(
 }
 
 function createTriggerStep(trigger: WorkflowTrigger, usedIds: Set<string>): WorkflowStep {
+  const triggerType: WorkflowStep["config"]["triggerType"] =
+    trigger.type === "form_submission"
+      ? "form_submission"
+      : trigger.type === "contact_created"
+        ? "contact_created"
+        : trigger.type === "contact_field_changed"
+          ? "contact_field_changed"
+          : "manual"
+
   return {
     id: createRuntimeStepId("trigger_start", usedIds),
     type: "trigger",
     label: "Trigger",
     config: {
-      triggerType: trigger.type === "form_submission" ? "form_submission" : "manual",
+      triggerType,
+      ...(trigger.type === "contact_field_changed"
+        ? { watchedFields: trigger.watchedFields }
+        : {}),
     },
   }
 }
@@ -621,6 +654,12 @@ function compileStandardStep(
 
   for (let actionIndex = 0; actionIndex < step.actions.length; actionIndex++) {
     const action = step.actions[actionIndex]
+
+    if (action.type === "notification") {
+      // Authoring-only action for now; runtime support will be added later.
+      continue
+    }
+
     const actionStepId = createRuntimeStepId(
       action.id || `${step.id}__action_${actionIndex + 1}`,
       usedIds
