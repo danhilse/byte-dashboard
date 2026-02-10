@@ -34,7 +34,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { createCustomVariableId } from "@/lib/workflow-builder-v2/id-utils"
+import type { BuilderCommand } from "@/lib/workflow-builder-v2/builder-command-serializer"
 import type { WorkflowDefinitionV2, WorkflowVariable, WorkflowStatus, VariableDataType } from "../types/workflow-v2"
+import { WorkflowJsonExport } from "./workflow-json-export"
 
 // Predefined color palette for statuses
 const STATUS_COLORS = [
@@ -62,6 +64,8 @@ const STATUS_COLORS = [
 
 interface WorkflowConfigDialogProps {
   workflow: WorkflowDefinitionV2
+  commands?: BuilderCommand[]
+  onClearCommands?: () => void
   onChange: (workflow: WorkflowDefinitionV2) => void
 }
 
@@ -135,7 +139,12 @@ function SortableStatusItem({ status, onEdit, onDelete }: SortableStatusItemProp
   )
 }
 
-export function WorkflowConfigDialog({ workflow, onChange }: WorkflowConfigDialogProps) {
+export function WorkflowConfigDialog({
+  workflow,
+  commands,
+  onClearCommands,
+  onChange,
+}: WorkflowConfigDialogProps) {
   const [open, setOpen] = useState(false)
 
   // General tab state
@@ -344,8 +353,8 @@ export function WorkflowConfigDialog({ workflow, onChange }: WorkflowConfigDialo
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="general" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="general" className="flex flex-1 flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="variables">
               Variables {customVariables.length > 0 && `(${customVariables.length})`}
@@ -353,6 +362,7 @@ export function WorkflowConfigDialog({ workflow, onChange }: WorkflowConfigDialo
             <TabsTrigger value="statuses">
               Statuses {workflow.statuses.length > 0 && `(${workflow.statuses.length})`}
             </TabsTrigger>
+            <TabsTrigger value="export">Export</TabsTrigger>
           </TabsList>
 
           {/* General Tab */}
@@ -583,6 +593,18 @@ export function WorkflowConfigDialog({ workflow, onChange }: WorkflowConfigDialo
                 </DndContext>
               )}
             </div>
+          </TabsContent>
+
+          {/* Export Tab */}
+          <TabsContent
+            value="export"
+            className="mt-4 flex-1 min-h-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+          >
+            <WorkflowJsonExport
+              workflow={workflow}
+              commands={commands}
+              onClearCommands={onClearCommands}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>

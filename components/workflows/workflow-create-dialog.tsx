@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Plus, Loader2 } from "lucide-react"
 
 import { FormDialog } from "@/components/common/form-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -38,10 +39,18 @@ interface WorkflowCreateDialogProps {
     status: string
   }) => void
   trigger?: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCreateDialogProps) {
-  const [open, setOpen] = useState(false)
+export function WorkflowCreateDialog({
+  onCreateWorkflow,
+  trigger,
+  open,
+  onOpenChange,
+}: WorkflowCreateDialogProps) {
+  const MANUAL_EXECUTION_OPTION = "__manual_execution__"
+  const [internalOpen, setInternalOpen] = useState(false)
   const [contactId, setContactId] = useState("")
   const [workflowDefinitionId, setWorkflowDefinitionId] = useState("")
   const [manualStatus, setManualStatus] = useState<string>("draft")
@@ -51,32 +60,42 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   const [loadingContacts, setLoadingContacts] = useState(false)
   const [loadingDefinitions, setLoadingDefinitions] = useState(false)
   const startsImmediately = Boolean(workflowDefinitionId)
+  const dialogOpen = open ?? internalOpen
 
   // Derive status options from selected definition
   const selectedDefinition = definitions.find((d) => d.id === workflowDefinitionId)
-  const statusOptions = useMemo(() => {
+  const definitionStatusOptions = useMemo(() => {
     if (selectedDefinition?.statuses?.length) {
       return [...selectedDefinition.statuses]
         .sort((a, b) => a.order - b.order)
         .map((s) => ({ value: s.id, label: s.label, color: s.color }))
     }
-    return Object.entries(fallbackWorkflowStatusConfig).map(([value, config]) => ({
-      value,
-      label: config.label,
-      color: undefined as string | undefined,
-    }))
+    return []
   }, [selectedDefinition])
 
+  const manualStatusOptions = useMemo(
+    () =>
+      Object.entries(fallbackWorkflowStatusConfig).map(([value, config]) => ({
+        value,
+        label: config.label,
+        color: undefined as string | undefined,
+      })),
+    []
+  )
+
   const effectiveStatus = useMemo(() => {
-    if (selectedDefinition?.statuses?.length) {
-      const sorted = [...selectedDefinition.statuses].sort((a, b) => a.order - b.order)
-      return sorted[0]?.id ?? manualStatus
+    if (startsImmediately) {
+      return definitionStatusOptions[0]?.value ?? "running"
     }
     return manualStatus
-  }, [selectedDefinition, manualStatus])
+  }, [startsImmediately, definitionStatusOptions, manualStatus])
 
   const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen)
+    if (open === undefined) {
+      setInternalOpen(nextOpen)
+    }
+    onOpenChange?.(nextOpen)
+
     if (nextOpen) {
       setLoadingContacts(true)
       setLoadingDefinitions(true)
@@ -84,7 +103,7 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
   }
 
   useEffect(() => {
-    if (!open) return
+    if (!dialogOpen) return
 
     fetch("/api/contacts")
       .then((res) => res.json())
@@ -97,7 +116,7 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
       .then((data) => setDefinitions(data.definitions || []))
       .catch(console.error)
       .finally(() => setLoadingDefinitions(false))
-  }, [open])
+  }, [dialogOpen])
 
   const resetForm = () => {
     setContactId("")
@@ -112,22 +131,22 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
       status: effectiveStatus,
     })
     resetForm()
-    setOpen(false)
+    handleOpenChange(false)
   }
 
   const defaultTrigger = (
     <Button>
       <Plus className="mr-2 size-4" />
-      New Workflow
+      Run Workflow
     </Button>
   )
 
   return (
     <FormDialog
-      title="Create New Workflow"
-      description="Start a new workflow execution for a contact."
-      trigger={trigger ?? defaultTrigger}
-      open={open}
+      title="Run Workflow"
+      description="Start a workflow execution for a contact from this page."
+      trigger={trigger !== undefined ? trigger : defaultTrigger}
+      open={dialogOpen}
       onOpenChange={handleOpenChange}
       onSubmit={handleSubmit}
       onCancel={resetForm}
@@ -162,18 +181,26 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="definition">Workflow Definition (optional)</Label>
+        <Label htmlFor="definition">Workflow Definition</Label>
         {loadingDefinitions ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
             <Loader2 className="size-4 animate-spin" />
             Loading definitions...
           </div>
         ) : (
-          <Select value={workflowDefinitionId} onValueChange={setWorkflowDefinitionId}>
+          <Select
+            value={workflowDefinitionId || MANUAL_EXECUTION_OPTION}
+            onValueChange={(value) =>
+              setWorkflowDefinitionId(value === MANUAL_EXECUTION_OPTION ? "" : value)
+            }
+          >
             <SelectTrigger id="definition" className="w-full">
-              <SelectValue placeholder="None (manual workflow)" />
+              <SelectValue placeholder="Select a definition to run" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={MANUAL_EXECUTION_OPTION}>
+                None (manual execution)
+              </SelectItem>
               {definitions.map((def) => (
                 <SelectItem key={def.id} value={def.id}>
                   {def.name} (v{def.version})
@@ -185,22 +212,19 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
             </SelectContent>
           </Select>
         )}
+        <p className="text-xs text-muted-foreground">
+          Selecting a definition starts it immediately. Leave as manual execution to create an unscripted
+          workflow instance.
+        </p>
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor="status">Initial Status</Label>
-        <Select
-          value={effectiveStatus}
-          onValueChange={setManualStatus}
-          disabled={startsImmediately}
-        >
-          <SelectTrigger id="status" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                <div className="flex items-center gap-2">
+      {startsImmediately ? (
+        <div className="grid gap-2">
+          <Label>Definition Statuses</Label>
+          {definitionStatusOptions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {definitionStatusOptions.map((opt) => (
+                <Badge key={opt.value} variant="secondary" className="gap-1.5">
                   {opt.color && (
                     <span
                       className="inline-block size-2 rounded-full"
@@ -208,17 +232,35 @@ export function WorkflowCreateDialog({ onCreateWorkflow, trigger }: WorkflowCrea
                     />
                   )}
                   {opt.label}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {startsImmediately && (
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This definition has no configured statuses; the run will initialize as running.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
-            Status is managed by workflow steps after start.
+            Status values for this run come from the selected workflow definition.
           </p>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="grid gap-2">
+          <Label htmlFor="status">Initial Status</Label>
+          <Select value={effectiveStatus} onValueChange={setManualStatus}>
+            <SelectTrigger id="status" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {manualStatusOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </FormDialog>
   )
 }

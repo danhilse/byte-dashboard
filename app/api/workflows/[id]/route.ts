@@ -4,11 +4,16 @@ import { db } from "@/lib/db";
 import { workflowExecutions, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+import { getTemporalClient } from "@/lib/temporal/client";
+import { WorkflowNotFoundError } from "@temporalio/common";
 import {
   getAllowedWorkflowStatuses,
   isAllowedWorkflowStatus,
 } from "@/lib/workflow-status";
-import type { DefinitionStatus } from "@/types";
+import type { DefinitionStatus, WorkflowExecutionState } from "@/types";
+
+const ALLOWED_WORKFLOW_EXECUTION_STATES: ReadonlySet<WorkflowExecutionState> =
+  new Set(["running", "completed", "error", "timeout", "cancelled"]);
 
 /**
  * GET /api/workflows/[id]
@@ -52,9 +57,13 @@ export async function GET(
     const contactName = result.contact
       ? `${result.contact.firstName ?? ""} ${result.contact.lastName ?? ""}`.trim()
       : undefined;
+    const workflowExecutionState =
+      result.workflow.workflowExecutionState ??
+      (result.workflow.completedAt ? "completed" : "running");
 
     return NextResponse.json({
       ...result.workflow,
+      workflowExecutionState,
       contact: result.contact,
       contactName,
       contactAvatarUrl: result.contact?.avatarUrl ?? undefined,
@@ -94,6 +103,8 @@ export async function PATCH(
     const body = await req.json();
     const {
       status,
+      workflowExecutionState,
+      errorDefinition,
       currentStepId,
       currentPhaseId,
       variables,
@@ -118,13 +129,40 @@ export async function PATCH(
     }
 
     // Temporal-managed workflows must derive status from workflow signals/activities.
-    if (status !== undefined && existingWorkflow.temporalWorkflowId) {
+    if (
+      (status !== undefined || workflowExecutionState !== undefined) &&
+      existingWorkflow.temporalWorkflowId
+    ) {
       return NextResponse.json(
         {
           error:
-            "Status for Temporal-managed workflows cannot be changed directly. Signal the workflow instead.",
+            "Status/state for Temporal-managed workflows cannot be changed directly. Signal the workflow instead.",
         },
         { status: 409 }
+      );
+    }
+
+    if (
+      workflowExecutionState !== undefined &&
+      !ALLOWED_WORKFLOW_EXECUTION_STATES.has(workflowExecutionState)
+    ) {
+      return NextResponse.json(
+        {
+          error: "Invalid workflow execution state",
+          allowedStates: [...ALLOWED_WORKFLOW_EXECUTION_STATES],
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      errorDefinition !== undefined &&
+      errorDefinition !== null &&
+      typeof errorDefinition !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "errorDefinition must be a string when provided" },
+        { status: 400 }
       );
     }
 
@@ -161,6 +199,9 @@ export async function PATCH(
     };
 
     if (status !== undefined) updateData.status = status;
+    if (workflowExecutionState !== undefined)
+      updateData.workflowExecutionState = workflowExecutionState;
+    if (errorDefinition !== undefined) updateData.errorDefinition = errorDefinition || null;
     if (currentStepId !== undefined) updateData.currentStepId = currentStepId;
     if (currentPhaseId !== undefined) updateData.currentPhaseId = currentPhaseId;
     if (variables !== undefined) updateData.variables = variables;
@@ -179,11 +220,29 @@ export async function PATCH(
       userId,
       entityType: "workflow",
       entityId: id,
-      action: status !== undefined ? "status_changed" : "updated",
-      details: status !== undefined ? { status } : {},
+      action:
+        status !== undefined || workflowExecutionState !== undefined
+          ? "status_changed"
+          : "updated",
+      details:
+        status !== undefined || workflowExecutionState !== undefined
+          ? {
+              ...(status !== undefined ? { status } : {}),
+              ...(workflowExecutionState !== undefined
+                ? { workflowExecutionState }
+                : {}),
+            }
+          : {},
     });
 
-    return NextResponse.json({ workflow });
+    return NextResponse.json({
+      workflow: {
+        ...workflow,
+        workflowExecutionState:
+          workflow.workflowExecutionState ??
+          (workflow.completedAt ? "completed" : "running"),
+      },
+    });
   } catch (error) {
     console.error("Error updating workflow:", error);
     return NextResponse.json(
@@ -200,8 +259,7 @@ export async function PATCH(
  * DELETE /api/workflows/[id]
  *
  * Deletes a workflow execution by ID.
- * NOTE: If workflow has a temporalWorkflowId, only the DB record is deleted.
- * TODO: Add Temporal workflow termination/cancellation when Temporal is integrated.
+ * For Temporal-managed workflows, attempts to terminate the Temporal execution first.
  */
 export async function DELETE(
   _request: Request,
@@ -216,7 +274,11 @@ export async function DELETE(
     }
 
     const [existingWorkflow] = await db
-      .select({ id: workflowExecutions.id })
+      .select({
+        id: workflowExecutions.id,
+        temporalWorkflowId: workflowExecutions.temporalWorkflowId,
+        temporalRunId: workflowExecutions.temporalRunId,
+      })
       .from(workflowExecutions)
       .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
 
@@ -243,6 +305,34 @@ export async function DELETE(
       );
     }
 
+    let temporalTermination: "terminated" | "not_found" | "skipped" = "skipped";
+
+    if (existingWorkflow.temporalWorkflowId) {
+      try {
+        const client = await getTemporalClient();
+        const handle = client.workflow.getHandle(
+          existingWorkflow.temporalWorkflowId
+        );
+
+        await handle.terminate("Deleted from dashboard");
+        temporalTermination = "terminated";
+      } catch (error) {
+        if (error instanceof WorkflowNotFoundError) {
+          // Execution is already closed, deleted by retention, or id/run pair is stale.
+          temporalTermination = "not_found";
+        } else {
+          console.error("Error terminating Temporal workflow:", error);
+          return NextResponse.json(
+            {
+              error: "Failed to terminate Temporal workflow",
+              details: error instanceof Error ? error.message : String(error),
+            },
+            { status: 502 }
+          );
+        }
+      }
+    }
+
     await db
       .delete(workflowExecutions)
       .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
@@ -253,9 +343,16 @@ export async function DELETE(
       entityType: "workflow",
       entityId: id,
       action: "deleted",
+      details: {
+        temporalTermination,
+        temporalWorkflowId: existingWorkflow.temporalWorkflowId ?? null,
+      },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      temporalTermination,
+    });
   } catch (error) {
     console.error("Error deleting workflow:", error);
     return NextResponse.json(

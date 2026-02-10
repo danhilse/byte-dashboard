@@ -4,8 +4,15 @@ import {
   taskStatusConfig,
   taskPriorityConfig,
   resolveWorkflowStatusDisplay,
+  workflowExecutionStateConfig,
 } from "@/lib/status-config"
-import type { ContactStatus, TaskStatus, TaskPriority, DefinitionStatus } from "@/types"
+import type {
+  ContactStatus,
+  TaskStatus,
+  TaskPriority,
+  DefinitionStatus,
+  WorkflowExecutionState,
+} from "@/types"
 
 interface ContactStatusBadgeProps {
   status: ContactStatus
@@ -34,6 +41,17 @@ export function WorkflowStatusBadge({ status, definitionStatuses }: WorkflowStat
       {config.label}
     </Badge>
   )
+}
+
+interface WorkflowExecutionStateBadgeProps {
+  state: WorkflowExecutionState
+}
+
+export function WorkflowExecutionStateBadge({
+  state,
+}: WorkflowExecutionStateBadgeProps) {
+  const config = workflowExecutionStateConfig[state]
+  return <Badge variant={config.variant}>{config.label}</Badge>
 }
 
 interface TaskStatusBadgeProps {

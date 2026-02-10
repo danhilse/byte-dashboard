@@ -1,21 +1,24 @@
 /** @vitest-environment node */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkflowNotFoundError } from "@temporalio/common";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   select: vi.fn(),
-  update: vi.fn(),
   transaction: vi.fn(),
+  getTemporalClient: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/db", () => ({
   db: {
     select: mocks.select,
-    update: mocks.update,
     transaction: mocks.transaction,
   },
+}));
+vi.mock("@/lib/temporal/client", () => ({
+  getTemporalClient: mocks.getTemporalClient,
 }));
 
 import { DELETE, GET, PATCH } from "@/app/api/workflow-definitions/[id]/route";
@@ -25,13 +28,6 @@ function selectQuery(result: unknown[]) {
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockResolvedValue(result),
   };
-}
-
-function updateQuery(result: unknown[]) {
-  const returning = vi.fn().mockResolvedValue(result);
-  const where = vi.fn().mockReturnValue({ returning });
-  const set = vi.fn().mockReturnValue({ where });
-  return { set };
 }
 
 function transactionMocks(createdDefinition: unknown) {
@@ -50,6 +46,48 @@ function transactionMocks(createdDefinition: unknown) {
   };
 
   return { tx, insertValues };
+}
+
+function deleteTxMocks(
+  {
+    deletedTaskRows,
+    deletedExecutionRows,
+    deletedDefinitionRows,
+    includeTaskDelete = true,
+  }: {
+    deletedTaskRows: unknown[];
+    deletedExecutionRows: unknown[];
+    deletedDefinitionRows: unknown[];
+    includeTaskDelete?: boolean;
+  }
+) {
+  const taskReturning = vi.fn().mockResolvedValue(deletedTaskRows);
+  const taskWhere = vi.fn().mockReturnValue({ returning: taskReturning });
+
+  const executionReturning = vi.fn().mockResolvedValue(deletedExecutionRows);
+  const executionWhere = vi.fn().mockReturnValue({ returning: executionReturning });
+
+  const definitionReturning = vi.fn().mockResolvedValue(deletedDefinitionRows);
+  const definitionWhere = vi.fn().mockReturnValue({ returning: definitionReturning });
+
+  const txDelete = vi.fn();
+
+  if (includeTaskDelete) {
+    txDelete.mockReturnValueOnce({ where: taskWhere });
+  }
+
+  txDelete
+    .mockReturnValueOnce({ where: executionWhere })
+    .mockReturnValueOnce({ where: definitionWhere });
+
+  return {
+    tx: {
+      delete: txDelete,
+    },
+    taskReturning,
+    executionReturning,
+    definitionReturning,
+  };
 }
 
 describe("app/api/workflow-definitions/[id]/route", () => {
@@ -590,10 +628,21 @@ describe("app/api/workflow-definitions/[id]/route", () => {
     expect(await res.json()).toEqual({ error: "Unauthorized" });
   });
 
-  it("DELETE soft-deletes and returns success payload", async () => {
+  it("DELETE hard-deletes definition and linked records when no executions exist", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
-    const q = updateQuery([{ id: "def_1", isActive: false }]);
-    mocks.update.mockReturnValue({ set: q.set });
+    mocks.select
+      .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
+      .mockReturnValueOnce(selectQuery([]));
+
+    const { tx } = deleteTxMocks({
+      deletedTaskRows: [],
+      deletedExecutionRows: [],
+      deletedDefinitionRows: [{ id: "def_1" }],
+      includeTaskDelete: false,
+    });
+    mocks.transaction.mockImplementation(async (fn: (txArg: unknown) => Promise<unknown>) =>
+      fn(tx)
+    );
 
     const res = await DELETE(new Request("http://localhost"), {
       params: Promise.resolve({ id: "def_1" }),
@@ -602,14 +651,105 @@ describe("app/api/workflow-definitions/[id]/route", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       success: true,
-      definition: { id: "def_1", isActive: false },
+      definition: { id: "def_1", name: "Definition" },
+      deletedTasks: 0,
+      deletedExecutions: 0,
+      temporalTerminated: 0,
+      temporalNotFound: 0,
+    });
+    expect(mocks.getTemporalClient).not.toHaveBeenCalled();
+  });
+
+  it("DELETE terminates temporal executions and deletes tasks/executions/definition", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select
+      .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
+      .mockReturnValueOnce(
+        selectQuery([
+          { id: "wf_1", temporalWorkflowId: "temporal-1", temporalRunId: "run-1" },
+          { id: "wf_2", temporalWorkflowId: "temporal-2", temporalRunId: null },
+        ])
+      );
+
+    const terminate = vi.fn().mockResolvedValue(undefined);
+    const getHandle = vi.fn().mockReturnValue({ terminate });
+    mocks.getTemporalClient.mockResolvedValue({ workflow: { getHandle } });
+
+    const { tx } = deleteTxMocks({
+      deletedTaskRows: [{ id: "task_1" }, { id: "task_2" }],
+      deletedExecutionRows: [{ id: "wf_1" }, { id: "wf_2" }],
+      deletedDefinitionRows: [{ id: "def_1" }],
+    });
+    mocks.transaction.mockImplementation(async (fn: (txArg: unknown) => Promise<unknown>) =>
+      fn(tx)
+    );
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      definition: { id: "def_1", name: "Definition" },
+      deletedTasks: 2,
+      deletedExecutions: 2,
+      temporalTerminated: 2,
+      temporalNotFound: 0,
+    });
+    expect(getHandle).toHaveBeenNthCalledWith(1, "temporal-1");
+    expect(getHandle).toHaveBeenNthCalledWith(2, "temporal-2");
+    expect(terminate).toHaveBeenCalledTimes(2);
+  });
+
+  it("DELETE continues when a temporal execution is already gone", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select
+      .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
+      .mockReturnValueOnce(
+        selectQuery([
+          { id: "wf_1", temporalWorkflowId: "temporal-1", temporalRunId: "run-1" },
+          { id: "wf_2", temporalWorkflowId: "temporal-2", temporalRunId: "run-2" },
+        ])
+      );
+
+    const terminate = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new WorkflowNotFoundError("missing", "temporal-1", "run-1")
+      )
+      .mockResolvedValueOnce(undefined);
+    mocks.getTemporalClient.mockResolvedValue({
+      workflow: { getHandle: vi.fn().mockReturnValue({ terminate }) },
+    });
+
+    const { tx } = deleteTxMocks({
+      deletedTaskRows: [{ id: "task_1" }],
+      deletedExecutionRows: [{ id: "wf_1" }, { id: "wf_2" }],
+      deletedDefinitionRows: [{ id: "def_1" }],
+    });
+    mocks.transaction.mockImplementation(async (fn: (txArg: unknown) => Promise<unknown>) =>
+      fn(tx)
+    );
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      definition: { id: "def_1", name: "Definition" },
+      deletedTasks: 1,
+      deletedExecutions: 2,
+      temporalTerminated: 1,
+      temporalNotFound: 1,
     });
   });
 
-  it("DELETE returns 404 when row is not found", async () => {
+  it("DELETE returns 404 when definition does not exist", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
-    const q = updateQuery([]);
-    mocks.update.mockReturnValue({ set: q.set });
+    mocks.select.mockReturnValueOnce(selectQuery([]));
 
     const res = await DELETE(new Request("http://localhost"), {
       params: Promise.resolve({ id: "def_missing" }),
@@ -617,13 +757,45 @@ describe("app/api/workflow-definitions/[id]/route", () => {
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Workflow definition not found" });
+    expect(mocks.getTemporalClient).not.toHaveBeenCalled();
+    expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("DELETE returns 500 when update throws", async () => {
+  it("DELETE returns 502 on temporal termination failure and skips DB transaction", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
-    mocks.update.mockImplementation(() => {
-      throw new Error("delete failed");
+    mocks.select
+      .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
+      .mockReturnValueOnce(
+        selectQuery([
+          { id: "wf_1", temporalWorkflowId: "temporal-1", temporalRunId: "run-1" },
+        ])
+      );
+    mocks.getTemporalClient.mockResolvedValue({
+      workflow: {
+        getHandle: vi.fn().mockReturnValue({
+          terminate: vi.fn().mockRejectedValue(new Error("temporal unavailable")),
+        }),
+      },
     });
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({
+      error: "Failed to terminate Temporal executions",
+      details: "temporal unavailable",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("DELETE returns 500 when transaction throws", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select
+      .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
+      .mockReturnValueOnce(selectQuery([]));
+    mocks.transaction.mockRejectedValue(new Error("delete failed"));
 
     const res = await DELETE(new Request("http://localhost"), {
       params: Promise.resolve({ id: "def_1" }),

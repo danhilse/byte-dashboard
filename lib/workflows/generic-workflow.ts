@@ -40,6 +40,7 @@ import {
 const {
   createTask,
   setWorkflowStatus,
+  setWorkflowExecutionState,
   setWorkflowProgress,
   getWorkflowDefinition,
   sendEmail,
@@ -141,7 +142,6 @@ export async function genericWorkflow(
   const orderedDefinitionStatuses = [...definitionStatuses].sort(
     (a, b) => a.order - b.order
   );
-  let statusUpdatedInRun = false;
   let lastStatusSet: string | null = null;
 
   const resolveSystemStatus = (status: string): string | null => {
@@ -151,17 +151,10 @@ export async function genericWorkflow(
 
   if (!steps || steps.length === 0) {
     console.log(`[GenericWorkflow] No steps found, completing immediately`);
-    const finalStatus = resolveSystemStatus("completed");
-    if (finalStatus) {
-      await setWorkflowStatus(input.workflowExecutionId, finalStatus, {
-        markCompletedAt: true,
-      });
-      statusUpdatedInRun = true;
-      lastStatusSet = finalStatus;
-    }
+    await setWorkflowExecutionState(input.workflowExecutionId, "completed");
     return {
       workflowExecutionId: input.workflowExecutionId,
-      finalStatus: finalStatus ?? "completed",
+      finalStatus: lastStatusSet ?? "completed",
       variables,
     };
   }
@@ -247,9 +240,14 @@ export async function genericWorkflow(
             if (timeoutStatus) {
               await setWorkflowStatus(input.workflowExecutionId, timeoutStatus, {
                 markCompletedAt: true,
+                workflowExecutionState: "timeout",
               });
-              statusUpdatedInRun = true;
               lastStatusSet = timeoutStatus;
+            } else {
+              await setWorkflowExecutionState(
+                input.workflowExecutionId,
+                "timeout"
+              );
             }
             return {
               workflowExecutionId: input.workflowExecutionId,
@@ -285,9 +283,14 @@ export async function genericWorkflow(
             if (timeoutStatus) {
               await setWorkflowStatus(input.workflowExecutionId, timeoutStatus, {
                 markCompletedAt: true,
+                workflowExecutionState: "timeout",
               });
-              statusUpdatedInRun = true;
               lastStatusSet = timeoutStatus;
+            } else {
+              await setWorkflowExecutionState(
+                input.workflowExecutionId,
+                "timeout"
+              );
             }
             return {
               workflowExecutionId: input.workflowExecutionId,
@@ -314,7 +317,6 @@ export async function genericWorkflow(
             );
           }
           await setWorkflowStatus(input.workflowExecutionId, config.status);
-          statusUpdatedInRun = true;
           lastStatusSet = config.status;
           break;
         }
@@ -454,27 +456,10 @@ export async function genericWorkflow(
     }
 
     // All steps completed. If no explicit update_status step ran, default to
-    // the final configured definition status (or legacy "completed").
-    let finalStatus = "completed";
-    if (!statusUpdatedInRun) {
-      finalStatus =
-        orderedDefinitionStatuses.at(-1)?.id ?? resolveSystemStatus("completed") ?? "completed";
-      await setWorkflowStatus(input.workflowExecutionId, finalStatus, {
-        markCompletedAt: true,
-      });
-      statusUpdatedInRun = true;
-      lastStatusSet = finalStatus;
-    } else if (lastStatusSet) {
-      finalStatus = lastStatusSet;
-
-      // Workflow has ended successfully. Ensure custom terminal statuses also
-      // set completedAt without forcing a specific status name.
-      if (!["completed", "approved", "rejected"].includes(finalStatus)) {
-        await setWorkflowStatus(input.workflowExecutionId, finalStatus, {
-          markCompletedAt: true,
-        });
-      }
-    }
+    // All steps completed successfully. Business status is only changed by
+    // explicit update_status actions; runtime completion is tracked separately.
+    const finalStatus = lastStatusSet ?? orderedDefinitionStatuses[0]?.id ?? "completed";
+    await setWorkflowExecutionState(input.workflowExecutionId, "completed");
     console.log(`[GenericWorkflow] All steps completed for ${input.workflowExecutionId}`);
 
     return {
@@ -488,11 +473,16 @@ export async function genericWorkflow(
       if (failedStatus) {
         await setWorkflowStatus(input.workflowExecutionId, failedStatus, {
           markCompletedAt: true,
+          workflowExecutionState: "error",
+          errorDefinition: error instanceof Error ? error.message : String(error),
         });
         lastStatusSet = failedStatus;
       } else {
+        await setWorkflowExecutionState(input.workflowExecutionId, "error", {
+          errorDefinition: error instanceof Error ? error.message : String(error),
+        });
         console.log(
-          `[GenericWorkflow] Definition has no "failed" status. Preserving current status for ${input.workflowExecutionId}.`
+          `[GenericWorkflow] Definition has no "failed" status. Preserving business status for ${input.workflowExecutionId}.`
         );
       }
     } catch (statusError) {

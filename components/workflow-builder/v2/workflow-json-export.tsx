@@ -47,7 +47,7 @@ export function WorkflowJsonExport({
   }
 
   return (
-    <div className="h-64 bg-muted/40">
+    <div className="flex h-full min-h-0 flex-col bg-muted/40">
       <div className="flex items-center justify-between border-b px-4 py-2">
         <div>
           <h3 className="text-sm font-semibold">JSON Export</h3>
@@ -80,7 +80,7 @@ export function WorkflowJsonExport({
           </Button>
         </div>
       </div>
-      <ScrollArea className="h-[calc(100%-3rem)]">
+      <ScrollArea className="min-h-0 flex-1">
         <pre className="p-4 text-xs">
           <code>{jsonString}</code>
         </pre>

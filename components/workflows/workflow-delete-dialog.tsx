@@ -45,7 +45,7 @@ export function WorkflowDeleteDialog({
           </AlertDialogDescription>
           {workflow.temporalWorkflowId && (
             <AlertDialogDescription className="mt-2 text-destructive">
-              Warning: This workflow is managed by Temporal. The Temporal execution will not be affected.
+              Warning: This workflow is managed by Temporal. Deleting it will also terminate the Temporal execution.
             </AlertDialogDescription>
           )}
         </AlertDialogHeader>

@@ -1,4 +1,10 @@
-import type { ContactStatus, TaskStatus, TaskPriority, DefinitionStatus } from "@/types"
+import type {
+  ContactStatus,
+  TaskStatus,
+  TaskPriority,
+  DefinitionStatus,
+  WorkflowExecutionState,
+} from "@/types"
 
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
 
@@ -86,6 +92,24 @@ export const contactStatusOptions = Object.entries(contactStatusConfig).map(([va
 }))
 
 export const workflowStatusOptions = Object.entries(fallbackWorkflowStatusConfig).map(([value, { label }]) => ({
+  label,
+  value,
+}))
+
+export const workflowExecutionStateConfig: Record<
+  WorkflowExecutionState,
+  { label: string; variant: BadgeVariant }
+> = {
+  running: { label: "Running", variant: "default" },
+  completed: { label: "Completed", variant: "secondary" },
+  error: { label: "Error", variant: "destructive" },
+  timeout: { label: "Timed Out", variant: "destructive" },
+  cancelled: { label: "Cancelled", variant: "outline" },
+}
+
+export const workflowExecutionStateOptions = Object.entries(
+  workflowExecutionStateConfig
+).map(([value, { label }]) => ({
   label,
   value,
 }))

@@ -51,7 +51,14 @@ export async function PATCH(
 
     // Scope by org to avoid leaking resource existence across tenants
     const [task] = await db
-      .select()
+      .select({
+        id: tasks.id,
+        orgId: tasks.orgId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        taskType: tasks.taskType,
+        status: tasks.status,
+      })
       .from(tasks)
       .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
@@ -97,12 +104,50 @@ export async function PATCH(
             ne(tasks.status, "done")
           )
         )
-        .returning();
+        .returning({
+          id: tasks.id,
+          orgId: tasks.orgId,
+          contactId: tasks.contactId,
+          assignedTo: tasks.assignedTo,
+          assignedRole: tasks.assignedRole,
+          title: tasks.title,
+          description: tasks.description,
+          taskType: tasks.taskType,
+          status: tasks.status,
+          priority: tasks.priority,
+          outcome: tasks.outcome,
+          outcomeComment: tasks.outcomeComment,
+          position: tasks.position,
+          dueDate: tasks.dueDate,
+          completedAt: tasks.completedAt,
+          metadata: tasks.metadata,
+          createdAt: tasks.createdAt,
+          updatedAt: tasks.updatedAt,
+        });
 
       // Already complete (or completed concurrently): return idempotent success
       if (!updatedTask) {
         const [latestTask] = await db
-          .select()
+          .select({
+            id: tasks.id,
+            orgId: tasks.orgId,
+            contactId: tasks.contactId,
+            assignedTo: tasks.assignedTo,
+            assignedRole: tasks.assignedRole,
+            title: tasks.title,
+            description: tasks.description,
+            taskType: tasks.taskType,
+            status: tasks.status,
+            priority: tasks.priority,
+            outcome: tasks.outcome,
+            outcomeComment: tasks.outcomeComment,
+            position: tasks.position,
+            dueDate: tasks.dueDate,
+            completedAt: tasks.completedAt,
+            metadata: tasks.metadata,
+            createdAt: tasks.createdAt,
+            updatedAt: tasks.updatedAt,
+          })
           .from(tasks)
           .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
@@ -115,7 +160,10 @@ export async function PATCH(
       }
 
       // If task is associated with a workflow, signal the workflow
-      if (!updatedTask.workflowExecutionId) {
+      const workflowExecutionId = (updatedTask as { workflowExecutionId?: string | null })
+        .workflowExecutionId;
+
+      if (!workflowExecutionId) {
         return NextResponse.json({
           taskId,
           status,
@@ -131,7 +179,7 @@ export async function PATCH(
           .from(workflowExecutions)
           .where(
             and(
-              eq(workflowExecutions.id, updatedTask.workflowExecutionId),
+              eq(workflowExecutions.id, workflowExecutionId),
               eq(workflowExecutions.orgId, orgId)
             )
           );
@@ -188,7 +236,26 @@ export async function PATCH(
         updatedAt: now,
       })
       .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)))
-      .returning();
+      .returning({
+        id: tasks.id,
+        orgId: tasks.orgId,
+        contactId: tasks.contactId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        title: tasks.title,
+        description: tasks.description,
+        taskType: tasks.taskType,
+        status: tasks.status,
+        priority: tasks.priority,
+        outcome: tasks.outcome,
+        outcomeComment: tasks.outcomeComment,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        completedAt: tasks.completedAt,
+        metadata: tasks.metadata,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
+      });
 
     await logActivity({
       orgId,

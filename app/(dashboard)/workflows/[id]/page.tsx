@@ -16,6 +16,7 @@ import { db } from "@/lib/db"
 import { workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
+import { WorkflowExecutionStateBadge } from "@/components/common/status-badge"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
 import type { WorkflowPhase, WorkflowStep, DefinitionStatus } from "@/types"
 
@@ -126,6 +127,22 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                       </Badge>
                     </div>
                   </div>
+                  <div className="flex items-center gap-3">
+                    <WorkflowIcon className="size-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Execution State</p>
+                      <div className="flex items-center gap-2">
+                        <WorkflowExecutionStateBadge
+                          state={workflow.workflowExecutionState ?? "running"}
+                        />
+                        {workflow.errorDefinition && (
+                          <span className="text-xs text-destructive">
+                            {workflow.errorDefinition}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   {workflow.temporalWorkflowId && (
                     <div className="flex items-center gap-3">
                       <Zap className="size-4 text-muted-foreground" />
@@ -154,6 +171,7 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                         currentStepId={workflow.currentStepId}
                         currentPhaseId={workflow.currentPhaseId}
                         workflowStatus={workflow.status}
+                        workflowExecutionState={workflow.workflowExecutionState}
                         definitionStatuses={parsedStatuses}
                       />
                     </div>

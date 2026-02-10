@@ -54,9 +54,13 @@ export async function GET() {
       const contactName = contact
         ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()
         : undefined;
+      const workflowExecutionState =
+        workflow.workflowExecutionState ??
+        (workflow.completedAt ? "completed" : "running");
 
       return {
         ...workflow,
+        workflowExecutionState,
         contact,
         contactName,
         contactAvatarUrl: contact?.avatarUrl ?? undefined,
@@ -182,6 +186,7 @@ export async function POST(req: Request) {
         workflowDefinitionId: workflowDefinitionId || null,
         definitionVersion: definitionVersion ?? null,
         status: initialStatus,
+        workflowExecutionState: "running",
         source: source || "manual",
         variables: variables || {},
         metadata: metadata || {},
@@ -203,6 +208,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       workflow: {
         ...workflow,
+        workflowExecutionState:
+          workflow.workflowExecutionState ??
+          (workflow.completedAt ? "completed" : "running"),
         contactName,
         contactAvatarUrl: contact.avatarUrl ?? undefined,
         definitionName,

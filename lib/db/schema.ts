@@ -150,6 +150,10 @@ export const workflowExecutions = pgTable(
     currentStepId: text("current_step_id"), // Which step is currently executing
     currentPhaseId: text("current_phase_id"), // Track current phase for UI
     status: text("status").default("running").notNull(), // Presentation-only (Temporal is authoritative)
+    workflowExecutionState: text("workflow_execution_state")
+      .default("running")
+      .notNull(), // Internal runtime state: running/completed/error/timeout/cancelled
+    errorDefinition: text("error_definition"), // Last runtime error detail (if any)
     updatedByTemporal: boolean("updated_by_temporal").default(false).notNull(), // Flag to prevent race conditions
     source: text("source").default("manual").notNull(), // manual, formstack, api
     sourceId: text("source_id"), // external reference ID
@@ -172,6 +176,10 @@ export const workflowExecutions = pgTable(
     orgIdx: index("idx_workflow_executions_org").on(table.orgId),
     contactIdx: index("idx_workflow_executions_contact").on(table.contactId),
     statusIdx: index("idx_workflow_executions_status").on(table.orgId, table.status),
+    stateIdx: index("idx_workflow_executions_state").on(
+      table.orgId,
+      table.workflowExecutionState
+    ),
     definitionIdx: index("idx_workflow_executions_definition").on(
       table.workflowDefinitionId
     ),

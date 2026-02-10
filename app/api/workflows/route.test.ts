@@ -83,6 +83,7 @@ describe("app/api/workflows/route", () => {
         {
           id: "wf_1",
           status: "running",
+          workflowExecutionState: "running",
           contact: {
             id: "contact_1",
             firstName: "Ada",
@@ -164,6 +165,7 @@ describe("app/api/workflows/route", () => {
         workflowDefinitionId: "def_1",
         definitionVersion: 3,
         status: "draft",
+        workflowExecutionState: "running",
         contactName: "Ada Lovelace",
         contactAvatarUrl: "https://img",
         definitionName: "Applicant Review",

@@ -47,18 +47,33 @@ export async function GET(req: Request) {
 
     const rows = await db
       .select({
-        task: tasks,
+        id: tasks.id,
+        orgId: tasks.orgId,
+        contactId: tasks.contactId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        title: tasks.title,
+        description: tasks.description,
+        taskType: tasks.taskType,
+        status: tasks.status,
+        priority: tasks.priority,
+        outcome: tasks.outcome,
+        outcomeComment: tasks.outcomeComment,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        completedAt: tasks.completedAt,
+        metadata: tasks.metadata,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
         contactFirstName: contacts.firstName,
         contactLastName: contacts.lastName,
-        workflowStatus: workflowExecutions.status,
       })
       .from(tasks)
       .leftJoin(contacts, eq(tasks.contactId, contacts.id))
-      .leftJoin(workflowExecutions, eq(tasks.workflowExecutionId, workflowExecutions.id))
       .where(eq(tasks.orgId, orgId))
       .orderBy(tasks.position, desc(tasks.createdAt));
 
-    let result = rows.map(({ task, contactFirstName, contactLastName }) => {
+    let result = rows.map(({ contactFirstName, contactLastName, ...task }) => {
       const contactName =
         contactFirstName || contactLastName
           ? `${contactFirstName ?? ""} ${contactLastName ?? ""}`.trim()
@@ -178,24 +193,49 @@ export async function POST(req: Request) {
       }
     }
 
+    const insertValues: Record<string, unknown> = {
+      orgId,
+      title,
+      description: description || null,
+      status: status || "todo",
+      priority: priority || "medium",
+      taskType: taskType || "standard",
+      assignedTo: assignedTo || userId,
+      assignedRole: assignedRole || null,
+      contactId: contactId || null,
+      dueDate: dueDate || null,
+      position: position ?? 0,
+      metadata: metadata || {},
+    };
+
+    // Keep this optional so local environments with stale task schemas can still create tasks.
+    if (workflowExecutionId) {
+      insertValues.workflowExecutionId = workflowExecutionId;
+    }
+
     const [task] = await db
       .insert(tasks)
-      .values({
-        orgId,
-        title,
-        description: description || null,
-        status: status || "todo",
-        priority: priority || "medium",
-        taskType: taskType || "standard",
-        assignedTo: assignedTo || userId,
-        assignedRole: assignedRole || null,
-        workflowExecutionId: workflowExecutionId || null,
-        contactId: contactId || null,
-        dueDate: dueDate || null,
-        position: position ?? 0,
-        metadata: metadata || {},
+      .values(insertValues)
+      .returning({
+        id: tasks.id,
+        orgId: tasks.orgId,
+        contactId: tasks.contactId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        title: tasks.title,
+        description: tasks.description,
+        taskType: tasks.taskType,
+        status: tasks.status,
+        priority: tasks.priority,
+        outcome: tasks.outcome,
+        outcomeComment: tasks.outcomeComment,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        completedAt: tasks.completedAt,
+        metadata: tasks.metadata,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
       })
-      .returning();
 
     await logActivity({
       orgId,

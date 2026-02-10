@@ -103,16 +103,20 @@ describe("app/api/tasks/route", () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     const query = createTaskListQuery([
       {
-        task: { id: "task_1", status: "todo", assignedTo: "user_1", assignedRole: "member" },
+        id: "task_1",
+        status: "todo",
+        assignedTo: "user_1",
+        assignedRole: "member",
         contactFirstName: "Ada",
         contactLastName: "Lovelace",
-        workflowStatus: "running",
       },
       {
-        task: { id: "task_2", status: "todo", assignedTo: "user_2", assignedRole: "member" },
+        id: "task_2",
+        status: "todo",
+        assignedTo: "user_2",
+        assignedRole: "member",
         contactFirstName: "Grace",
         contactLastName: "Hopper",
-        workflowStatus: "running",
       },
     ]);
     mocks.select.mockReturnValue(query);
@@ -141,16 +145,20 @@ describe("app/api/tasks/route", () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     const query = createTaskListQuery([
       {
-        task: { id: "task_1", status: "todo", assignedTo: null, assignedRole: "reviewer" },
+        id: "task_1",
+        status: "todo",
+        assignedTo: null,
+        assignedRole: "reviewer",
         contactFirstName: "Ada",
         contactLastName: "Lovelace",
-        workflowStatus: "running",
       },
       {
-        task: { id: "task_2", status: "todo", assignedTo: "user_1", assignedRole: "reviewer" },
+        id: "task_2",
+        status: "todo",
+        assignedTo: "user_1",
+        assignedRole: "reviewer",
         contactFirstName: "Grace",
         contactLastName: "Hopper",
-        workflowStatus: "running",
       },
     ]);
     mocks.select.mockReturnValue(query);

@@ -22,6 +22,12 @@ export interface Contact {
 }
 
 export type WorkflowStatus = string
+export type WorkflowExecutionState =
+  | "running"
+  | "completed"
+  | "error"
+  | "timeout"
+  | "cancelled"
 
 export interface DefinitionStatus {
   id: string
@@ -188,6 +194,8 @@ export interface WorkflowExecution {
   currentStepId?: string
   currentPhaseId?: string
   status: WorkflowStatus
+  workflowExecutionState?: WorkflowExecutionState
+  errorDefinition?: string
   updatedByTemporal: boolean // Flag to prevent race conditions
   source: "manual" | "formstack" | "api"
   sourceId?: string

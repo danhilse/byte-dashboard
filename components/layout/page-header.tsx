@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Search, Sparkles, Plus, Bell, User, CheckSquare, Workflow, Headphones } from "lucide-react"
+import { Search, Sparkles, Bell } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
@@ -38,14 +37,6 @@ interface PageHeaderProps {
   breadcrumbs: BreadcrumbItemType[]
   actions?: React.ReactNode
 }
-
-const quickAddItems = [
-  { label: "Person", icon: User, href: "/people" },
-  { label: "Task", icon: CheckSquare, href: "/my-work" },
-  { label: "Workflow Execution", icon: Workflow, href: "/workflows" },
-  { label: "Workflow Definition", icon: Workflow, href: "/admin/workflow-builder" },
-  { label: "Support Ticket", icon: Headphones, href: "/support" },
-]
 
 export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
   const [searchOpen, setSearchOpen] = React.useState(false)
@@ -106,28 +97,6 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
           <span className="sr-only">AI Assistant</span>
           <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
         </Button>
-
-        {/* Quick Add */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">Quick Add</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>Quick Add</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {quickAddItems.map((item) => (
-              <DropdownMenuItem key={item.label} asChild>
-                <a href={item.href} className="flex items-center gap-2 cursor-pointer">
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </a>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
 
         {/* Notifications */}
         <DropdownMenu>

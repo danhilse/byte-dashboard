@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { workflowDefinitions } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { tasks, workflowDefinitions, workflowExecutions } from "@/lib/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { getTemporalClient } from "@/lib/temporal/client";
+import { WorkflowNotFoundError } from "@temporalio/common";
 import {
   AuthoringCompileError,
   compileAuthoringToRuntime,
@@ -11,6 +13,48 @@ import {
   type DefinitionRecordLike,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
+
+interface DefinitionExecutionRecord {
+  id: string;
+  temporalWorkflowId: string | null;
+  temporalRunId: string | null;
+}
+
+async function terminateDefinitionExecutions(
+  executions: DefinitionExecutionRecord[]
+): Promise<{ terminated: number; notFound: number }> {
+  const temporalExecutions = executions.filter(
+    (execution): execution is DefinitionExecutionRecord & {
+      temporalWorkflowId: string;
+    } => Boolean(execution.temporalWorkflowId)
+  );
+
+  if (temporalExecutions.length === 0) {
+    return { terminated: 0, notFound: 0 };
+  }
+
+  const client = await getTemporalClient();
+  let terminated = 0;
+  let notFound = 0;
+
+  for (const execution of temporalExecutions) {
+    try {
+      const handle = client.workflow.getHandle(execution.temporalWorkflowId);
+
+      await handle.terminate("Workflow definition deleted from dashboard");
+      terminated += 1;
+    } catch (error) {
+      if (error instanceof WorkflowNotFoundError) {
+        // Already closed or outside retention window.
+        notFound += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return { terminated, notFound };
+}
 
 /**
  * GET /api/workflow-definitions/:id
@@ -262,7 +306,8 @@ export async function PATCH(
 /**
  * DELETE /api/workflow-definitions/:id
  *
- * Soft delete: sets isActive=false.
+ * Hard delete definition and all linked workflow executions/tasks.
+ * Temporal-managed executions are terminated before DB deletion.
  */
 export async function DELETE(
   _request: Request,
@@ -277,15 +322,17 @@ export async function DELETE(
     }
 
     const [definition] = await db
-      .update(workflowDefinitions)
-      .set({ isActive: false, updatedAt: new Date() })
+      .select({
+        id: workflowDefinitions.id,
+        name: workflowDefinitions.name,
+      })
+      .from(workflowDefinitions)
       .where(
         and(
           eq(workflowDefinitions.id, id),
           eq(workflowDefinitions.orgId, orgId)
         )
-      )
-      .returning();
+      );
 
     if (!definition) {
       return NextResponse.json(
@@ -294,7 +341,98 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true, definition });
+    const executions = await db
+      .select({
+        id: workflowExecutions.id,
+        temporalWorkflowId: workflowExecutions.temporalWorkflowId,
+        temporalRunId: workflowExecutions.temporalRunId,
+      })
+      .from(workflowExecutions)
+      .where(
+        and(
+          eq(workflowExecutions.orgId, orgId),
+          eq(workflowExecutions.workflowDefinitionId, id)
+        )
+      );
+
+    let temporalTerminated = 0;
+    let temporalNotFound = 0;
+
+    try {
+      const temporalResult = await terminateDefinitionExecutions(executions);
+      temporalTerminated = temporalResult.terminated;
+      temporalNotFound = temporalResult.notFound;
+    } catch (error) {
+      console.error("Error terminating Temporal executions for definition:", error);
+      return NextResponse.json(
+        {
+          error: "Failed to terminate Temporal executions",
+          details: error instanceof Error ? error.message : String(error),
+        },
+        { status: 502 }
+      );
+    }
+
+    const executionIds = executions.map((execution) => execution.id);
+
+    const summary = await db.transaction(async (tx) => {
+      let deletedTasks = 0;
+
+      if (executionIds.length > 0) {
+        const deletedTaskRows = await tx
+          .delete(tasks)
+          .where(
+            and(
+              eq(tasks.orgId, orgId),
+              inArray(tasks.workflowExecutionId, executionIds)
+            )
+          )
+          .returning({ id: tasks.id });
+
+        deletedTasks = deletedTaskRows.length;
+      }
+
+      const deletedExecutionRows = await tx
+        .delete(workflowExecutions)
+        .where(
+          and(
+            eq(workflowExecutions.orgId, orgId),
+            eq(workflowExecutions.workflowDefinitionId, id)
+          )
+        )
+        .returning({ id: workflowExecutions.id });
+
+      const [deletedDefinition] = await tx
+        .delete(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.id, id),
+            eq(workflowDefinitions.orgId, orgId)
+          )
+        )
+        .returning({ id: workflowDefinitions.id });
+
+      if (!deletedDefinition) {
+        throw new Error("Workflow definition disappeared during delete");
+      }
+
+      return {
+        deletedTasks,
+        deletedExecutions: deletedExecutionRows.length,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      definition: {
+        id: definition.id,
+        name: definition.name,
+      },
+      deletedTasks: summary.deletedTasks,
+      deletedExecutions: summary.deletedExecutions,
+      temporalTerminated,
+      temporalNotFound,
+    });
   } catch (error) {
     console.error("Error deleting workflow definition:", error);
     return NextResponse.json(

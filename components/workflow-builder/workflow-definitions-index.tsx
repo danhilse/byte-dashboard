@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { format } from "date-fns"
-import { ArrowRight, GitBranch, Search } from "lucide-react"
+import { ArrowRight, GitBranch, MoreHorizontal, Search, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { EmptyState } from "@/components/common/empty-state"
@@ -18,7 +18,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { WorkflowDefinitionCreateDialog } from "@/components/workflow-builder/workflow-definition-create-dialog"
+import { useToast } from "@/hooks/use-toast"
 import type { DefinitionStatus, WorkflowDefinition } from "@/types"
 
 export interface WorkflowDefinitionListItem {
@@ -27,6 +46,7 @@ export interface WorkflowDefinitionListItem {
   description?: string
   version: number
   statuses: DefinitionStatus[]
+  runsCount: number
   isActive: boolean
   updatedAt: string
   createdAt: string
@@ -49,6 +69,7 @@ function toListItem(definition: WorkflowDefinition): WorkflowDefinitionListItem 
     description: definition.description ?? undefined,
     version: definition.version,
     statuses: Array.isArray(definition.statuses) ? definition.statuses : [],
+    runsCount: 0,
     isActive: definition.isActive,
     createdAt: definition.createdAt,
     updatedAt: definition.updatedAt,
@@ -57,10 +78,14 @@ function toListItem(definition: WorkflowDefinition): WorkflowDefinitionListItem 
 
 export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinitionsIndexProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [definitions, setDefinitions] = useState<WorkflowDefinitionListItem[]>(
     sortByUpdatedAt(initialDefinitions)
   )
+  const [definitionPendingDelete, setDefinitionPendingDelete] =
+    useState<WorkflowDefinitionListItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const filteredDefinitions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -82,6 +107,60 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
     const item = toListItem(definition)
     setDefinitions((prev) => sortByUpdatedAt([item, ...prev]))
     router.push(`/admin/workflow-builder/${definition.id}`)
+  }
+
+  const handleDeleteDefinition = async () => {
+    if (!definitionPendingDelete) {
+      return
+    }
+
+    setIsDeleting(true)
+
+    try {
+      const response = await fetch(
+        `/api/workflow-definitions/${definitionPendingDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      )
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error || "Failed to delete workflow definition"
+        )
+      }
+
+      const deletedExecutions =
+        typeof payload?.deletedExecutions === "number"
+          ? payload.deletedExecutions
+          : 0
+      const deletedTasks =
+        typeof payload?.deletedTasks === "number" ? payload.deletedTasks : 0
+
+      setDefinitions((prev) =>
+        prev.filter((definition) => definition.id !== definitionPendingDelete.id)
+      )
+      setDefinitionPendingDelete(null)
+
+      toast({
+        title: "Definition deleted",
+        description: `Deleted ${deletedExecutions} execution(s) and ${deletedTasks} task(s).`,
+      })
+
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete workflow definition.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const hasDefinitions = filteredDefinitions.length > 0
@@ -125,10 +204,10 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Version</TableHead>
-                  <TableHead>Statuses</TableHead>
+                  <TableHead>Runs</TableHead>
                   <TableHead>Last Updated</TableHead>
                   <TableHead>State</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -149,7 +228,7 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {definition.statuses.length}
+                        {definition.runsCount.toLocaleString()}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -161,14 +240,39 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push(`/admin/workflow-builder/${definition.id}`)}
-                      >
-                        Open
-                        <ArrowRight className="ml-1 size-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" className="size-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              router.push(`/admin/workflow-builder/${definition.id}`)
+                            }}
+                          >
+                            <ArrowRight className="mr-2 size-4" />
+                            Open editor
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setDefinitionPendingDelete(definition)
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 size-4" />
+                            Delete definition
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -186,6 +290,46 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={Boolean(definitionPendingDelete)}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setDefinitionPendingDelete(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Workflow Definition</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-medium text-foreground">
+                {definitionPendingDelete?.name}
+              </span>
+              ? This will permanently delete the definition, all executions
+              created from it, and all tasks generated by those executions.
+            </AlertDialogDescription>
+            <AlertDialogDescription className="mt-2 text-destructive">
+              Any Temporal executions linked to this definition will be
+              terminated before deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDeleteDefinition()
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Definition"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

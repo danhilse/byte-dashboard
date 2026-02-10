@@ -5,7 +5,6 @@ import type { WorkflowDefinitionV2, WorkflowVariable, StandardStepV2 } from "../
 import { StepListV2 } from "./step-list-v2"
 import { StepConfigPanelV2 } from "./step-config-panel-v2"
 import { TriggerConfigPanel } from "./trigger-config-panel"
-import { WorkflowJsonExport } from "./workflow-json-export"
 import { WorkflowConfigDialog } from "./workflow-config-dialog"
 import { Button } from "@/components/ui/button"
 import { Loader2, Save } from "lucide-react"
@@ -139,6 +138,8 @@ export function WorkflowBuilderV2({
           <div className="flex items-center gap-2">
             <WorkflowConfigDialog
               workflow={session.builder.workflow}
+              commands={session.definitionCommandLog}
+              onClearCommands={() => dispatchEvent({ type: "definition_command_log_cleared" })}
               onChange={(nextWorkflow) =>
                 dispatchEvent({ type: "workflow_replaced", workflow: nextWorkflow })
               }
@@ -202,28 +203,6 @@ export function WorkflowBuilderV2({
           )}
         </div>
       </div>
-
-      {/* Footer - JSON Export Toggle */}
-      <div className="border-t px-6 py-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => dispatchEvent({ type: "json_export_toggled" })}
-        >
-          {session.builder.ui.showJsonExport ? "Hide" : "Show"} JSON Export
-        </Button>
-      </div>
-
-      {/* JSON Export Panel */}
-      {session.builder.ui.showJsonExport && (
-        <div className="border-t">
-          <WorkflowJsonExport
-            workflow={session.builder.workflow}
-            commands={session.definitionCommandLog}
-            onClearCommands={() => dispatchEvent({ type: "definition_command_log_cleared" })}
-          />
-        </div>
-      )}
     </div>
   )
 }

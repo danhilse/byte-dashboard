@@ -98,6 +98,7 @@ export async function POST(req: Request) {
         workflowDefinitionId,
         definitionVersion,
         status: initialStatus,
+        workflowExecutionState: "running",
         source: "manual",
       })
       .returning();
@@ -153,8 +154,11 @@ export async function POST(req: Request) {
         workflowExecutionId: workflowExecution.id,
         temporalWorkflowId: handle.workflowId,
         status: initialStatus,
+        workflowExecutionState: "running",
         workflow: {
           ...workflowExecution,
+          workflowExecutionState:
+            workflowExecution.workflowExecutionState ?? "running",
           temporalWorkflowId: handle.workflowId,
           temporalRunId: handle.firstExecutionRunId,
           contactName,
@@ -175,6 +179,11 @@ export async function POST(req: Request) {
           .update(workflowExecutions)
           .set({
             status: failedStatus,
+            workflowExecutionState: "error",
+            errorDefinition:
+              startError instanceof Error
+                ? startError.message
+                : String(startError),
             completedAt: new Date(),
             updatedAt: new Date(),
             metadata: {

@@ -76,7 +76,26 @@ export async function PATCH(
           isNull(tasks.assignedTo)
         )
       )
-      .returning();
+      .returning({
+        id: tasks.id,
+        orgId: tasks.orgId,
+        contactId: tasks.contactId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        title: tasks.title,
+        description: tasks.description,
+        taskType: tasks.taskType,
+        status: tasks.status,
+        priority: tasks.priority,
+        outcome: tasks.outcome,
+        outcomeComment: tasks.outcomeComment,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        completedAt: tasks.completedAt,
+        metadata: tasks.metadata,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
+      });
 
     if (!claimed) {
       // Differentiate between 404 (not found) and 409 (already claimed)

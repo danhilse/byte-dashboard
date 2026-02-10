@@ -29,7 +29,24 @@ export async function GET(
 
     const rows = await db
       .select({
-        task: tasks,
+        id: tasks.id,
+        orgId: tasks.orgId,
+        contactId: tasks.contactId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        title: tasks.title,
+        description: tasks.description,
+        taskType: tasks.taskType,
+        status: tasks.status,
+        priority: tasks.priority,
+        outcome: tasks.outcome,
+        outcomeComment: tasks.outcomeComment,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        completedAt: tasks.completedAt,
+        metadata: tasks.metadata,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
         contactFirstName: contacts.firstName,
         contactLastName: contacts.lastName,
       })
@@ -41,7 +58,7 @@ export async function GET(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const { task, contactFirstName, contactLastName } = rows[0];
+    const { contactFirstName, contactLastName, ...task } = rows[0];
     const access = await buildTaskAccessContext({ userId, orgId, orgRole });
 
     if (!canMutateTask(access, task) && !canClaimTask(access, task)) {
@@ -164,7 +181,26 @@ export async function PATCH(
       .update(tasks)
       .set(updateData)
       .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)))
-      .returning();
+      .returning({
+        id: tasks.id,
+        orgId: tasks.orgId,
+        contactId: tasks.contactId,
+        assignedTo: tasks.assignedTo,
+        assignedRole: tasks.assignedRole,
+        title: tasks.title,
+        description: tasks.description,
+        taskType: tasks.taskType,
+        status: tasks.status,
+        priority: tasks.priority,
+        outcome: tasks.outcome,
+        outcomeComment: tasks.outcomeComment,
+        position: tasks.position,
+        dueDate: tasks.dueDate,
+        completedAt: tasks.completedAt,
+        metadata: tasks.metadata,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
+      });
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -231,7 +267,10 @@ export async function DELETE(
     const [deletedTask] = await db
       .delete(tasks)
       .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)))
-      .returning();
+      .returning({
+        id: tasks.id,
+        title: tasks.title,
+      });
 
     if (!deletedTask) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });

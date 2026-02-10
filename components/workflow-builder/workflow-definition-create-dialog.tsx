@@ -13,23 +13,28 @@ import type { WorkflowDefinition } from "@/types"
 import { DEFAULT_DEFINITION_STATUSES } from "@/lib/workflow-builder-v2/status-guardrails"
 
 interface WorkflowDefinitionCreateDialogProps {
-  onDefinitionCreated: (definition: WorkflowDefinition) => void
+  onDefinitionCreated?: (definition: WorkflowDefinition) => void
   trigger?: ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function WorkflowDefinitionCreateDialog({
   onDefinitionCreated,
   trigger,
+  open,
+  onOpenChange,
 }: WorkflowDefinitionCreateDialogProps) {
   const { toast } = useToast()
 
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const trimmedName = useMemo(() => name.trim(), [name])
   const canSubmit = trimmedName.length > 0 && !isSubmitting
+  const dialogOpen = open ?? internalOpen
 
   const resetForm = () => {
     setName("")
@@ -37,8 +42,15 @@ export function WorkflowDefinitionCreateDialog({
     setIsSubmitting(false)
   }
 
+  const setDialogOpen = (nextOpen: boolean) => {
+    if (open === undefined) {
+      setInternalOpen(nextOpen)
+    }
+    onOpenChange?.(nextOpen)
+  }
+
   const handleOpenChange = (nextOpen: boolean) => {
-    setOpen(nextOpen)
+    setDialogOpen(nextOpen)
     if (!nextOpen) {
       resetForm()
     }
@@ -74,9 +86,8 @@ export function WorkflowDefinitionCreateDialog({
         throw new Error("Invalid API response while creating workflow definition")
       }
 
-      onDefinitionCreated(definition)
-      setOpen(false)
-      resetForm()
+      onDefinitionCreated?.(definition)
+      handleOpenChange(false)
 
       toast({
         title: "Definition created",
@@ -107,8 +118,8 @@ export function WorkflowDefinitionCreateDialog({
     <FormDialog
       title="Create Workflow Definition"
       description="Create a workflow definition, then continue editing in the builder page."
-      trigger={trigger ?? defaultTrigger}
-      open={open}
+      trigger={trigger !== undefined ? trigger : defaultTrigger}
+      open={dialogOpen}
       onOpenChange={handleOpenChange}
       onSubmit={handleSubmit}
       onCancel={resetForm}

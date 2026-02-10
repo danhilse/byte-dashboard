@@ -1,6 +1,11 @@
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { WorkflowPhase, WorkflowStep, DefinitionStatus } from "@/types"
+import type {
+  WorkflowPhase,
+  WorkflowStep,
+  DefinitionStatus,
+  WorkflowExecutionState,
+} from "@/types"
 
 interface PhaseProgressStepperProps {
   phases: WorkflowPhase[]
@@ -8,6 +13,7 @@ interface PhaseProgressStepperProps {
   currentStepId?: string | null
   currentPhaseId?: string | null
   workflowStatus?: string
+  workflowExecutionState?: WorkflowExecutionState
   definitionStatuses?: DefinitionStatus[]
 }
 
@@ -26,6 +32,7 @@ function getPhaseStates(
   currentStepId?: string | null,
   explicitCurrentPhaseId?: string | null,
   workflowStatus?: string,
+  workflowExecutionState?: WorkflowExecutionState,
   definitionStatuses?: DefinitionStatus[]
 ): PhaseState[] {
   if (!phases.length) return []
@@ -34,8 +41,14 @@ function getPhaseStates(
     ? [...definitionStatuses].sort((a, b) => a.order - b.order).at(-1)?.id
     : null
 
-  // Terminal successful/ended statuses treat all phases as complete.
+  // Internal execution state is authoritative for terminality.
+  if (workflowExecutionState === "completed") {
+    return phases.map(() => "completed")
+  }
+
+  // Backward-compatible fallback for records without execution state.
   if (
+    !workflowExecutionState &&
     workflowStatus &&
     (TERMINAL_COMPLETED_STATUSES.has(workflowStatus) ||
       workflowStatus === lastDefinitionStatusId)
@@ -72,6 +85,7 @@ export function PhaseProgressStepper({
   currentStepId,
   currentPhaseId,
   workflowStatus,
+  workflowExecutionState,
   definitionStatuses,
 }: PhaseProgressStepperProps) {
   if (!phases.length) return null
@@ -82,9 +96,10 @@ export function PhaseProgressStepper({
     currentStepId,
     currentPhaseId,
     workflowStatus,
+    workflowExecutionState,
     definitionStatuses
   )
-  const isFailed = workflowStatus === "failed"
+  const isFailed = workflowExecutionState === "error"
 
   return (
     <div className="flex items-center gap-0 w-full overflow-x-auto py-2">

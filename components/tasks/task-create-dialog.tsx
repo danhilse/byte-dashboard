@@ -21,16 +21,31 @@ import type { Task, TaskStatus, TaskPriority } from "@/types"
 interface TaskCreateDialogProps {
   onCreateTask?: (task: Omit<Task, "id" | "createdAt" | "updatedAt">) => void
   trigger?: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProps) {
-  const [open, setOpen] = useState(false)
+export function TaskCreateDialog({
+  onCreateTask,
+  trigger,
+  open,
+  onOpenChange,
+}: TaskCreateDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState<TaskStatus>("todo")
   const [priority, setPriority] = useState<TaskPriority>("medium")
   const [assignedTo, setAssignedTo] = useState("")
   const [dueDate, setDueDate] = useState("")
+  const dialogOpen = open ?? internalOpen
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (open === undefined) {
+      setInternalOpen(nextOpen)
+    }
+    onOpenChange?.(nextOpen)
+  }
 
   const resetForm = () => {
     setTitle("")
@@ -57,7 +72,7 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
 
     onCreateTask?.(newTask)
     resetForm()
-    setOpen(false)
+    handleOpenChange(false)
   }
 
   const defaultTrigger = (
@@ -71,9 +86,9 @@ export function TaskCreateDialog({ onCreateTask, trigger }: TaskCreateDialogProp
     <FormDialog
       title="Create New Task"
       description="Add a new task to your work list."
-      trigger={trigger ?? defaultTrigger}
-      open={open}
-      onOpenChange={setOpen}
+      trigger={trigger !== undefined ? trigger : defaultTrigger}
+      open={dialogOpen}
+      onOpenChange={handleOpenChange}
       onSubmit={handleSubmit}
       onCancel={resetForm}
       submitLabel="Create Task"

@@ -36,6 +36,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { WorkflowStatusBadge } from "@/components/common/status-badge"
+import { WorkflowExecutionStateBadge } from "@/components/common/status-badge"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
 import { NotesSection } from "@/components/detail/notes-section"
 import { ActivityFeed } from "@/components/detail/activity-feed"
@@ -288,6 +289,20 @@ export function WorkflowDetailDialog({
                 )}
               </div>
 
+              <div className="grid gap-2">
+                <Label className="text-muted-foreground text-xs uppercase">Execution State</Label>
+                <div className="flex items-center gap-2">
+                  <WorkflowExecutionStateBadge
+                    state={displayWorkflow.workflowExecutionState ?? "running"}
+                  />
+                  {displayWorkflow.errorDefinition && (
+                    <p className="text-xs text-destructive">
+                      {displayWorkflow.errorDefinition}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 {displayWorkflow.definitionName && (
                   <div className="space-y-1">
@@ -324,6 +339,7 @@ export function WorkflowDetailDialog({
                     currentStepId={displayWorkflow.currentStepId}
                     currentPhaseId={displayWorkflow.currentPhaseId}
                     workflowStatus={displayWorkflow.status}
+                    workflowExecutionState={displayWorkflow.workflowExecutionState}
                     definitionStatuses={defStatuses}
                   />
                 </div>
@@ -395,7 +411,7 @@ export function WorkflowDetailDialog({
                   </AlertDialogDescription>
                   {workflow.temporalWorkflowId && (
                     <AlertDialogDescription className="mt-2 text-destructive">
-                      Warning: This workflow is managed by Temporal. The Temporal execution will not be affected.
+                      Warning: This workflow is managed by Temporal. Deleting it will also terminate the Temporal execution.
                     </AlertDialogDescription>
                   )}
                 </AlertDialogHeader>

@@ -70,7 +70,9 @@ describe("app/api/tasks/[id]/route", () => {
     mocks.select.mockReturnValue(
       taskDetailsQuery([
         {
-          task: { id: "task_1", assignedTo: "user_2", assignedRole: "reviewer" },
+          id: "task_1",
+          assignedTo: "user_2",
+          assignedRole: "reviewer",
           contactFirstName: "Ada",
           contactLastName: "Lovelace",
         },

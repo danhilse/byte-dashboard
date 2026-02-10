@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { workflowColumns } from "@/components/data-table/columns/workflow-columns"
+import { createWorkflowColumns } from "@/components/data-table/columns/workflow-columns"
 import { WorkflowCreateDialog } from "@/components/workflows/workflow-create-dialog"
 import { WorkflowDetailDialog } from "@/components/workflows/workflow-detail-dialog"
 import { WorkflowDeleteDialog } from "@/components/workflows/workflow-delete-dialog"
@@ -242,13 +242,13 @@ export function WorkflowsContent() {
     }
   }
 
-  const handleDeleteWorkflow = (workflowExecutionId: string) => {
+  const handleDeleteWorkflow = useCallback((workflowExecutionId: string) => {
     const workflow = workflows.find((w) => w.id === workflowExecutionId)
     if (workflow) {
       setDeletingWorkflow(workflow)
       setDeleteDialogOpen(true)
     }
-  }
+  }, [workflows])
 
   const handleConfirmDelete = async () => {
     if (!deletingWorkflow) return
@@ -283,10 +283,19 @@ export function WorkflowsContent() {
     }
   }
 
-  const handleWorkflowClick = (workflow: WorkflowExecution) => {
+  const handleWorkflowClick = useCallback((workflow: WorkflowExecution) => {
     setSelectedWorkflow(workflow)
     setDetailOpen(true)
-  }
+  }, [])
+
+  const workflowColumns = useMemo(
+    () =>
+      createWorkflowColumns({
+        onViewDetails: handleWorkflowClick,
+        onDelete: (workflow) => handleDeleteWorkflow(workflow.id),
+      }),
+    [handleDeleteWorkflow, handleWorkflowClick]
+  )
 
   const handleStatusChange = async (workflowExecutionId: string, newStatus: string) => {
     const previous = workflows.find((w) => w.id === workflowExecutionId)

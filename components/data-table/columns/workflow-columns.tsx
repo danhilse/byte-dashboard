@@ -1,8 +1,7 @@
 "use client"
 
 import { type ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal } from "lucide-react"
-import Link from "next/link"
+import { MoreHorizontal, Eye, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -23,7 +22,15 @@ import type { WorkflowExecution } from "@/types"
 
 export { workflowStatusOptions }
 
-export const workflowColumns: ColumnDef<WorkflowExecution>[] = [
+export interface WorkflowColumnActions {
+  onViewDetails?: (workflow: WorkflowExecution) => void
+  onDelete?: (workflow: WorkflowExecution) => void
+}
+
+export function createWorkflowColumns(
+  actions?: WorkflowColumnActions
+): ColumnDef<WorkflowExecution>[] {
+  return [
   {
     id: "select",
     header: ({ table }) => (
@@ -128,15 +135,34 @@ export const workflowColumns: ColumnDef<WorkflowExecution>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href={`/workflows/${workflow.id}`}>View details</Link>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                actions?.onViewDetails?.(workflow)
+              }}
+            >
+              <Eye className="mr-2 size-4" />
+              View details
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Edit workflow</DropdownMenuItem>
-            <DropdownMenuItem>Change status</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                actions?.onDelete?.(workflow)
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 size-4" />
+              Delete execution
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )
     },
   },
-]
+  ]
+}
+
+export const workflowColumns = createWorkflowColumns()

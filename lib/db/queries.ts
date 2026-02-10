@@ -40,7 +40,7 @@ export async function getDashboardStats(orgId: string) {
       .where(
         and(
           eq(workflowExecutions.orgId, orgId),
-          sql`${workflowExecutions.status} NOT IN ('completed', 'failed', 'timeout')`
+          eq(workflowExecutions.workflowExecutionState, "running")
         )
       ),
     db
@@ -150,7 +150,8 @@ export async function getMyTasks(
   userId: string,
   limit: number = 5
 ) {
-  const priorityOrder = sql`CASE ${tasks.priority}
+  // Cast to text so ORDER BY remains safe across text/enum-backed schemas.
+  const priorityOrder = sql`CASE ${tasks.priority}::text
     WHEN 'urgent' THEN 0
     WHEN 'high' THEN 1
     WHEN 'medium' THEN 2
@@ -158,27 +159,41 @@ export async function getMyTasks(
     ELSE 4
   END`;
 
-  const rows = await db
-    .select()
-    .from(tasks)
-    .where(
-      and(
-        eq(tasks.orgId, orgId),
-        eq(tasks.assignedTo, userId),
-        sql`${tasks.status} != 'done'`
+  try {
+    const rows = await db
+      .select({
+        id: tasks.id,
+        title: tasks.title,
+        status: tasks.status,
+        priority: tasks.priority,
+        dueDate: tasks.dueDate,
+        taskType: tasks.taskType,
+      })
+      .from(tasks)
+      .where(
+        and(
+          // Cast predicates to text so this query works if local DB columns were created as uuid.
+          sql`${tasks.orgId}::text = ${orgId}`,
+          sql`${tasks.assignedTo}::text = ${userId}`,
+          // Support both current ("done") and legacy ("completed") labels without enum cast errors.
+          sql`${tasks.status}::text NOT IN ('done', 'completed')`
+        )
       )
-    )
-    .orderBy(priorityOrder, tasks.dueDate)
-    .limit(limit);
+      .orderBy(priorityOrder, tasks.dueDate)
+      .limit(limit);
 
-  return rows.map((task) => ({
-    id: task.id,
-    title: task.title,
-    status: task.status,
-    priority: task.priority,
-    dueDate: task.dueDate,
-    taskType: task.taskType,
-  }));
+    return rows.map((task) => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      taskType: task.taskType,
+    }));
+  } catch (error) {
+    console.error("Error fetching my tasks:", error);
+    return [];
+  }
 }
 
 /**

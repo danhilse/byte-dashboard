@@ -8,7 +8,13 @@
 import { db } from "@/lib/db";
 import { tasks, workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import type { TaskType, TaskPriority, WorkflowStep, DefinitionStatus } from "@/types";
+import type {
+  TaskType,
+  TaskPriority,
+  WorkflowStep,
+  DefinitionStatus,
+  WorkflowExecutionState,
+} from "@/types";
 import { logActivity } from "@/lib/db/log-activity";
 
 /**
@@ -77,8 +83,7 @@ export async function createTask(
 /**
  * Updates a workflow execution status
  *
- * IMPORTANT: This is the ONLY function that should update workflow status.
- * Status updates must come through Temporal activities to maintain consistency.
+ * Business status updates must come through Temporal activities to maintain consistency.
  *
  * @param workflowExecutionId - The workflow execution ID
  * @param status - The new status
@@ -86,22 +91,39 @@ export async function createTask(
 export async function setWorkflowStatus(
   workflowExecutionId: string,
   status: string,
-  options?: { markCompletedAt?: boolean }
+  options?: {
+    markCompletedAt?: boolean;
+    workflowExecutionState?: WorkflowExecutionState;
+    errorDefinition?: string;
+  }
 ): Promise<void> {
   console.log(`Activity: Updating workflow ${workflowExecutionId} status to "${status}"`);
 
+  const inferredExecutionState: WorkflowExecutionState =
+    options?.workflowExecutionState ??
+    (status === "failed"
+      ? "error"
+      : status === "timeout"
+        ? "timeout"
+        : options?.markCompletedAt
+          ? "completed"
+          : "running");
+
   const shouldSetCompletedAt =
     options?.markCompletedAt ??
-    (status === "completed" ||
-    status === "approved" ||
-    status === "rejected" ||
-    status === "failed" ||
-    status === "timeout");
+    inferredExecutionState !== "running";
 
   const [updatedWorkflow] = await db
     .update(workflowExecutions)
     .set({
       status,
+      workflowExecutionState: inferredExecutionState,
+      errorDefinition:
+        options?.errorDefinition !== undefined
+          ? options.errorDefinition
+          : inferredExecutionState === "error"
+            ? `Workflow entered error state while setting status "${status}"`
+            : null,
       updatedByTemporal: true, // Flag to indicate this was updated by Temporal
       updatedAt: new Date(),
       ...(shouldSetCompletedAt
@@ -118,11 +140,62 @@ export async function setWorkflowStatus(
       entityType: "workflow",
       entityId: workflowExecutionId,
       action: "status_changed",
-      details: { status, source: "temporal" },
+      details: {
+        status,
+        workflowExecutionState: inferredExecutionState,
+        source: "temporal",
+      },
     });
   }
 
   console.log(`Activity: Workflow status updated to "${status}"`);
+}
+
+/**
+ * Updates internal workflow execution state independent from business status.
+ */
+export async function setWorkflowExecutionState(
+  workflowExecutionId: string,
+  workflowExecutionState: WorkflowExecutionState,
+  options?: { errorDefinition?: string }
+): Promise<void> {
+  console.log(
+    `Activity: Updating workflow ${workflowExecutionId} execution state to "${workflowExecutionState}"`
+  );
+
+  const isTerminal = workflowExecutionState !== "running";
+
+  const [updatedWorkflow] = await db
+    .update(workflowExecutions)
+    .set({
+      workflowExecutionState,
+      errorDefinition:
+        options?.errorDefinition !== undefined
+          ? options.errorDefinition
+          : workflowExecutionState === "error"
+            ? "Workflow failed without explicit error definition."
+            : null,
+      updatedByTemporal: true,
+      updatedAt: new Date(),
+      ...(isTerminal ? { completedAt: new Date() } : {}),
+    })
+    .where(eq(workflowExecutions.id, workflowExecutionId))
+    .returning({ orgId: workflowExecutions.orgId });
+
+  if (updatedWorkflow) {
+    await logActivity({
+      orgId: updatedWorkflow.orgId,
+      userId: null,
+      entityType: "workflow",
+      entityId: workflowExecutionId,
+      action: "status_changed",
+      details: { workflowExecutionState, source: "temporal" },
+    });
+  }
+
+  console.log(
+    `Activity: Workflow execution state updated to "${workflowExecutionState}"`
+  );
 }
 
 /**
