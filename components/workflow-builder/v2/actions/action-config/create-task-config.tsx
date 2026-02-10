@@ -221,8 +221,8 @@ export function CreateTaskConfig({
                 />
               </SelectTrigger>
               <SelectContent>
-                {action.config.assignTo.userId &&
-                  !organizationUsers.some((user) => user.id === action.config.assignTo.userId) && (
+                {action.config.assignTo.type === "user" && action.config.assignTo.userId &&
+                  !organizationUsers.some((user) => action.config.assignTo.type === "user" && user.id === action.config.assignTo.userId) && (
                     <SelectItem value={action.config.assignTo.userId}>
                       {action.config.assignTo.userId}
                     </SelectItem>

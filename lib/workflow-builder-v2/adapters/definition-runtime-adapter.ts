@@ -1,6 +1,7 @@
 import type {
   ConditionStep,
   DefinitionStatus,
+  TriggerStep,
   WorkflowPhase,
   WorkflowStep,
 } from "@/types"
@@ -114,7 +115,7 @@ function readPersistedAuthoringPayload(
     return null
   }
 
-  return payload as PersistedAuthoringPayload
+  return payload as unknown as PersistedAuthoringPayload
 }
 
 export function hasPersistedAuthoringPayload(variables: unknown): boolean {
@@ -631,7 +632,7 @@ function createRuntimeStepId(
 }
 
 function createTriggerStep(trigger: WorkflowTrigger, usedIds: Set<string>): WorkflowStep {
-  const triggerType: WorkflowStep["config"]["triggerType"] =
+  const triggerType: TriggerStep["config"]["triggerType"] =
     trigger.type === "form_submission"
       ? "form_submission"
       : trigger.type === "contact_created"
