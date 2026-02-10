@@ -141,7 +141,7 @@ async function startWorkflowExecutionForDefinition({
   const definitionStatuses =
     (definition.statuses as DefinitionStatus[] | null) ?? [];
 
-  const initialStatus = "";
+  const initialStatus = definition.trigger.initialStatus ?? "";
 
   const [workflowExecution] = await db
     .insert(workflowExecutions)

@@ -205,6 +205,7 @@ export function WorkflowBuilderV2({
             trigger={session.builder.workflow.trigger}
             steps={session.builder.workflow.steps}
             variables={allVariables}
+            statuses={session.builder.workflow.statuses}
             selectedStepId={session.builder.ui.selectedStepId}
             selectedTrigger={session.builder.ui.selectedTrigger}
             onTriggerSelect={handleTriggerSelect}
@@ -225,6 +226,7 @@ export function WorkflowBuilderV2({
           {session.builder.ui.selectedTrigger ? (
             <TriggerConfigPanel
               trigger={session.builder.workflow.trigger}
+              statuses={session.builder.workflow.statuses}
               onTriggerChange={handleTriggerChange}
             />
           ) : (

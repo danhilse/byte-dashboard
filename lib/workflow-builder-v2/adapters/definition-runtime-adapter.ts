@@ -216,11 +216,21 @@ function normalizeTrigger(trigger: unknown): WorkflowTrigger {
     return { type: "manual" }
   }
 
+  const initialStatus =
+    typeof trigger.initialStatus === "string" &&
+    trigger.initialStatus.trim().length > 0
+      ? trigger.initialStatus.trim()
+      : undefined
+
   switch (trigger.type) {
     case "manual":
-      return { type: "manual" }
+      return initialStatus
+        ? { type: "manual", initialStatus }
+        : { type: "manual" }
     case "contact_created":
-      return { type: "contact_created" }
+      return initialStatus
+        ? { type: "contact_created", initialStatus }
+        : { type: "contact_created" }
     case "contact_field_changed": {
       const watchedFields = Array.isArray(trigger.watchedFields)
         ? [...new Set(
@@ -231,24 +241,44 @@ function normalizeTrigger(trigger: unknown): WorkflowTrigger {
           )]
         : []
 
-      return {
-        type: "contact_field_changed",
-        watchedFields,
-      }
+      return initialStatus
+        ? {
+            type: "contact_field_changed",
+            watchedFields,
+            initialStatus,
+          }
+        : {
+            type: "contact_field_changed",
+            watchedFields,
+          }
     }
     case "contact_status":
       // Backward compatibility for older persisted authoring payloads.
-      return {
-        type: "contact_field_changed",
-        watchedFields: ["status"],
-      }
+      return initialStatus
+        ? {
+            type: "contact_field_changed",
+            watchedFields: ["status"],
+            initialStatus,
+          }
+        : {
+            type: "contact_field_changed",
+            watchedFields: ["status"],
+          }
     case "form_submission":
-      return {
-        type: "form_submission",
-        formId: typeof trigger.formId === "string" ? trigger.formId : "",
-      }
+      return initialStatus
+        ? {
+            type: "form_submission",
+            formId: typeof trigger.formId === "string" ? trigger.formId : "",
+            initialStatus,
+          }
+        : {
+            type: "form_submission",
+            formId: typeof trigger.formId === "string" ? trigger.formId : "",
+          }
     case "api":
-      return { type: "api" }
+      return initialStatus
+        ? { type: "api", initialStatus }
+        : { type: "api" }
     default:
       return { type: "manual" }
   }
@@ -376,6 +406,14 @@ export function validateAuthoring(
   const allowedStatuses = new Set(
     statuses.map((status) => status.id)
   )
+  const triggerInitialStatus = authoring.trigger.initialStatus?.trim()
+  if (triggerInitialStatus && !allowedStatuses.has(triggerInitialStatus)) {
+    issues.push({
+      code: "invalid_status",
+      path: "trigger.initialStatus",
+      message: `Status "${triggerInitialStatus}" is not defined on this workflow.`,
+    })
+  }
 
   const validateStandardStep = (
     step: StandardStepV2,
@@ -650,6 +688,7 @@ function createTriggerStep(trigger: WorkflowTrigger, usedIds: Set<string>): Work
       ...(trigger.type === "contact_field_changed"
         ? { watchedFields: trigger.watchedFields }
         : {}),
+      ...(trigger.initialStatus ? { initialStatus: trigger.initialStatus } : {}),
     },
   }
 }

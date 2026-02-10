@@ -78,6 +78,7 @@ export interface TriggerStep extends BaseStep {
       | "contact_field_changed"
       | "form_submission"
     watchedFields?: string[]
+    initialStatus?: string
   }
 }
 

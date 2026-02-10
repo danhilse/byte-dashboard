@@ -2,7 +2,12 @@
 
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import type { BranchStepV2, StandardStepV2, WorkflowVariable } from "../types/workflow-v2"
+import type {
+  BranchStepV2,
+  StandardStepV2,
+  WorkflowVariable,
+  WorkflowStatus,
+} from "../types/workflow-v2"
 import { getVariableLabel, resolveDisplayValue } from "@/lib/workflow-builder-v2/variable-utils"
 import {
   cloneStandardStep,
@@ -25,6 +30,7 @@ import { ConfirmAction } from "./confirm-action"
 
 interface BranchStepCardProps {
   step: BranchStepV2
+  statuses: WorkflowStatus[]
   variables: WorkflowVariable[]
   stepNumber: number
   isSelected: boolean
@@ -42,6 +48,7 @@ interface BranchStepCardProps {
 
 export function BranchStepCard({
   step,
+  statuses,
   variables,
   stepNumber,
   isSelected,
@@ -246,6 +253,7 @@ export function BranchStepCard({
                     <StepCardV2
                       key={trackStep.id}
                       step={trackStep}
+                      statuses={statuses}
                       stepNumber={idx + 1}
                       isSelected={
                         selectedTrackStep?.trackId === trackA.id &&
@@ -291,6 +299,7 @@ export function BranchStepCard({
                     <StepCardV2
                       key={trackStep.id}
                       step={trackStep}
+                      statuses={statuses}
                       stepNumber={idx + 1}
                       isSelected={
                         selectedTrackStep?.trackId === trackB.id &&

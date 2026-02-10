@@ -8,6 +8,10 @@ import { logActivity } from "@/lib/db/log-activity";
 import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
 import type { DefinitionStatus } from "@/types";
 import { getTemporalTaskQueue } from "@/lib/temporal/task-queue";
+import {
+  fromDefinitionToAuthoring,
+  type DefinitionRecordLike,
+} from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 
 /**
  * POST /api/workflows/trigger
@@ -68,8 +72,14 @@ export async function POST(req: Request) {
       .select({
         id: workflowDefinitions.id,
         name: workflowDefinitions.name,
+        description: workflowDefinitions.description,
         version: workflowDefinitions.version,
+        steps: workflowDefinitions.steps,
+        phases: workflowDefinitions.phases,
+        variables: workflowDefinitions.variables,
         statuses: workflowDefinitions.statuses,
+        createdAt: workflowDefinitions.createdAt,
+        updatedAt: workflowDefinitions.updatedAt,
       })
       .from(workflowDefinitions)
       .where(
@@ -91,8 +101,23 @@ export async function POST(req: Request) {
     const definitionStatuses =
       (workflowDefinition.statuses as DefinitionStatus[] | null) ?? [];
 
-    // Use provided initialStatus or default to empty string
-    const workflowInitialStatus = initialStatus ?? "";
+    const definitionRecordLike: DefinitionRecordLike = {
+      id: workflowDefinition.id,
+      name: workflowDefinition.name,
+      description: workflowDefinition.description,
+      statuses: workflowDefinition.statuses,
+      phases: workflowDefinition.phases,
+      variables: workflowDefinition.variables,
+      steps: workflowDefinition.steps,
+      createdAt: workflowDefinition.createdAt.toISOString(),
+      updatedAt: workflowDefinition.updatedAt.toISOString(),
+    };
+
+    const triggerInitialStatus =
+      fromDefinitionToAuthoring(definitionRecordLike).trigger.initialStatus;
+
+    // Explicit request status wins. Otherwise use trigger-config default. Fallback: unset.
+    const workflowInitialStatus = initialStatus ?? triggerInitialStatus ?? "";
 
     // Create workflow execution record in DB
     const [workflowExecution] = await db

@@ -16,7 +16,13 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
-import type { WorkflowStepV2, WorkflowTrigger, StandardStepV2, WorkflowVariable } from "../types/workflow-v2"
+import type {
+  WorkflowStepV2,
+  WorkflowTrigger,
+  StandardStepV2,
+  WorkflowVariable,
+  WorkflowStatus,
+} from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { StepCardV2 } from "./step-card-v2"
 import { BranchStepCard } from "./branch-step-card"
@@ -38,6 +44,7 @@ interface StepListV2Props {
   trigger: WorkflowTrigger
   steps: WorkflowStepV2[]
   variables: WorkflowVariable[]
+  statuses: WorkflowStatus[]
   selectedStepId: string | null
   selectedTrigger: boolean
   onTriggerSelect: () => void
@@ -62,6 +69,7 @@ export function StepListV2({
   trigger,
   steps,
   variables,
+  statuses,
   selectedStepId,
   selectedTrigger,
   onTriggerSelect,
@@ -79,6 +87,7 @@ export function StepListV2({
   const [isDragging, setIsDragging] = useState(false)
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const skipMenuCloseAutoFocusRef = useRef(false)
 
   // Scroll to bottom when the last step is selected (for newly added steps)
   useEffect(() => {
@@ -135,11 +144,13 @@ export function StepListV2({
   }
 
   const handleAddStandardStep = () => {
+    skipMenuCloseAutoFocusRef.current = true
     const newStep = createEmptyStandardStep()
     onStepAdd(newStep)
   }
 
   const handleAddBranch = () => {
+    skipMenuCloseAutoFocusRef.current = true
     const newBranch = createEmptyBranchStep()
     onStepAdd(newBranch)
 
@@ -170,6 +181,7 @@ export function StepListV2({
             </div>
             <TriggerCard
               trigger={trigger}
+              statuses={statuses}
               isSelected={selectedTrigger}
               onSelect={onTriggerSelect}
             />
@@ -197,6 +209,7 @@ export function StepListV2({
                         <BranchStepCard
                           key={step.id}
                           step={step}
+                          statuses={statuses}
                           variables={variables}
                           stepNumber={index + 1}
                           isSelected={step.id === selectedStepId}
@@ -230,6 +243,7 @@ export function StepListV2({
                         <StepCardV2
                           key={step.id}
                           step={step}
+                          statuses={statuses}
                           stepNumber={index + 1}
                           isSelected={step.id === selectedStepId}
                           isAnyDragging={isDragging}
@@ -252,6 +266,7 @@ export function StepListV2({
                     <BranchStepCard
                       key={step.id}
                       step={step}
+                      statuses={statuses}
                       variables={variables}
                       stepNumber={index + 1}
                       isSelected={step.id === selectedStepId}
@@ -285,6 +300,7 @@ export function StepListV2({
                     <StepCardV2
                       key={step.id}
                       step={step}
+                      statuses={statuses}
                       stepNumber={index + 1}
                       isSelected={step.id === selectedStepId}
                       onSelect={() => onStepSelect(step.id)}
@@ -308,7 +324,15 @@ export function StepListV2({
               Add Step
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" className="w-56">
+          <DropdownMenuContent
+            align="center"
+            className="w-56"
+            onCloseAutoFocus={(event) => {
+              if (!skipMenuCloseAutoFocusRef.current) return
+              event.preventDefault()
+              skipMenuCloseAutoFocusRef.current = false
+            }}
+          >
             <DropdownMenuItem onClick={handleAddStandardStep}>
               <Plus className="mr-2 size-4" />
               Standard Step

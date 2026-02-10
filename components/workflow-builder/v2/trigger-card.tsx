@@ -1,17 +1,19 @@
 "use client"
 
-import type { WorkflowTrigger } from "../types/workflow-v2"
+import type { WorkflowTrigger, WorkflowStatus } from "../types/workflow-v2"
+import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { Badge } from "@/components/ui/badge"
 import { Play, UserCheck, UserPlus, Webhook, Code } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface TriggerCardProps {
   trigger: WorkflowTrigger
+  statuses: WorkflowStatus[]
   isSelected: boolean
   onSelect: () => void
 }
 
-export function TriggerCard({ trigger, isSelected, onSelect }: TriggerCardProps) {
+export function TriggerCard({ trigger, statuses, isSelected, onSelect }: TriggerCardProps) {
   const getTriggerDisplay = () => {
     switch (trigger.type) {
       case "manual":
@@ -52,6 +54,9 @@ export function TriggerCard({ trigger, isSelected, onSelect }: TriggerCardProps)
 
   const display = getTriggerDisplay()
   const Icon = display.icon
+  const initialStatusDisplay = trigger.initialStatus
+    ? resolveWorkflowStatusDisplay(trigger.initialStatus, statuses)
+    : null
 
   return (
     <div
@@ -75,6 +80,17 @@ export function TriggerCard({ trigger, isSelected, onSelect }: TriggerCardProps)
             <Badge variant="secondary" className="text-xs">
               Trigger
             </Badge>
+            {initialStatusDisplay && (
+              <Badge variant="outline" className="text-xs">
+                {initialStatusDisplay.color && (
+                  <span
+                    className="mr-1.5 inline-block size-2 rounded-full"
+                    style={{ backgroundColor: initialStatusDisplay.color }}
+                  />
+                )}
+                Starts: {initialStatusDisplay.label}
+              </Badge>
+            )}
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
             {display.description}

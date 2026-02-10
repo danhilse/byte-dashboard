@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTHORING_STORAGE_KEY } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -134,7 +135,14 @@ describe("app/api/workflows/trigger/route", () => {
           {
             id: "def_1",
             name: "Generic Review",
+            description: null,
             version: 2,
+            steps: [],
+            phases: [],
+            variables: {},
+            statuses: [],
+            createdAt: new Date("2026-02-09T00:00:00.000Z"),
+            updatedAt: new Date("2026-02-09T00:00:00.000Z"),
           },
         ])
       );
@@ -199,6 +207,95 @@ describe("app/api/workflows/trigger/route", () => {
         orgId: "org_1",
         userId: "user_1",
         action: "created",
+      })
+    );
+  });
+
+  it("uses trigger-config initial status when request initialStatus is not provided", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "contact_1",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada@example.com",
+            phone: "555-1234",
+            avatarUrl: "https://img",
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "def_1",
+            name: "Generic Review",
+            description: null,
+            version: 2,
+            steps: [],
+            phases: [],
+            variables: {
+              [AUTHORING_STORAGE_KEY]: {
+                schemaVersion: 1,
+                workflow: {
+                  trigger: {
+                    type: "manual",
+                    initialStatus: "approved",
+                  },
+                },
+              },
+            },
+            statuses: [
+              { id: "draft", label: "Draft", order: 0 },
+              { id: "approved", label: "Approved", order: 1 },
+            ],
+            createdAt: new Date("2026-02-09T00:00:00.000Z"),
+            updatedAt: new Date("2026-02-09T00:00:00.000Z"),
+          },
+        ])
+      );
+    mocks.insert.mockReturnValue(
+      {
+        values: insertQuery([
+          {
+            id: "wf_1",
+            contactId: "contact_1",
+            workflowDefinitionId: "def_1",
+            definitionVersion: 2,
+            status: "approved",
+            source: "manual",
+          },
+        ]).values,
+      }
+    );
+    mocks.getTemporalClient.mockResolvedValue({
+      workflow: {
+        start: vi.fn().mockResolvedValue({
+          workflowId: "generic-workflow-wf_1",
+          firstExecutionRunId: "run_1",
+        }),
+      },
+    });
+    mocks.update.mockReturnValue({ set: updateQuery().set });
+
+    const res = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.objectContaining({
+        status: "approved",
+        workflow: expect.objectContaining({
+          status: "approved",
+        }),
       })
     );
   });

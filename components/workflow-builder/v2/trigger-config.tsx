@@ -188,6 +188,7 @@ const TRIGGER_MENU_CATEGORIES: TriggerMenuCategory[] = [
 export function TriggerConfig({ trigger, statuses, onChange }: TriggerConfigProps) {
   const selectedOption = TRIGGER_MENU_CATEGORIES.flatMap((category) => category.options)
     .find((option) => option.triggerType === trigger.type)
+  const sortedStatuses = [...statuses].sort((a, b) => a.order - b.order)
 
   const createTrigger = (
     type: TriggerType,
@@ -354,7 +355,7 @@ export function TriggerConfig({ trigger, statuses, onChange }: TriggerConfigProp
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="trigger-initial-status">Workflow Status At Trigger (Optional)</Label>
+        <Label htmlFor="trigger-initial-status">Initial Workflow Status (Optional)</Label>
         <Select
           value={trigger.initialStatus ?? UNSET_STATUS_VALUE}
           onValueChange={handleInitialStatusChange}
@@ -364,17 +365,23 @@ export function TriggerConfig({ trigger, statuses, onChange }: TriggerConfigProp
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={UNSET_STATUS_VALUE}>--</SelectItem>
-            {[...statuses]
-              .sort((a, b) => a.order - b.order)
-              .map((status) => (
-                <SelectItem key={status.id} value={status.id}>
+            {sortedStatuses.map((status) => (
+              <SelectItem key={status.id} value={status.id}>
+                <div className="flex items-center gap-2">
+                  {status.color && (
+                    <div
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                  )}
                   {status.label}
-                </SelectItem>
-              ))}
+                </div>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Default is no status (`--`).
+          Workflows start with no status unless you choose one here.
         </p>
       </div>
 
@@ -385,7 +392,15 @@ export function TriggerConfig({ trigger, statuses, onChange }: TriggerConfigProp
             id="form-id"
             value={trigger.formId}
             onChange={(e) =>
-              onChange({ type: "form_submission", formId: e.target.value })
+              onChange(
+                trigger.initialStatus
+                  ? {
+                      type: "form_submission",
+                      formId: e.target.value,
+                      initialStatus: trigger.initialStatus,
+                    }
+                  : { type: "form_submission", formId: e.target.value }
+              )
             }
             placeholder="Enter external form ID"
           />

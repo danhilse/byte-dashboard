@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import type { ActionType, StandardStepV2 } from "../types/workflow-v2"
+import type { ActionType, StandardStepV2, WorkflowStatus } from "../types/workflow-v2"
 import { getActionMetadata } from "@/lib/workflow-builder-v2/action-registry"
 import { getConditionBadgeText } from "@/lib/workflow-builder-v2/condition-registry"
+import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { GripVertical, Trash2, Copy, ArrowRight } from "lucide-react"
@@ -14,6 +15,7 @@ import { ConfirmAction } from "./confirm-action"
 
 interface StepCardV2Props {
   step: StandardStepV2
+  statuses: WorkflowStatus[]
   stepNumber: number
   isSelected: boolean
   isAnyDragging?: boolean
@@ -24,6 +26,7 @@ interface StepCardV2Props {
 
 export function StepCardV2({
   step,
+  statuses,
   stepNumber,
   isSelected,
   isAnyDragging = false,
@@ -62,11 +65,25 @@ export function StepCardV2({
     setNodeRef(node)
   }
 
-  // Group actions by type for badge display
-  const actionCounts = new Map<string, number>()
-  step.actions.forEach((action) => {
-    actionCounts.set(action.type, (actionCounts.get(action.type) || 0) + 1)
+  const statusUpdates = step.actions.filter(
+    (action): action is Extract<typeof step.actions[number], { type: "update_status" }> =>
+      action.type === "update_status"
+  )
+
+  const statusUpdateCounts = new Map<string, number>()
+  statusUpdates.forEach((action) => {
+    const statusId = action.config.status || "__unset__"
+    statusUpdateCounts.set(statusId, (statusUpdateCounts.get(statusId) || 0) + 1)
   })
+  const statusUpdateEntries = Array.from(statusUpdateCounts.entries())
+
+  // Group non-status actions by type for badge display
+  const actionCounts = new Map<string, number>()
+  step.actions
+    .filter((action) => action.type !== "update_status")
+    .forEach((action) => {
+      actionCounts.set(action.type, (actionCounts.get(action.type) || 0) + 1)
+    })
 
   const conditionBadgeText = getConditionBadgeText(step.advancementCondition)
 
@@ -116,10 +133,32 @@ export function StepCardV2({
         )}
 
         {/* Actions Section */}
-        {step.actions.length > 0 && (
+        {(statusUpdateEntries.length > 0 || actionCounts.size > 0) && (
           <div className="mb-2">
             <div className="mb-1 text-xs font-medium text-muted-foreground">Actions:</div>
             <div className="flex flex-wrap gap-1">
+              {statusUpdateEntries.map(([statusId, count]) => {
+                const display = statusId === "__unset__"
+                  ? { label: "(not set)", color: undefined as string | undefined }
+                  : resolveWorkflowStatusDisplay(statusId, statuses)
+
+                return (
+                  <Badge
+                    key={`status-${statusId}`}
+                    variant="outline"
+                    className="border bg-white text-xs text-foreground dark:bg-card"
+                  >
+                    {display.color && (
+                      <span
+                        className="mr-1.5 inline-block size-2 rounded-full"
+                        style={{ backgroundColor: display.color }}
+                      />
+                    )}
+                    {count > 1 ? `${count} ` : ""}
+                    {display.label}
+                  </Badge>
+                )
+              })}
               {Array.from(actionCounts.entries()).map(([type, count]) => {
                 const metadata = getActionMetadata(type as ActionType)
                 const Icon = metadata.icon
