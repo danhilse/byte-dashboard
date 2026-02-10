@@ -38,7 +38,12 @@ export const KanbanCard = memo(function KanbanCard({ task, className, onClick }:
     <Card
       ref={setNodeRef}
       style={style}
-      className={cn("cursor-grab active:cursor-grabbing", className)}
+      className={cn(
+        "cursor-grab active:cursor-grabbing",
+        task.taskType === "approval" &&
+          "border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15",
+        className
+      )}
       onClick={onClick}
     >
       <CardHeader className="p-3 pb-0">
@@ -68,7 +73,7 @@ export const KanbanCard = memo(function KanbanCard({ task, className, onClick }:
           {task.assignedTo && (
             <div className="flex items-center gap-1">
               <User className="size-3" />
-              <span className="truncate max-w-[80px]">{task.assignedTo}</span>
+              <span className="truncate max-w-[80px]">{task.assignedToName || task.assignedTo}</span>
             </div>
           )}
           {!task.assignedTo && task.assignedRole && (

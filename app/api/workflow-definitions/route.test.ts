@@ -26,6 +26,14 @@ function selectQuery(result: unknown[]) {
   };
 }
 
+function groupedSelectQuery(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    groupBy: vi.fn().mockResolvedValue(result),
+  };
+}
+
 function insertQuery(result: unknown[]) {
   const returning = vi.fn().mockResolvedValue(result);
   const values = vi.fn().mockReturnValue({ returning });
@@ -64,17 +72,27 @@ describe("app/api/workflow-definitions/route", () => {
 
   it("GET returns lightweight definitions by default", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
-    mocks.select.mockReturnValue(
-      selectQuery([
-        {
-          id: "def_1",
-          name: "Review Flow",
-          description: null,
-          version: 1,
-          statuses: [],
-        },
-      ])
-    );
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "def_1",
+            name: "Review Flow",
+            description: null,
+            version: 1,
+            statuses: [],
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        groupedSelectQuery([
+          {
+            workflowDefinitionId: "def_1",
+            runCount: 3,
+            lastRunAt: "2025-01-15T10:00:00.000Z",
+          },
+        ])
+      );
 
     const res = await GET(
       new Request("http://localhost/api/workflow-definitions")
@@ -89,6 +107,8 @@ describe("app/api/workflow-definitions/route", () => {
           description: null,
           version: 1,
           statuses: [],
+          runCount: 3,
+          lastRunAt: "2025-01-15T10:00:00.000Z",
         },
       ],
     });
@@ -202,6 +222,96 @@ describe("app/api/workflow-definitions/route", () => {
     expect(await res.json()).toEqual({
       error:
         "direct steps writes are not supported; use authoring payload through the workflow builder editor",
+    });
+  });
+
+  it("POST duplicates a workflow definition from sourceDefinitionId", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const sourceDefinition = {
+      id: "def_source",
+      orgId: "org_1",
+      name: "Review Flow",
+      description: "Original definition",
+      version: 3,
+      phases: [{ id: "phase_review", label: "Review", order: 0 }],
+      steps: [{ id: "step_1", type: "trigger" }],
+      variables: { __builderV2Authoring: { workflow: { steps: [] } } },
+      statuses: [{ id: "draft", label: "Draft", order: 0 }],
+      isActive: true,
+    };
+
+    mocks.select.mockReturnValue(selectQuery([sourceDefinition]));
+    const q = insertQuery([
+      { id: "def_copy", name: "Review Flow (Copy)", version: 1 },
+    ]);
+    mocks.insert.mockReturnValue({ values: q.values });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Review Flow (Copy)",
+          sourceDefinitionId: "def_source",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({
+      definition: { id: "def_copy", name: "Review Flow (Copy)", version: 1 },
+    });
+    expect(q.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org_1",
+        name: "Review Flow (Copy)",
+        description: "Original definition",
+        version: 1,
+        phases: sourceDefinition.phases,
+        steps: sourceDefinition.steps,
+        variables: sourceDefinition.variables,
+        statuses: sourceDefinition.statuses,
+        isActive: true,
+      })
+    );
+  });
+
+  it("POST returns 404 when sourceDefinitionId is missing", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.select.mockReturnValue(selectQuery([]));
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Review Flow (Copy)",
+          sourceDefinitionId: "missing_definition",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      error: "Source workflow definition not found",
+    });
+  });
+
+  it("POST returns 400 when sourceDefinitionId is invalid", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Review Flow (Copy)",
+          sourceDefinitionId: 123,
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "sourceDefinitionId must be a non-empty string when provided",
     });
   });
 

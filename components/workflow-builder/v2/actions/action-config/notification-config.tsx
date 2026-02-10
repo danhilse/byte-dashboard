@@ -1,12 +1,11 @@
 "use client"
 
-import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
+import type { WorkflowAction } from "../../../types/workflow-v2"
 import { allRoles, roleConfig } from "@/lib/roles-config"
 import type { Role } from "@/lib/roles-config"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { VariableSelector } from "../../variable-selector"
 import {
   Select,
   SelectContent,
@@ -14,16 +13,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import type { OrganizationUserOption } from "../../organization-user-option"
 
 interface NotificationConfigProps {
   action: Extract<WorkflowAction, { type: "notification" }>
-  variables: WorkflowVariable[]
+  organizationUsers: OrganizationUserOption[]
+  organizationUsersLoading: boolean
   onChange: (action: WorkflowAction) => void
 }
 
 type RecipientType = Extract<WorkflowAction, { type: "notification" }>["config"]["recipients"]["type"]
 
-export function NotificationConfig({ action, variables, onChange }: NotificationConfigProps) {
+export function NotificationConfig({
+  action,
+  organizationUsers,
+  organizationUsersLoading,
+  onChange,
+}: NotificationConfigProps) {
   const handleChange = <K extends keyof typeof action.config>(
     field: K,
     value: (typeof action.config)[K]
@@ -56,6 +62,11 @@ export function NotificationConfig({ action, variables, onChange }: Notification
 
   const recipients = action.config.recipients
 
+  const formatUserLabel = (user: OrganizationUserOption) => {
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
+    return fullName ? `${fullName} (${user.email})` : user.email
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -79,18 +90,39 @@ export function NotificationConfig({ action, variables, onChange }: Notification
       {recipients.type === "user" && (
         <div className="space-y-2">
           <Label htmlFor={`${action.id}-user`}>User</Label>
-          <VariableSelector
-            value={recipients.userId}
-            onChange={(value) => handleChange("recipients", { type: "user", userId: value })}
-            variables={variables}
-            filterByDataType={["user", "email"]}
-            allowManualEntry={true}
-            placeholder="Select user variable or enter ID..."
-            className="w-full"
-          />
+          <Select
+            value={recipients.userId || undefined}
+            onValueChange={(value) => handleChange("recipients", { type: "user", userId: value })}
+          >
+            <SelectTrigger id={`${action.id}-user`}>
+              <SelectValue
+                placeholder={
+                  organizationUsersLoading
+                    ? "Loading organization users..."
+                    : "Select organization user..."
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {recipients.userId &&
+                !organizationUsers.some((user) => user.id === recipients.userId) && (
+                  <SelectItem value={recipients.userId}>{recipients.userId}</SelectItem>
+                )}
+              {organizationUsers.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {formatUserLabel(user)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="text-xs text-muted-foreground">
-            User variables and manual user IDs are supported
+            Choose from users in your organization.
           </p>
+          {!organizationUsersLoading && organizationUsers.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No users found in your organization.
+            </p>
+          )}
         </div>
       )}
 

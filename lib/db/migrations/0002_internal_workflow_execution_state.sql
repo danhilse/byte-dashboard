@@ -1,8 +1,8 @@
 ALTER TABLE "workflow_executions"
-ADD COLUMN "workflow_execution_state" text DEFAULT 'running' NOT NULL;
+ADD COLUMN IF NOT EXISTS "workflow_execution_state" text DEFAULT 'running' NOT NULL;
 --> statement-breakpoint
 ALTER TABLE "workflow_executions"
-ADD COLUMN "error_definition" text;
+ADD COLUMN IF NOT EXISTS "error_definition" text;
 --> statement-breakpoint
 UPDATE "workflow_executions"
 SET "workflow_execution_state" = CASE
@@ -12,5 +12,5 @@ SET "workflow_execution_state" = CASE
   ELSE 'running'
 END;
 --> statement-breakpoint
-CREATE INDEX "idx_workflow_executions_state"
+CREATE INDEX IF NOT EXISTS "idx_workflow_executions_state"
 ON "workflow_executions" USING btree ("org_id", "workflow_execution_state");

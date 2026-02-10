@@ -42,6 +42,7 @@ describe("definition-runtime-adapter", () => {
               id: "task_a",
               config: {
                 title: "Review {{contact.firstName}}",
+                links: ["var-contact.email", "https://example.com/checklist"],
                 taskType: "standard",
                 assignTo: { type: "role", role: "manager" },
                 priority: "medium",
@@ -75,6 +76,12 @@ describe("definition-runtime-adapter", () => {
       "wait_for_task",
       "trigger",
     ])
+    const assignTask = runtimeSteps.find((step) => step.type === "assign_task")
+    expect(assignTask).toMatchObject({
+      config: {
+        links: ["{{contact.email}}", "https://example.com/checklist"],
+      },
+    })
     const sendEmail = runtimeSteps.find((step) => step.type === "send_email")
     expect(sendEmail).toMatchObject({
       config: { to: "{{contact.email}}" },
@@ -203,7 +210,7 @@ describe("definition-runtime-adapter", () => {
     expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
   })
 
-  it("accepts notification actions as authoring-only steps", () => {
+  it("compiles notification actions into runtime notification steps", () => {
     const workflow = buildWorkflow({
       steps: [
         {
@@ -227,8 +234,16 @@ describe("definition-runtime-adapter", () => {
 
     const runtimeSteps = compileAuthoringToRuntime(workflow)
 
-    expect(runtimeSteps.map((step) => step.type)).toEqual(["trigger", "trigger", "trigger"])
-    expect(runtimeSteps[1]?.label).toBe("Notify Team: Anchor")
+    expect(runtimeSteps.map((step) => step.type)).toEqual(["trigger", "notification", "trigger"])
+    expect(runtimeSteps[1]).toMatchObject({
+      type: "notification",
+      label: "Notify Team: Notification",
+      config: {
+        title: "Application ready",
+        message: "A candidate is ready for review.",
+        recipients: { type: "role", role: "manager" },
+      },
+    })
   })
 
   it("throws compile errors when statuses are missing", () => {

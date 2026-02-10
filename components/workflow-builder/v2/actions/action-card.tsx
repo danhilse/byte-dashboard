@@ -7,6 +7,7 @@ import { roleConfig } from "@/lib/roles-config"
 import type { Role } from "@/lib/roles-config"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react"
+import { ConfirmAction } from "../confirm-action"
 import { SendEmailConfig } from "./action-config/send-email-config"
 import { CreateTaskConfig } from "./action-config/create-task-config"
 import { UpdateContactConfig } from "./action-config/update-contact-config"
@@ -15,11 +16,14 @@ import { UpdateTaskConfig } from "./action-config/update-task-config"
 import { CreateContactConfig } from "./action-config/create-contact-config"
 import { SetVariableConfig } from "./action-config/set-variable-config"
 import { NotificationConfig } from "./action-config/notification-config"
+import type { OrganizationUserOption } from "../organization-user-option"
 
 interface ActionCardProps {
   action: WorkflowAction
   variables: WorkflowVariable[]
   statuses: WorkflowStatus[]
+  organizationUsers: OrganizationUserOption[]
+  organizationUsersLoading: boolean
   isExpanded: boolean
   onToggle: () => void
   onUpdate: (action: WorkflowAction) => void
@@ -31,6 +35,8 @@ export function ActionCard({
   action,
   variables,
   statuses,
+  organizationUsers,
+  organizationUsersLoading,
   isExpanded,
   onToggle,
   onUpdate,
@@ -39,6 +45,17 @@ export function ActionCard({
 }: ActionCardProps) {
   const metadata = getActionMetadata(action.type)
   const Icon = metadata.icon
+
+  const formatUserLabel = (user: OrganizationUserOption) => {
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
+    return fullName || user.email
+  }
+
+  const getUserLabel = (userId: string, fallback = "(not set)") => {
+    if (!userId) return fallback
+    const matchedUser = organizationUsers.find((user) => user.id === userId)
+    return matchedUser ? formatUserLabel(matchedUser) : userId
+  }
 
   // Generate summary line for collapsed state
   const getSummary = () => {
@@ -51,8 +68,10 @@ export function ActionCard({
         const title = action.config.title || "(untitled)"
         const assignLabel = action.config.assignTo.type === "role"
           ? `Role: ${roleConfig[action.config.assignTo.role as Role]?.label || action.config.assignTo.role || "(none)"}`
-          : "User"
-        return `"${title}" → ${assignLabel}`
+          : `User: ${getUserLabel(action.config.assignTo.userId)}`
+        const linksCount = action.config.links?.filter((link) => link.trim().length > 0).length ?? 0
+        const linksSuffix = linksCount > 0 ? `, ${linksCount} link${linksCount === 1 ? "" : "s"}` : ""
+        return `"${title}" → ${assignLabel}${linksSuffix}`
       }
       case "update_contact":
         return `${action.config.fields.length} field${action.config.fields.length === 1 ? "" : "s"}`
@@ -81,7 +100,7 @@ export function ActionCard({
               ? `Role: ${roleConfig[action.config.recipients.role as Role]?.label || action.config.recipients.role || "(none)"}`
               : action.config.recipients.type === "group"
                 ? `${action.config.recipients.groupIds.length} group${action.config.recipients.groupIds.length === 1 ? "" : "s"}`
-                : `User: ${resolveDisplayValue(action.config.recipients.userId, variables, "(not set)")}`
+                : `User: ${getUserLabel(action.config.recipients.userId)}`
 
         return `${targetLabel}, Title: ${action.config.title || "(no title)"}`
       }
@@ -111,19 +130,21 @@ export function ActionCard({
             )}
           </div>
         </button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-7 p-0"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (confirm(`Delete this ${metadata.label.toLowerCase()} action?`)) {
-              onDelete()
-            }
-          }}
+        <ConfirmAction
+          title={`Delete this ${metadata.label.toLowerCase()} action?`}
+          description="This action will be removed from the step configuration."
+          confirmLabel="Delete Action"
+          onConfirm={onDelete}
         >
-          <Trash2 className="size-3.5" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-7 p-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </ConfirmAction>
       </div>
 
       {/* Expanded Config */}
@@ -133,7 +154,12 @@ export function ActionCard({
             <SendEmailConfig action={action} variables={variables} onChange={onUpdate} />
           )}
           {action.type === "create_task" && (
-            <CreateTaskConfig action={action} variables={variables} onChange={onUpdate} />
+            <CreateTaskConfig
+              action={action}
+              organizationUsers={organizationUsers}
+              organizationUsersLoading={organizationUsersLoading}
+              onChange={onUpdate}
+            />
           )}
           {action.type === "update_contact" && (
             <UpdateContactConfig action={action} onChange={onUpdate} />
@@ -151,7 +177,12 @@ export function ActionCard({
             <SetVariableConfig action={action} variables={variables} onChange={onUpdate} onAddVariable={onAddVariable} />
           )}
           {action.type === "notification" && (
-            <NotificationConfig action={action} variables={variables} onChange={onUpdate} />
+            <NotificationConfig
+              action={action}
+              organizationUsers={organizationUsers}
+              organizationUsersLoading={organizationUsersLoading}
+              onChange={onUpdate}
+            />
           )}
         </div>
       )}

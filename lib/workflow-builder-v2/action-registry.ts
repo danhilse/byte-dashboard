@@ -68,6 +68,7 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
       id: "",
       config: {
         title: "",
+        links: [],
         taskType: "standard",
         assignTo: { type: "role", role: "" },
         priority: "medium",

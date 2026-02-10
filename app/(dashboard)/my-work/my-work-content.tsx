@@ -1,9 +1,10 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useState, useMemo, useEffect } from "react"
-import { LayoutGrid, List, Grid3X3 } from "lucide-react"
+import { useState, useMemo, useEffect, useCallback } from "react"
+import { LayoutGrid, List, Grid3X3, ShieldCheck, Link2 } from "lucide-react"
 import { parseISO } from "date-fns"
+import type { ColumnDef } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,11 +20,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { TaskStatusBadge } from "@/components/common/status-badge"
 import { TaskCreateDialog } from "@/components/tasks/task-create-dialog"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
+import { ApprovalTaskDecisionDialog } from "@/components/tasks/approval-task-decision-dialog"
 import { AvailableTaskCard } from "@/components/tasks/available-task-card"
 import { useToast } from "@/hooks/use-toast"
 import { usePersistedView } from "@/hooks/use-persisted-view"
+import { getTaskLinks, isApprovalTaskDecided } from "@/lib/tasks/presentation"
 import type { Task, TaskStatus } from "@/types"
 
 const KanbanBoard = dynamic(
@@ -41,21 +45,67 @@ const KanbanBoard = dynamic(
 )
 
 type ViewType = "table" | "kanban" | "grid"
+type KanbanScope = "standard" | "approval"
+type MyWorkStatusFilter =
+  | "all"
+  | TaskStatus
+  | "needs_review"
+  | "decided"
+
+interface OrganizationUserOption {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+}
 
 export function MyWorkContent() {
   const { toast } = useToast()
   const [view, setView] = usePersistedView<ViewType>("my-work", "kanban")
+  const [kanbanScope, setKanbanScope] = useState<KanbanScope>("standard")
+  const [organizationUsers, setOrganizationUsers] = useState<OrganizationUserOption[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<MyWorkStatusFilter>("all")
   const [availableTasks, setAvailableTasks] = useState<Task[]>([])
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [selectedApprovalTaskId, setSelectedApprovalTaskId] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [approvalDetailOpen, setApprovalDetailOpen] = useState(false)
+
+  const assigneeNameById = useMemo(() => {
+    const map = new Map<string, string>()
+
+    for (const user of organizationUsers) {
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
+      map.set(user.id, fullName || user.email)
+    }
+
+    return map
+  }, [organizationUsers])
+
+  const withAssigneeName = useCallback(
+    (task: Task): Task => ({
+      ...task,
+      assignedToName: task.assignedTo ? assigneeNameById.get(task.assignedTo) : undefined,
+    }),
+    [assigneeNameById]
+  )
+
+  const tasksWithAssigneeNames = useMemo(
+    () => tasks.map(withAssigneeName),
+    [tasks, withAssigneeName]
+  )
+
+  const availableTasksWithAssigneeNames = useMemo(
+    () => availableTasks.map(withAssigneeName),
+    [availableTasks, withAssigneeName]
+  )
 
   const filteredTasks = useMemo(() => {
-    let result = tasks
+    let result = tasksWithAssigneeNames
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -68,11 +118,106 @@ export function MyWorkContent() {
 
     // Apply status filter
     if (statusFilter !== "all") {
-      result = result.filter((task) => task.status === statusFilter)
+      result = result.filter((task) => {
+        if (statusFilter === "needs_review") {
+          return task.taskType === "approval" && !isApprovalTaskDecided(task)
+        }
+        if (statusFilter === "decided") {
+          return task.taskType === "approval" && isApprovalTaskDecided(task)
+        }
+        if (task.taskType === "approval") {
+          return false
+        }
+        return task.status === statusFilter
+      })
     }
 
     return result
-  }, [tasks, searchQuery, statusFilter])
+  }, [tasksWithAssigneeNames, searchQuery, statusFilter])
+
+  const kanbanTasks = useMemo(
+    () => filteredTasks.filter((task) => task.taskType === kanbanScope),
+    [filteredTasks, kanbanScope]
+  )
+
+  const selectedApprovalTask = useMemo(
+    () =>
+      selectedApprovalTaskId
+        ? tasksWithAssigneeNames.find((task) => task.id === selectedApprovalTaskId) ?? null
+        : null,
+    [selectedApprovalTaskId, tasksWithAssigneeNames]
+  )
+
+  const myWorkColumns = useMemo<ColumnDef<Task>[]>(() => {
+    return taskColumns.map((column) => {
+      if ("accessorKey" in column && column.accessorKey === "title") {
+        return {
+          ...column,
+          cell: ({ row }) => {
+            const task = row.original as Task
+            const taskLinks = getTaskLinks(task.metadata)
+            return (
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{task.title}</p>
+                  {task.taskType === "approval" && (
+                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
+                      <ShieldCheck className="mr-1 size-3" />
+                      Approval
+                    </Badge>
+                  )}
+                </div>
+                {task.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {task.description}
+                  </p>
+                )}
+                {taskLinks.length > 0 && (
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Link2 className="size-3" />
+                    {taskLinks.length} link
+                    {taskLinks.length === 1 ? "" : "s"}
+                  </div>
+                )}
+              </div>
+            )
+          },
+        } satisfies ColumnDef<Task>
+      }
+      if ("accessorKey" in column && column.accessorKey === "status") {
+        return {
+          ...column,
+          header: "State",
+        } satisfies ColumnDef<Task>
+      }
+      return column
+    })
+  }, [])
+
+  // Fetch organization users for assignee name display
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchOrganizationUsers() {
+      try {
+        const response = await fetch("/api/users")
+        if (!response.ok) return
+        const data = await response.json()
+
+        if (!cancelled && Array.isArray(data.users)) {
+          setOrganizationUsers(data.users)
+        }
+      } catch (error) {
+        console.error("Error fetching organization users:", error)
+      }
+    }
+
+    fetchOrganizationUsers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Fetch tasks on mount
   useEffect(() => {
@@ -174,7 +319,7 @@ export function MyWorkContent() {
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? task : t))
       )
-      setSelectedTask(task)
+      setSelectedTask(withAssigneeName(task))
 
       toast({
         title: "Success",
@@ -252,7 +397,7 @@ export function MyWorkContent() {
           prev.map((t) => (t.id === taskId ? result.task : t))
         )
         if (selectedTask?.id === taskId) {
-          setSelectedTask(result.task)
+          setSelectedTask(withAssigneeName(result.task))
         }
       }
     } catch (error) {
@@ -262,7 +407,7 @@ export function MyWorkContent() {
         prev.map((t) => (t.id === taskId ? previous : t))
       )
       if (selectedTask?.id === taskId) {
-        setSelectedTask(previous)
+        setSelectedTask(withAssigneeName(previous))
       }
       toast({
         title: "Error",
@@ -273,6 +418,12 @@ export function MyWorkContent() {
   }
 
   const handleTaskClick = (task: Task) => {
+    if (task.taskType === "approval") {
+      setSelectedApprovalTaskId(task.id)
+      setApprovalDetailOpen(true)
+      return
+    }
+
     setSelectedTask(task)
     setDetailOpen(true)
   }
@@ -428,6 +579,17 @@ export function MyWorkContent() {
     }
   }
 
+  useEffect(() => {
+    setSelectedTask((current) => {
+      if (!current) return current
+      const next = withAssigneeName(current)
+      if (next.assignedToName === current.assignedToName) {
+        return current
+      }
+      return next
+    })
+  }, [withAssigneeName])
+
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -443,54 +605,82 @@ export function MyWorkContent() {
       </div>
 
       {/* Search, filters, and view toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 w-[200px] lg:w-[300px]"
-          />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-[130px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {taskStatusOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9 w-[200px] lg:w-[300px]"
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as MyWorkStatusFilter)}
+            >
+              <SelectTrigger className="h-9 w-[170px]">
+                <SelectValue placeholder="State" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="needs_review">Needs Review</SelectItem>
+                <SelectItem value="decided">Decided</SelectItem>
+                {taskStatusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border p-1">
+            <Button
+              variant={view === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setView("table")}
+            >
+              <List className="mr-2 size-4" />
+              Table
+            </Button>
+            <Button
+              variant={view === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setView("kanban")}
+            >
+              <LayoutGrid className="mr-2 size-4" />
+              Kanban
+            </Button>
+            <Button
+              variant={view === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setView("grid")}
+            >
+              <Grid3X3 className="mr-2 size-4" />
+              Grid
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
-          <Button
-            variant={view === "table" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setView("table")}
-          >
-            <List className="mr-2 size-4" />
-            Table
-          </Button>
-          <Button
-            variant={view === "kanban" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setView("kanban")}
-          >
-            <LayoutGrid className="mr-2 size-4" />
-            Kanban
-          </Button>
-          <Button
-            variant={view === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setView("grid")}
-          >
-            <Grid3X3 className="mr-2 size-4" />
-            Grid
-          </Button>
-        </div>
+        {view === "kanban" && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Kanban Scope</span>
+            <div className="flex items-center gap-1 rounded-lg border p-1">
+              <Button
+                size="sm"
+                variant={kanbanScope === "standard" ? "secondary" : "ghost"}
+                onClick={() => setKanbanScope("standard")}
+              >
+                Standard
+              </Button>
+              <Button
+                size="sm"
+                variant={kanbanScope === "approval" ? "secondary" : "ghost"}
+                onClick={() => setKanbanScope("approval")}
+              >
+                Approval
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {availableTasks.length > 0 && (
@@ -499,7 +689,7 @@ export function MyWorkContent() {
             Available Tasks ({availableTasks.length})
           </h2>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {availableTasks.map((task) => (
+            {availableTasksWithAssigneeNames.map((task) => (
               <AvailableTaskCard
                 key={task.id}
                 task={task}
@@ -525,17 +715,24 @@ export function MyWorkContent() {
         )}
         {!isLoading && !loadError && view === "table" && (
           <DataTable
-            columns={taskColumns}
+            columns={myWorkColumns}
             data={filteredTasks}
             onRowClick={(row) => handleTaskClick(row.original)}
           />
         )}
         {!isLoading && !loadError && view === "kanban" && (
-          <KanbanBoard
-            tasks={filteredTasks}
-            onStatusChange={handleStatusChange}
-            onTaskClick={handleTaskClick}
-          />
+          kanbanScope === "standard" ? (
+            <KanbanBoard
+              tasks={kanbanTasks}
+              onStatusChange={handleStatusChange}
+              onTaskClick={handleTaskClick}
+            />
+          ) : (
+            <ApprovalKanbanQueue
+              tasks={kanbanTasks}
+              onTaskClick={handleTaskClick}
+            />
+          )
         )}
         {!isLoading && !loadError && view === "grid" && (
           <TasksGridView tasks={filteredTasks} onTaskClick={handleTaskClick} />
@@ -552,6 +749,68 @@ export function MyWorkContent() {
         onApprove={handleApprove}
         onReject={handleReject}
       />
+      <ApprovalTaskDecisionDialog
+        task={selectedApprovalTask}
+        open={approvalDetailOpen}
+        onOpenChange={setApprovalDetailOpen}
+        onApprove={handleApprove}
+        onReject={handleReject}
+      />
+    </div>
+  )
+}
+
+interface ApprovalKanbanQueueProps {
+  tasks: Task[]
+  onTaskClick: (task: Task) => void
+}
+
+function ApprovalKanbanQueue({ tasks, onTaskClick }: ApprovalKanbanQueueProps) {
+  if (tasks.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+        No approval tasks match your current filters.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 p-3 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15">
+      <p className="text-xs text-muted-foreground">
+        Approval tasks are reviewed in a decision modal instead of drag-and-drop.
+      </p>
+      {tasks.map((task) => {
+        const links = getTaskLinks(task.metadata)
+
+        return (
+          <button
+            key={task.id}
+            type="button"
+            className="flex w-full items-center justify-between rounded-md border border-amber-200/60 bg-background/70 px-3 py-2 text-left transition-colors hover:bg-background dark:border-amber-900/40"
+            onClick={() => onTaskClick(task)}
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{task.title}</p>
+              <p className="text-xs text-muted-foreground">
+                {task.outcome ? `Outcome: ${task.outcome}` : "Awaiting decision"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {links.length > 0 && (
+                <Badge variant="outline" className="text-[10px]">
+                  <Link2 className="mr-1 size-3" />
+                  {links.length}
+                </Badge>
+              )}
+              <TaskStatusBadge
+                status={task.status}
+                taskType={task.taskType}
+                outcome={task.outcome ?? null}
+              />
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -570,29 +829,55 @@ function getPriorityVariant(priority: Task["priority"]) {
 function TasksGridView({ tasks, onTaskClick }: TasksGridViewProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {tasks.map((task) => (
-        <Card
-          key={task.id}
-          className="hover:bg-muted/50 transition-colors cursor-pointer grid-card-optimized"
-          onClick={() => onTaskClick(task)}
-        >
-          <CardHeader className="pb-2">
-            <div className="flex items-start justify-between">
-              <CardTitle className="text-base line-clamp-2">{task.title}</CardTitle>
-              <Badge variant={getPriorityVariant(task.priority)}>
-                {task.priority}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="line-clamp-2">{task.description}</CardDescription>
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline">{task.status}</Badge>
-              {task.dueDate && <span>Due: {parseISO(task.dueDate).toLocaleDateString()}</span>}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+      {tasks.map((task) => {
+        const links = getTaskLinks(task.metadata)
+
+        return (
+          <Card
+            key={task.id}
+            className={`cursor-pointer transition-colors hover:bg-muted/50 grid-card-optimized ${
+              task.taskType === "approval"
+                ? "border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15"
+                : ""
+            }`}
+            onClick={() => onTaskClick(task)}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="line-clamp-2 text-base">{task.title}</CardTitle>
+                  {task.taskType === "approval" && (
+                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
+                      <ShieldCheck className="mr-1 size-3" />
+                      Approval
+                    </Badge>
+                  )}
+                </div>
+                <Badge variant={getPriorityVariant(task.priority)}>
+                  {task.priority}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardDescription className="line-clamp-2">{task.description}</CardDescription>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <TaskStatusBadge
+                  status={task.status}
+                  taskType={task.taskType}
+                  outcome={task.outcome ?? null}
+                />
+                {task.dueDate && <span>Due: {parseISO(task.dueDate).toLocaleDateString()}</span>}
+                {links.length > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Link2 className="size-3" />
+                    {links.length}
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }

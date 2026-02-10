@@ -37,6 +37,7 @@ import { createCustomVariableId } from "@/lib/workflow-builder-v2/id-utils"
 import type { BuilderCommand } from "@/lib/workflow-builder-v2/builder-command-serializer"
 import type { WorkflowDefinitionV2, WorkflowVariable, WorkflowStatus, VariableDataType } from "../types/workflow-v2"
 import { WorkflowJsonExport } from "./workflow-json-export"
+import { ConfirmAction } from "./confirm-action"
 
 // Predefined color palette for statuses
 const STATUS_COLORS = [
@@ -126,14 +127,20 @@ function SortableStatusItem({ status, onEdit, onDelete }: SortableStatusItemProp
         >
           <Edit2 className="size-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-8 p-0"
-          onClick={onDelete}
+        <ConfirmAction
+          title={`Delete status "${status.label}"?`}
+          description="This may break actions that reference this status."
+          confirmLabel="Delete Status"
+          onConfirm={onDelete}
         >
-          <Trash2 className="size-4" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-8 p-0"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </ConfirmAction>
       </div>
     </div>
   )
@@ -231,13 +238,11 @@ export function WorkflowConfigDialog({
   }
 
   const handleDeleteVariable = (id: string) => {
-    if (confirm("Delete this variable? Actions that reference it may break.")) {
-      onChange({
-        ...workflow,
-        variables: workflow.variables.filter((v) => v.id !== id),
-        updatedAt: new Date().toISOString(),
-      })
-    }
+    onChange({
+      ...workflow,
+      variables: workflow.variables.filter((v) => v.id !== id),
+      updatedAt: new Date().toISOString(),
+    })
   }
 
   const handleEditVariable = (variable: WorkflowVariable) => {
@@ -297,13 +302,11 @@ export function WorkflowConfigDialog({
   }
 
   const handleDeleteStatus = (id: string) => {
-    if (confirm("Delete this status? It may break actions that reference it.")) {
-      onChange({
-        ...workflow,
-        statuses: workflow.statuses.filter((s) => s.id !== id),
-        updatedAt: new Date().toISOString(),
-      })
-    }
+    onChange({
+      ...workflow,
+      statuses: workflow.statuses.filter((s) => s.id !== id),
+      updatedAt: new Date().toISOString(),
+    })
   }
 
   const handleEditStatus = (status: WorkflowStatus) => {
@@ -483,14 +486,20 @@ export function WorkflowConfigDialog({
                         >
                           <Edit2 className="size-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="size-8 p-0"
-                          onClick={() => handleDeleteVariable(variable.id)}
+                        <ConfirmAction
+                          title={`Delete variable "${variable.name}"?`}
+                          description="This may break actions that reference this variable."
+                          confirmLabel="Delete Variable"
+                          onConfirm={() => handleDeleteVariable(variable.id)}
                         >
-                          <Trash2 className="size-4" />
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="size-8 p-0"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </ConfirmAction>
                       </div>
                     </div>
                   ))}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { formatDistanceToNowStrict } from "date-fns"
 import { Plus, Loader2 } from "lucide-react"
 
 import { FormDialog } from "@/components/common/form-dialog"
@@ -30,6 +31,8 @@ interface DefinitionOption {
   description?: string | null
   version: number
   statuses?: DefinitionStatus[]
+  runCount?: number
+  lastRunAt?: string | null
 }
 
 interface WorkflowCreateDialogProps {
@@ -71,6 +74,23 @@ export function WorkflowCreateDialog({
         .map((s) => ({ value: s.id, label: s.label, color: s.color }))
     }
     return []
+  }, [selectedDefinition])
+  const selectedDefinitionRunSummary = useMemo(() => {
+    if (!selectedDefinition) return null
+
+    const runCount = selectedDefinition.runCount ?? 0
+    const runLabel = `${runCount} ${runCount === 1 ? "run" : "runs"}`
+
+    if (!selectedDefinition.lastRunAt) {
+      return `${runLabel} | Never run`
+    }
+
+    const lastRunDate = new Date(selectedDefinition.lastRunAt)
+    if (Number.isNaN(lastRunDate.getTime())) {
+      return `${runLabel} | Last run unavailable`
+    }
+
+    return `${runLabel} | Last run ${formatDistanceToNowStrict(lastRunDate, { addSuffix: true })}`
   }, [selectedDefinition])
 
   const manualStatusOptions = useMemo(
@@ -219,6 +239,16 @@ export function WorkflowCreateDialog({
           Selecting a definition starts it immediately. Leave as manual execution to create an unscripted
           workflow instance.
         </p>
+        {selectedDefinition?.description ? (
+          <p className="text-xs text-muted-foreground">
+            Description: {selectedDefinition.description}
+          </p>
+        ) : null}
+        {selectedDefinitionRunSummary ? (
+          <p className="text-xs text-muted-foreground">
+            Usage: {selectedDefinitionRunSummary}
+          </p>
+        ) : null}
       </div>
 
       {startsImmediately ? (

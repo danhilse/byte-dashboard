@@ -40,7 +40,10 @@ export async function getDashboardStats(orgId: string) {
       .where(
         and(
           eq(workflowExecutions.orgId, orgId),
-          eq(workflowExecutions.workflowExecutionState, "running")
+          sql`COALESCE(${workflowExecutions.workflowExecutionState}, CASE
+            WHEN ${workflowExecutions.completedAt} IS NOT NULL THEN 'completed'
+            ELSE 'running'
+          END) = 'running'`
         )
       ),
     db
@@ -76,14 +79,20 @@ export async function getDashboardStats(orgId: string) {
  * Workflow counts grouped by status for pie/bar chart.
  */
 export async function getWorkflowCountsByStatus(orgId: string) {
+  // Dashboard distribution should reflect runtime execution state, not business status.
+  const stateExpr = sql<string>`COALESCE(${workflowExecutions.workflowExecutionState}, CASE
+    WHEN ${workflowExecutions.completedAt} IS NOT NULL THEN 'completed'
+    ELSE 'running'
+  END)`;
+
   const rows = await db
     .select({
-      status: workflowExecutions.status,
+      status: stateExpr,
       count: count(),
     })
     .from(workflowExecutions)
     .where(eq(workflowExecutions.orgId, orgId))
-    .groupBy(workflowExecutions.status);
+    .groupBy(stateExpr);
 
   return rows;
 }
@@ -112,10 +121,15 @@ export async function getWorkflowsOverTime(orgId: string, days: number = 30) {
  * Recent workflows with contact and definition names.
  */
 export async function getRecentWorkflows(orgId: string, limit: number = 5) {
+  const stateExpr = sql<string>`COALESCE(${workflowExecutions.workflowExecutionState}, CASE
+    WHEN ${workflowExecutions.completedAt} IS NOT NULL THEN 'completed'
+    ELSE 'running'
+  END)`;
+
   const rows = await db
     .select({
       id: workflowExecutions.id,
-      status: workflowExecutions.status,
+      status: stateExpr,
       startedAt: workflowExecutions.startedAt,
       contactFirstName: contacts.firstName,
       contactLastName: contacts.lastName,

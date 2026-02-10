@@ -13,6 +13,7 @@ import {
   Sparkles,
   Users,
   Workflow,
+  X,
 } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -45,7 +46,15 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import type { Contact, Task, WorkflowExecution } from "@/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import type { Contact, Task, WorkflowExecution, Notification as AppNotification } from "@/types"
 
 interface BreadcrumbItemType {
   label: string
@@ -85,6 +94,11 @@ interface SearchState {
   contacts: SearchContact[]
   tasks: SearchTask[]
   workflows: SearchWorkflow[]
+}
+
+interface NotificationsState {
+  notifications: AppNotification[]
+  unreadCount: number
 }
 
 const QUICK_LINKS = [
@@ -137,10 +151,23 @@ const EMPTY_SEARCH_STATE: SearchState = {
   workflows: [],
 }
 
+const EMPTY_NOTIFICATIONS_STATE: NotificationsState = {
+  notifications: [],
+  unreadCount: 0,
+}
+
 type SearchTaskApi = Task & { contactName?: string }
 
 function includesQuery(values: Array<string | undefined>, query: string): boolean {
   return values.some((value) => value?.toLowerCase().includes(query))
+}
+
+function formatNotificationDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return "Just now"
+  }
+  return date.toLocaleString()
 }
 
 export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
@@ -151,6 +178,15 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
   const [searchLoaded, setSearchLoaded] = React.useState(false)
   const [searchLoading, setSearchLoading] = React.useState(false)
   const [searchError, setSearchError] = React.useState<string | null>(null)
+  const [notificationsOpen, setNotificationsOpen] = React.useState(false)
+  const [notificationsData, setNotificationsData] = React.useState<NotificationsState>(
+    EMPTY_NOTIFICATIONS_STATE
+  )
+  const [notificationsLoaded, setNotificationsLoaded] = React.useState(false)
+  const [notificationsLoading, setNotificationsLoading] = React.useState(false)
+  const [notificationsError, setNotificationsError] = React.useState<string | null>(null)
+  const [selectedNotification, setSelectedNotification] = React.useState<AppNotification | null>(null)
+  const [dismissingNotificationIds, setDismissingNotificationIds] = React.useState<string[]>([])
 
   const loadSearchData = React.useCallback(async () => {
     setSearchLoading(true)
@@ -207,6 +243,114 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
     }
   }, [])
 
+  const loadNotifications = React.useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false
+    if (!silent) {
+      setNotificationsLoading(true)
+    }
+    setNotificationsError(null)
+
+    try {
+      const response = await fetch("/api/notifications?limit=20")
+      if (!response.ok) {
+        throw new Error("Notifications fetch failed")
+      }
+
+      const payload = await response.json() as {
+        notifications?: Array<AppNotification & { readAt?: string | null }>
+        unreadCount?: number
+      }
+
+      const notifications = (payload.notifications ?? []).map((notification) => ({
+        ...notification,
+        readAt: notification.readAt ?? undefined,
+      }))
+
+      setNotificationsData({
+        notifications,
+        unreadCount: payload.unreadCount ?? 0,
+      })
+      setNotificationsLoaded(true)
+    } catch (error) {
+      console.error("Error loading notifications:", error)
+      setNotificationsError("Unable to load notifications right now.")
+    } finally {
+      if (!silent) {
+        setNotificationsLoading(false)
+      }
+    }
+  }, [])
+
+  const markAllNotificationsRead = React.useCallback(async () => {
+    if (notificationsData.unreadCount === 0 || notificationsLoading) {
+      return
+    }
+
+    setNotificationsLoading(true)
+    setNotificationsError(null)
+
+    try {
+      const response = await fetch("/api/notifications", { method: "PATCH" })
+      if (!response.ok) {
+        throw new Error("Failed to mark notifications as read")
+      }
+
+      const readAt = new Date().toISOString()
+      setNotificationsData((current) => ({
+        notifications: current.notifications.map((notification) =>
+          notification.isRead
+            ? notification
+            : { ...notification, isRead: true, readAt }
+        ),
+        unreadCount: 0,
+      }))
+    } catch (error) {
+      console.error("Error marking notifications as read:", error)
+      setNotificationsError("Unable to mark notifications as read.")
+    } finally {
+      setNotificationsLoading(false)
+    }
+  }, [notificationsData.unreadCount, notificationsLoading])
+
+  const dismissNotification = React.useCallback(async (notificationId: string) => {
+    if (dismissingNotificationIds.includes(notificationId)) {
+      return
+    }
+
+    setDismissingNotificationIds((current) => [...current, notificationId])
+    setNotificationsError(null)
+
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}`, { method: "PATCH" })
+      if (!response.ok) {
+        throw new Error("Failed to dismiss notification")
+      }
+
+      const readAt = new Date().toISOString()
+      setNotificationsData((current) => {
+        let dismissed = false
+        const notifications = current.notifications.map((notification) => {
+          if (notification.id !== notificationId || notification.isRead) {
+            return notification
+          }
+
+          dismissed = true
+          return { ...notification, isRead: true, readAt }
+        })
+
+        return {
+          notifications,
+          unreadCount: dismissed ? Math.max(0, current.unreadCount - 1) : current.unreadCount,
+        }
+      })
+    } catch (error) {
+      console.error("Error dismissing notification:", error)
+      setNotificationsError("Unable to dismiss notification.")
+    } finally {
+      setDismissingNotificationIds((current) => current.filter((id) => id !== notificationId))
+    }
+  }, [dismissingNotificationIds])
+
   const normalizedQuery = searchQuery.trim().toLowerCase()
 
   const filteredLinks = React.useMemo(() => {
@@ -250,6 +394,10 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
 
   const resultCount =
     filteredLinks.length + filteredContacts.length + filteredTasks.length + filteredWorkflows.length
+  const unreadNotifications = React.useMemo(
+    () => notificationsData.notifications.filter((notification) => !notification.isRead),
+    [notificationsData.notifications]
+  )
 
   const handleSearchNavigate = React.useCallback((href: string) => {
     setSearchOpen(false)
@@ -263,9 +411,35 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
   }, [loadSearchData, searchLoaded, searchLoading, searchOpen])
 
   React.useEffect(() => {
+    if (!notificationsOpen || notificationsLoaded || notificationsLoading) return
+    void loadNotifications()
+  }, [loadNotifications, notificationsLoaded, notificationsLoading, notificationsOpen])
+
+  React.useEffect(() => {
+    void loadNotifications({ silent: true })
+
+    const intervalId = window.setInterval(() => {
+      void loadNotifications({ silent: true })
+    }, 30000)
+
+    const handleWindowFocus = () => {
+      void loadNotifications({ silent: true })
+    }
+
+    window.addEventListener("focus", handleWindowFocus)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener("focus", handleWindowFocus)
+    }
+  }, [loadNotifications])
+
+  React.useEffect(() => {
     if (searchOpen) return
     setSearchQuery("")
   }, [searchOpen])
+
+  const hasUnreadNotifications = notificationsData.unreadCount > 0
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -449,41 +623,142 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
         </Popover>
 
         {/* AI Assistant */}
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative group">
-          <Sparkles className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:text-primary" />
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled
+          aria-disabled="true"
+          className="h-9 w-9 relative opacity-50 cursor-not-allowed"
+        >
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
           <span className="sr-only">AI Assistant</span>
-          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
+          <div className="absolute inset-0 rounded-lg bg-muted opacity-40 -z-10" />
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
+        <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-9 w-9 relative group">
               <Bell className="h-4 w-4 transition-transform group-hover:scale-110" />
               <span className="sr-only">Notifications</span>
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary/50 animate-pulse" />
+              {hasUnreadNotifications && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary/50 animate-pulse" />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80 shadow-refined-lg animate-scale-in">
             <DropdownMenuLabel className="flex items-center justify-between py-3">
               <span className="font-semibold">Notifications</span>
-              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-primary transition-colors">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void markAllNotificationsRead()}
+                disabled={notificationsLoading || notificationsData.unreadCount === 0}
+                className="h-auto p-0 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
                 Mark all read
               </Button>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              <div className="mx-auto w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-2">
-                <Bell className="h-5 w-5 text-muted-foreground/50" />
+            {notificationsLoading && !notificationsLoaded ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Loading notifications...
               </div>
-              No new notifications
-            </div>
+            ) : notificationsError ? (
+              <div className="space-y-3 px-4 py-6 text-center">
+                <p className="text-sm text-muted-foreground">{notificationsError}</p>
+                <Button size="sm" variant="outline" onClick={() => void loadNotifications()}>
+                  Retry
+                </Button>
+              </div>
+            ) : unreadNotifications.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                <div className="mx-auto w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-2">
+                  <Bell className="h-5 w-5 text-muted-foreground/50" />
+                </div>
+                No new notifications
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto py-1">
+                {unreadNotifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className="flex items-start gap-2 px-3 py-2.5 hover:bg-muted/60 transition-colors"
+                  >
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => {
+                        setSelectedNotification(notification)
+                        setNotificationsOpen(false)
+                        void dismissNotification(notification.id)
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="mt-1.5 inline-flex h-2 w-2 rounded-full bg-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-tight line-clamp-1">{notification.title}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {formatNotificationDate(notification.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0"
+                      disabled={dismissingNotificationIds.includes(notification.id)}
+                      onClick={() => void dismissNotification(notification.id)}
+                    >
+                      {dismissingNotificationIds.includes(notification.id) ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
+                      <span className="sr-only">Dismiss notification</span>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
         <Separator orientation="vertical" className="mx-1 h-4" />
         <ThemeToggle />
       </div>
+
+      <Dialog
+        open={Boolean(selectedNotification)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedNotification(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedNotification?.title ?? "Notification"}</DialogTitle>
+            <DialogDescription>
+              {selectedNotification ? formatNotificationDate(selectedNotification.createdAt) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-foreground">
+            {selectedNotification?.message ?? ""}
+          </p>
+          <DialogFooter>
+            <Button type="button" onClick={() => setSelectedNotification(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   )
 }

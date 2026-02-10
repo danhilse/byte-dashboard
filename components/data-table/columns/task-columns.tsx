@@ -65,8 +65,14 @@ export const taskColumns: ColumnDef<Task>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.getValue("status") as Task["status"]
-      return <TaskStatusBadge status={status} />
+      const task = row.original
+      return (
+        <TaskStatusBadge
+          status={task.status}
+          taskType={task.taskType}
+          outcome={task.outcome ?? null}
+        />
+      )
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -96,7 +102,7 @@ export const taskColumns: ColumnDef<Task>[] = [
     cell: ({ row }) => {
       const task = row.original
       if (task.assignedTo) {
-        return <span>{task.assignedTo}</span>
+        return <span>{task.assignedToName || task.assignedTo}</span>
       }
       if (task.assignedRole) {
         return (

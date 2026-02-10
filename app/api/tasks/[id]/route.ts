@@ -9,6 +9,8 @@ import {
   canMutateTask,
 } from "@/lib/tasks/access";
 import { logActivity } from "@/lib/db/log-activity";
+import { createTaskAssignedNotification } from "@/lib/notifications/service";
+import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 
 /**
  * GET /api/tasks/:id
@@ -175,7 +177,7 @@ export async function PATCH(
     if (contactId !== undefined) updateData.contactId = contactId || null;
     if (dueDate !== undefined) updateData.dueDate = dueDate || null;
     if (position !== undefined) updateData.position = position;
-    if (metadata !== undefined) updateData.metadata = metadata;
+    if (metadata !== undefined) updateData.metadata = normalizeTaskMetadata(metadata);
 
     const [task] = await db
       .update(tasks)
@@ -213,6 +215,20 @@ export async function PATCH(
       entityId: id,
       action: "updated",
     });
+
+    if (task.assignedTo && task.assignedTo !== existingTask.assignedTo) {
+      try {
+        await createTaskAssignedNotification({
+          orgId,
+          userId: task.assignedTo,
+          taskId: task.id,
+          taskTitle: task.title,
+          assignedByUserId: userId,
+        });
+      } catch (notificationError) {
+        console.error("Failed to create task assignment notification:", notificationError);
+      }
+    }
 
     return NextResponse.json({ task });
   } catch (error) {

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { GripVertical, Trash2, Copy, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ConfirmAction } from "./confirm-action"
 
 interface StepCardV2Props {
   step: StandardStepV2
@@ -163,20 +164,23 @@ export function StepCardV2({
         >
           <Copy className="size-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="size-7 p-0"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (confirm(`Delete step "${step.name}"?`)) {
-              onDelete()
-            }
-          }}
-          title="Delete step"
+        <ConfirmAction
+          variant="critical"
+          title={`Delete step "${step.name}"?`}
+          description="This removes the step and all actions configured inside it."
+          confirmLabel="Delete Step"
+          onConfirm={onDelete}
         >
-          <Trash2 className="size-3.5" />
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-7 p-0"
+            onClick={(e) => e.stopPropagation()}
+            title="Delete step"
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </ConfirmAction>
       </div>
     </div>
   )

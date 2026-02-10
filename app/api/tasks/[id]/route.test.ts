@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   delete: vi.fn(),
   logActivity: vi.fn(),
+  createTaskAssignedNotification: vi.fn(),
   buildTaskAccessContext: vi.fn(),
   canClaimTask: vi.fn(),
   canMutateTask: vi.fn(),
@@ -22,6 +23,9 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
+vi.mock("@/lib/notifications/service", () => ({
+  createTaskAssignedNotification: mocks.createTaskAssignedNotification,
+}));
 vi.mock("@/lib/tasks/access", () => ({
   buildTaskAccessContext: mocks.buildTaskAccessContext,
   canClaimTask: mocks.canClaimTask,
@@ -62,6 +66,7 @@ describe("app/api/tasks/[id]/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.createTaskAssignedNotification.mockResolvedValue(undefined);
     mocks.buildTaskAccessContext.mockResolvedValue({ userId: "user_1" });
   });
 
@@ -137,6 +142,58 @@ describe("app/api/tasks/[id]/route", () => {
         entityType: "task",
         entityId: "task_1",
         action: "updated",
+      })
+    );
+  });
+
+  it("PATCH creates a notification when assignment changes", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+    mocks.canMutateTask.mockReturnValue(true);
+    mocks.select.mockReturnValueOnce(selectQuery([{ id: "task_1", assignedTo: "user_1" }]));
+    const q = updateQuery([{ id: "task_1", title: "Updated title", assignedTo: "user_2" }]);
+    mocks.update.mockReturnValue({ set: q.set });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ assignedTo: "user_2" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.createTaskAssignedNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org_1",
+        userId: "user_2",
+        taskId: "task_1",
+      })
+    );
+  });
+
+  it("PATCH normalizes task links in metadata", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+    mocks.canMutateTask.mockReturnValue(true);
+    mocks.select.mockReturnValueOnce(selectQuery([{ id: "task_1", assignedTo: "user_1" }]));
+    const q = updateQuery([{ id: "task_1", metadata: { links: ["https://a.example"] } }]);
+    mocks.update.mockReturnValue({ set: q.set });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({
+          metadata: {
+            links: [" https://a.example ", "", "https://a.example", "https://b.example"],
+          },
+        }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(q.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { links: ["https://a.example", "https://b.example"] },
       })
     );
   });

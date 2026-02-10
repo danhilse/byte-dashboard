@@ -10,6 +10,8 @@ import {
   normalizeRoleName,
 } from "@/lib/tasks/access";
 import { logActivity } from "@/lib/db/log-activity";
+import { createTaskAssignedNotification } from "@/lib/notifications/service";
+import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 
 /**
  * GET /api/tasks
@@ -205,7 +207,7 @@ export async function POST(req: Request) {
       contactId: contactId || null,
       dueDate: dueDate || null,
       position: position ?? 0,
-      metadata: metadata || {},
+      metadata: normalizeTaskMetadata(metadata),
     };
 
     // Keep this optional so local environments with stale task schemas can still create tasks.
@@ -245,6 +247,20 @@ export async function POST(req: Request) {
       action: "created",
       details: { title },
     });
+
+    if (task.assignedTo) {
+      try {
+        await createTaskAssignedNotification({
+          orgId,
+          userId: task.assignedTo,
+          taskId: task.id,
+          taskTitle: task.title,
+          assignedByUserId: userId,
+        });
+      } catch (notificationError) {
+        console.error("Failed to create task assignment notification:", notificationError);
+      }
+    }
 
     return NextResponse.json({ task });
   } catch (error) {

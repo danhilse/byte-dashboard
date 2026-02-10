@@ -10,6 +10,7 @@
  * - workflow_definitions: Workflow blueprints (steps, phases, variables)
  * - workflow_executions: Workflow execution instances
  * - tasks: Task management
+ * - notifications: In-app user notifications
  * - notes: Notes on any entity (polymorphic with soft FKs)
  * - activity_log: Audit trail (polymorphic with soft FKs)
  * - formstack_config: Formstack integration settings
@@ -230,6 +231,40 @@ export const tasks = pgTable(
       table.status,
       table.position
     ),
+  })
+);
+
+// ===========================
+// Notifications
+// ===========================
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    type: text("type").default("info").notNull(), // task_assigned, workflow_notification, etc.
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    entityType: text("entity_type"), // task, workflow_execution, etc.
+    entityId: text("entity_id"),
+    isRead: boolean("is_read").default(false).notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    orgUserIdx: index("idx_notifications_org_user").on(table.orgId, table.userId),
+    unreadIdx: index("idx_notifications_unread").on(table.orgId, table.userId, table.isRead),
+    createdIdx: index("idx_notifications_created").on(table.userId, table.createdAt),
   })
 );
 

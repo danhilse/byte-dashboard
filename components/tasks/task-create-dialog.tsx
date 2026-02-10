@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
+import { normalizeTaskLinks, normalizeTaskMetadata } from "@/lib/tasks/presentation"
 import type { Task, TaskStatus, TaskPriority } from "@/types"
 
 interface TaskCreateDialogProps {
@@ -38,6 +39,7 @@ export function TaskCreateDialog({
   const [priority, setPriority] = useState<TaskPriority>("medium")
   const [assignedTo, setAssignedTo] = useState("")
   const [dueDate, setDueDate] = useState("")
+  const [linksText, setLinksText] = useState("")
   const dialogOpen = open ?? internalOpen
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -54,9 +56,11 @@ export function TaskCreateDialog({
     setPriority("medium")
     setAssignedTo("")
     setDueDate("")
+    setLinksText("")
   }
 
   const handleSubmit = () => {
+    const links = normalizeTaskLinks(linksText.split(/\n|,/g))
     const newTask: Omit<Task, "id" | "createdAt" | "updatedAt"> = {
       orgId: "",
       title,
@@ -65,7 +69,7 @@ export function TaskCreateDialog({
       status,
       priority,
       position: 0,
-      metadata: {},
+      metadata: normalizeTaskMetadata({ links }),
       assignedTo: assignedTo || undefined,
       dueDate: dueDate || undefined,
     }
@@ -112,6 +116,17 @@ export function TaskCreateDialog({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Enter task description (optional)"
+          rows={3}
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="links">Links (Optional)</Label>
+        <Textarea
+          id="links"
+          value={linksText}
+          onChange={(e) => setLinksText(e.target.value)}
+          placeholder={"Add one URL per line\nexample.com/docs/spec\nhttps://notion.so/page"}
           rows={3}
         />
       </div>

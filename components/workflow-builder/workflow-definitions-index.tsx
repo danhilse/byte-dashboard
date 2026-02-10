@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { format } from "date-fns"
-import { ArrowRight, GitBranch, MoreHorizontal, Search, Trash2 } from "lucide-react"
+import { ArrowRight, Copy, GitBranch, MoreHorizontal, Search, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { EmptyState } from "@/components/common/empty-state"
@@ -86,6 +86,7 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
   const [definitionPendingDelete, setDefinitionPendingDelete] =
     useState<WorkflowDefinitionListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [duplicatingDefinitionId, setDuplicatingDefinitionId] = useState<string | null>(null)
 
   const filteredDefinitions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -160,6 +161,72 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
       })
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleDuplicateDefinition = async (definition: WorkflowDefinitionListItem) => {
+    if (duplicatingDefinitionId) {
+      return
+    }
+
+    const existingNames = new Set(
+      definitions.map((item) => item.name.trim().toLowerCase())
+    )
+    const baseCopyName = `${definition.name} (Copy)`
+
+    let duplicateName = baseCopyName
+    if (existingNames.has(baseCopyName.toLowerCase())) {
+      let copyNumber = 2
+      while (
+        existingNames.has(`${definition.name} (Copy ${copyNumber})`.toLowerCase())
+      ) {
+        copyNumber += 1
+      }
+      duplicateName = `${definition.name} (Copy ${copyNumber})`
+    }
+
+    setDuplicatingDefinitionId(definition.id)
+
+    try {
+      const response = await fetch("/api/workflow-definitions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: duplicateName,
+          sourceDefinitionId: definition.id,
+        }),
+      })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to duplicate workflow definition")
+      }
+
+      const duplicatedDefinition = payload?.definition as WorkflowDefinition | undefined
+      if (!duplicatedDefinition) {
+        throw new Error("Invalid API response while duplicating workflow definition")
+      }
+
+      setDefinitions((prev) => sortByUpdatedAt([toListItem(duplicatedDefinition), ...prev]))
+
+      toast({
+        title: "Definition duplicated",
+        description: `Created ${duplicatedDefinition.name}.`,
+      })
+
+      router.push(`/admin/workflow-builder/${duplicatedDefinition.id}`)
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to duplicate workflow definition.",
+        variant: "destructive",
+      })
+    } finally {
+      setDuplicatingDefinitionId(null)
     }
   }
 
@@ -258,6 +325,19 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
                           >
                             <ArrowRight className="mr-2 size-4" />
                             Open editor
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              void handleDuplicateDefinition(definition)
+                            }}
+                            disabled={duplicatingDefinitionId !== null}
+                          >
+                            <Copy className="mr-2 size-4" />
+                            {duplicatingDefinitionId === definition.id
+                              ? "Duplicating..."
+                              : "Duplicate definition"}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem

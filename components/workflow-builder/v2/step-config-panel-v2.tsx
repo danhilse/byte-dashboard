@@ -7,6 +7,7 @@ import { ActionList } from "./actions/action-list"
 import { AdvancementConfig } from "./advancement/advancement-config"
 import { VariableSelector } from "./variable-selector"
 import { parseVariableRef, formatVariableRef } from "@/lib/workflow-builder-v2/variable-utils"
+import type { OrganizationUserOption } from "./organization-user-option"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -34,6 +35,8 @@ interface StepConfigPanelV2Props {
   allSteps: WorkflowStepV2[]
   variables: WorkflowVariable[]
   statuses: WorkflowStatus[]
+  organizationUsers: OrganizationUserOption[]
+  organizationUsersLoading: boolean
   onStepUpdate: (step: WorkflowStepV2) => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
@@ -43,6 +46,8 @@ export function StepConfigPanelV2({
   allSteps,
   variables,
   statuses,
+  organizationUsers,
+  organizationUsersLoading,
   onStepUpdate,
   onAddVariable,
 }: StepConfigPanelV2Props) {
@@ -558,6 +563,8 @@ export function StepConfigPanelV2({
               actions={step.actions}
               variables={variables}
               statuses={statuses}
+              organizationUsers={organizationUsers}
+              organizationUsersLoading={organizationUsersLoading}
               onChange={handleActionsChange}
               onAddVariable={onAddVariable}
             />

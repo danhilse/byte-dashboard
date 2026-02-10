@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { workflowDefinitions } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { workflowDefinitions, workflowExecutions } from "@/lib/db/schema";
+import { and, count, eq, isNotNull, sql } from "drizzle-orm";
 import {
   AuthoringCompileError,
   compileAuthoringToRuntime,
@@ -10,6 +10,17 @@ import {
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 import type { WorkflowDefinitionV2 } from "@/lib/workflow-builder-v2/types";
 import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
+
+function toIsoTimestamp(value: Date | string | null): string | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
 
 /**
  * GET /api/workflow-definitions
@@ -62,7 +73,41 @@ export async function GET(req: Request) {
         )
       );
 
-    return NextResponse.json({ definitions });
+    const runStats = await db
+      .select({
+        workflowDefinitionId: workflowExecutions.workflowDefinitionId,
+        runCount: count(),
+        lastRunAt: sql<Date | string | null>`max(${workflowExecutions.startedAt})`.as("lastRunAt"),
+      })
+      .from(workflowExecutions)
+      .where(
+        and(
+          eq(workflowExecutions.orgId, orgId),
+          isNotNull(workflowExecutions.workflowDefinitionId)
+        )
+      )
+      .groupBy(workflowExecutions.workflowDefinitionId);
+
+    const runStatsByDefinitionId = new Map(
+      runStats.map((stat) => [
+        stat.workflowDefinitionId,
+        {
+          runCount: Number(stat.runCount ?? 0),
+          lastRunAt: toIsoTimestamp(stat.lastRunAt),
+        },
+      ])
+    );
+
+    return NextResponse.json({
+      definitions: definitions.map((definition) => {
+        const stats = runStatsByDefinitionId.get(definition.id);
+        return {
+          ...definition,
+          runCount: stats?.runCount ?? 0,
+          lastRunAt: stats?.lastRunAt ?? null,
+        };
+      }),
+    });
   } catch (error) {
     console.error("Error fetching workflow definitions:", error);
     return NextResponse.json(
@@ -84,7 +129,8 @@ export async function GET(req: Request) {
  * {
  *   "name": "string" (required),
  *   "description": "string" (optional),
- *   "statuses": DefinitionStatus[] (optional)
+ *   "statuses": DefinitionStatus[] (optional),
+ *   "sourceDefinitionId": "string" (optional, duplicates from source definition)
  * }
  */
 export async function POST(req: Request) {
@@ -96,7 +142,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, statuses } = body;
+    const { name, description, statuses, sourceDefinitionId } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -116,6 +162,16 @@ export async function POST(req: Request) {
       );
     }
 
+    if (
+      sourceDefinitionId !== undefined &&
+      (typeof sourceDefinitionId !== "string" || !sourceDefinitionId.trim())
+    ) {
+      return NextResponse.json(
+        { error: "sourceDefinitionId must be a non-empty string when provided" },
+        { status: 400 }
+      );
+    }
+
     if (body.steps !== undefined) {
       return NextResponse.json(
         {
@@ -126,6 +182,61 @@ export async function POST(req: Request) {
       );
     }
 
+    const normalizedName = name.trim();
+    const normalizedDescription =
+      description === null
+        ? null
+        : typeof description === "string"
+          ? description.trim() || null
+          : undefined;
+
+    if (typeof sourceDefinitionId === "string" && sourceDefinitionId.trim().length > 0) {
+      const [sourceDefinition] = await db
+        .select()
+        .from(workflowDefinitions)
+        .where(
+          and(
+            eq(workflowDefinitions.id, sourceDefinitionId.trim()),
+            eq(workflowDefinitions.orgId, orgId),
+            eq(workflowDefinitions.isActive, true)
+          )
+        );
+
+      if (!sourceDefinition) {
+        return NextResponse.json(
+          { error: "Source workflow definition not found" },
+          { status: 404 }
+        );
+      }
+
+      const statusesResult = normalizeDefinitionStatuses(
+        statuses !== undefined ? statuses : sourceDefinition.statuses
+      );
+      if (!statusesResult.ok) {
+        return NextResponse.json({ error: statusesResult.error }, { status: 400 });
+      }
+
+      const [definition] = await db
+        .insert(workflowDefinitions)
+        .values({
+          orgId,
+          name: normalizedName,
+          description:
+            normalizedDescription !== undefined
+              ? normalizedDescription
+              : sourceDefinition.description,
+          version: 1,
+          phases: sourceDefinition.phases,
+          steps: sourceDefinition.steps,
+          statuses: statusesResult.statuses,
+          variables: sourceDefinition.variables,
+          isActive: true,
+        })
+        .returning();
+
+      return NextResponse.json({ definition }, { status: 201 });
+    }
+
     const statusesResult = normalizeDefinitionStatuses(statuses);
     if (!statusesResult.ok) {
       return NextResponse.json({ error: statusesResult.error }, { status: 400 });
@@ -134,8 +245,8 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     const authoring: WorkflowDefinitionV2 = {
       id: "pending",
-      name: name.trim(),
-      description: typeof description === "string" ? description.trim() || undefined : undefined,
+      name: normalizedName,
+      description: normalizedDescription ?? undefined,
       trigger: { type: "manual" },
       contactRequired: true,
       steps: [],
@@ -154,11 +265,8 @@ export async function POST(req: Request) {
       .insert(workflowDefinitions)
       .values({
         orgId,
-        name: name.trim(),
-        description:
-          typeof description === "string" && description.trim().length > 0
-            ? description.trim()
-            : null,
+        name: normalizedName,
+        description: normalizedDescription ?? null,
         version: 1,
         steps: compiledSteps,
         statuses: statusesResult.statuses,

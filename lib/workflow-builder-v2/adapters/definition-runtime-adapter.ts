@@ -440,11 +440,20 @@ export function validateAuthoring(
           )
           break
         case "notification":
+          variableSensitiveValues.push(action.config.title, action.config.message)
+          if (action.config.recipients.type === "user") {
+            variableSensitiveValues.push(action.config.recipients.userId)
+          } else if (action.config.recipients.type === "role") {
+            variableSensitiveValues.push(action.config.recipients.role)
+          } else if (action.config.recipients.type === "group") {
+            variableSensitiveValues.push(...action.config.recipients.groupIds)
+          }
           break
         case "create_task":
           variableSensitiveValues.push(
             action.config.title,
-            action.config.description ?? ""
+            action.config.description ?? "",
+            ...(action.config.links ?? [])
           )
           break
         case "update_contact":
@@ -655,11 +664,6 @@ function compileStandardStep(
   for (let actionIndex = 0; actionIndex < step.actions.length; actionIndex++) {
     const action = step.actions[actionIndex]
 
-    if (action.type === "notification") {
-      // Authoring-only action for now; runtime support will be added later.
-      continue
-    }
-
     const actionStepId = createRuntimeStepId(
       action.id || `${step.id}__action_${actionIndex + 1}`,
       usedIds
@@ -676,6 +680,10 @@ function compileStandardStep(
           description: action.config.description
             ? convertValueTemplate(action.config.description)
             : undefined,
+          links:
+            action.config.links
+              ?.map((link) => convertValueTemplate(link))
+              .filter((link) => link.trim().length > 0) ?? [],
           taskType: action.config.taskType,
           assignTo: action.config.assignTo,
           priority: action.config.priority,
@@ -699,6 +707,39 @@ function compileStandardStep(
           to: convertValueTemplate(action.config.to),
           subject: convertValueTemplate(action.config.subject),
           body: convertValueTemplate(action.config.body),
+        },
+      })
+      continue
+    }
+
+    if (action.type === "notification") {
+      runtimeSteps.push({
+        id: actionStepId,
+        type: "notification",
+        label: `${step.name}: Notification`,
+        phaseId: step.phaseId,
+        config: {
+          recipients:
+            action.config.recipients.type === "user"
+              ? {
+                  type: "user",
+                  userId: convertValueTemplate(action.config.recipients.userId),
+                }
+              : action.config.recipients.type === "role"
+                ? {
+                    type: "role",
+                    role: convertValueTemplate(action.config.recipients.role),
+                  }
+                : action.config.recipients.type === "group"
+                  ? {
+                      type: "group",
+                      groupIds: action.config.recipients.groupIds.map((groupId) =>
+                        convertValueTemplate(groupId)
+                      ),
+                    }
+                  : { type: "organization" },
+          title: convertValueTemplate(action.config.title),
+          message: convertValueTemplate(action.config.message),
         },
       })
       continue

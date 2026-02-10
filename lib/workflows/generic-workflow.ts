@@ -7,6 +7,7 @@
  * - assign_task → creates a task via activity
  * - wait_for_task → waits for taskCompleted signal with timeout
  * - wait_for_approval → waits for approvalSubmitted signal with timeout
+ * - notification → creates in-app user notifications
  * - update_status → updates workflow execution status
  * - condition → branches based on a variable value
  */
@@ -23,12 +24,14 @@ import type {
   AssignTaskStep,
   WaitForTaskStep,
   WaitForApprovalStep,
+  NotificationStep,
   UpdateStatusStep,
   ConditionStep,
   SendEmailStep,
   DelayStep,
   UpdateContactStep,
   UpdateTaskStep,
+  WorkflowNotificationRecipients,
 } from "@/types";
 import {
   APPROVAL_SUBMITTED_SIGNAL_NAME,
@@ -44,6 +47,7 @@ const {
   setWorkflowProgress,
   getWorkflowDefinition,
   sendEmail,
+  notifyUsers,
   updateContact,
   updateTask,
 } = proxyActivities<typeof activities>({
@@ -175,6 +179,33 @@ export async function genericWorkflow(
     );
   }
 
+  function resolveNotificationRecipients(
+    recipients: WorkflowNotificationRecipients
+  ): WorkflowNotificationRecipients {
+    if (recipients.type === "organization") {
+      return recipients;
+    }
+
+    if (recipients.type === "user") {
+      return {
+        type: "user",
+        userId: resolveVariable(recipients.userId),
+      };
+    }
+
+    if (recipients.type === "role") {
+      return {
+        type: "role",
+        role: resolveVariable(recipients.role),
+      };
+    }
+
+    return {
+      type: "group",
+      groupIds: recipients.groupIds.map((groupId) => resolveVariable(groupId)),
+    };
+  }
+
   try {
     // Execute steps sequentially
     let stepIndex = 0;
@@ -197,6 +228,9 @@ export async function genericWorkflow(
           const dueDate = config.dueDays
             ? new Date(Date.now() + config.dueDays * 86400000)
             : undefined;
+          const links = (config.links ?? [])
+            .map((link) => resolveVariable(link).trim())
+            .filter((link) => link.length > 0);
 
           const taskId = await createTask(input.workflowExecutionId, {
             orgId: input.orgId,
@@ -215,6 +249,7 @@ export async function genericWorkflow(
             priority: config.priority,
             dueDate,
             createdByStepId: step.id,
+            metadata: links.length > 0 ? { links } : undefined,
           });
 
           variables[`${step.id}.taskId`] = taskId;
@@ -318,6 +353,18 @@ export async function genericWorkflow(
           }
           await setWorkflowStatus(input.workflowExecutionId, config.status);
           lastStatusSet = config.status;
+          break;
+        }
+
+        case "notification": {
+          const config = (step as NotificationStep).config;
+
+          await notifyUsers(input.workflowExecutionId, {
+            orgId: input.orgId,
+            recipients: resolveNotificationRecipients(config.recipients),
+            title: resolveVariable(config.title),
+            message: resolveVariable(config.message),
+          });
           break;
         }
 

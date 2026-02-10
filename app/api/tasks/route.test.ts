@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
   logActivity: vi.fn(),
+  createTaskAssignedNotification: vi.fn(),
   buildTaskAccessContext: vi.fn(),
   canClaimTask: vi.fn(),
   canMutateTask: vi.fn(),
@@ -26,6 +27,10 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/db/log-activity", () => ({
   logActivity: mocks.logActivity,
+}));
+
+vi.mock("@/lib/notifications/service", () => ({
+  createTaskAssignedNotification: mocks.createTaskAssignedNotification,
 }));
 
 vi.mock("@/lib/tasks/access", () => ({
@@ -64,6 +69,7 @@ describe("app/api/tasks/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.createTaskAssignedNotification.mockResolvedValue(undefined);
     mocks.buildTaskAccessContext.mockResolvedValue({
       userId: "user_1",
       orgId: "org_1",
@@ -237,7 +243,7 @@ describe("app/api/tasks/route", () => {
       .mockReturnValueOnce(createSimpleSelectQuery([{ id: "workflow_1" }]));
 
     const insertQuery = createInsertQuery([
-      { id: "task_1", title: "Review docs", status: "todo", priority: "medium" },
+      { id: "task_1", title: "Review docs", status: "todo", priority: "medium", assignedTo: "user_1" },
     ]);
     mocks.insert.mockReturnValue({ values: insertQuery.values });
 
@@ -254,7 +260,13 @@ describe("app/api/tasks/route", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      task: { id: "task_1", title: "Review docs", status: "todo", priority: "medium" },
+      task: {
+        id: "task_1",
+        title: "Review docs",
+        status: "todo",
+        priority: "medium",
+        assignedTo: "user_1",
+      },
     });
     expect(insertQuery.values).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -273,6 +285,38 @@ describe("app/api/tasks/route", () => {
         entityType: "task",
         entityId: "task_1",
         action: "created",
+      })
+    );
+    expect(mocks.createTaskAssignedNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: "org_1",
+        taskId: "task_1",
+      })
+    );
+  });
+
+  it("normalizes task links in metadata on POST", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    const insertQuery = createInsertQuery([
+      { id: "task_1", title: "Task with links", metadata: { links: ["https://a.example"] } },
+    ]);
+    mocks.insert.mockReturnValue({ values: insertQuery.values });
+
+    await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "Task with links",
+          metadata: {
+            links: [" https://a.example ", "", "https://a.example", "https://b.example"],
+          },
+        }),
+      })
+    );
+
+    expect(insertQuery.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { links: ["https://a.example", "https://b.example"] },
       })
     );
   });

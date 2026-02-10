@@ -21,6 +21,7 @@ import {
   GripVertical,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ConfirmAction } from "./confirm-action"
 
 interface BranchStepCardProps {
   step: BranchStepV2
@@ -190,20 +191,23 @@ export function BranchStepCard({
             >
               <Copy className="size-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="size-7 p-0"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (confirm(`Delete branch "${step.name}"?`)) {
-                  onDelete()
-                }
-              }}
-              title="Delete branch"
+            <ConfirmAction
+              variant="critical"
+              title={`Delete branch "${step.name}"?`}
+              description="This removes the entire branch and both tracks of nested steps."
+              confirmLabel="Delete Branch"
+              onConfirm={onDelete}
             >
-              <Trash2 className="size-3.5" />
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="size-7 p-0"
+                onClick={(e) => e.stopPropagation()}
+                title="Delete branch"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </ConfirmAction>
           </div>
         </div>
       </div>

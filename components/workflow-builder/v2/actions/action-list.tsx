@@ -19,16 +19,27 @@ import {
   actionCategories,
 } from "@/lib/workflow-builder-v2/action-registry"
 import { createActionId } from "@/lib/workflow-builder-v2/id-utils"
+import type { OrganizationUserOption } from "../organization-user-option"
 
 interface ActionListProps {
   actions: WorkflowAction[]
   variables: WorkflowVariable[]
   statuses: WorkflowStatus[]
+  organizationUsers: OrganizationUserOption[]
+  organizationUsersLoading: boolean
   onChange: (actions: WorkflowAction[]) => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
 
-export function ActionList({ actions, variables, statuses, onChange, onAddVariable }: ActionListProps) {
+export function ActionList({
+  actions,
+  variables,
+  statuses,
+  organizationUsers,
+  organizationUsersLoading,
+  onChange,
+  onAddVariable,
+}: ActionListProps) {
   const [expandedActionId, setExpandedActionId] = useState<string | null>(
     actions[0]?.id || null
   )
@@ -74,6 +85,8 @@ export function ActionList({ actions, variables, statuses, onChange, onAddVariab
               action={action}
               variables={variables}
               statuses={statuses}
+              organizationUsers={organizationUsers}
+              organizationUsersLoading={organizationUsersLoading}
               isExpanded={expandedActionId === action.id}
               onToggle={() =>
                 setExpandedActionId(expandedActionId === action.id ? null : action.id)

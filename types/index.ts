@@ -54,6 +54,7 @@ export type StepType =
   | "assign_task"
   | "wait_for_task"
   | "wait_for_approval"
+  | "notification"
   | "update_status"
   | "condition"
   | "send_email"
@@ -85,6 +86,7 @@ export interface AssignTaskStep extends BaseStep {
   config: {
     title: string
     description?: string
+    links?: string[]
     taskType: TaskType
     assignTo: { type: "role"; role: string } | { type: "user"; userId: string }
     priority: TaskPriority
@@ -104,6 +106,21 @@ export interface WaitForApprovalStep extends BaseStep {
   config: {
     timeoutDays: number
     requireComment?: boolean
+  }
+}
+
+export type WorkflowNotificationRecipients =
+  | { type: "user"; userId: string }
+  | { type: "group"; groupIds: string[] }
+  | { type: "role"; role: string }
+  | { type: "organization" }
+
+export interface NotificationStep extends BaseStep {
+  type: "notification"
+  config: {
+    recipients: WorkflowNotificationRecipients
+    title: string
+    message: string
   }
 }
 
@@ -160,6 +177,7 @@ export type WorkflowStep =
   | AssignTaskStep
   | WaitForTaskStep
   | WaitForApprovalStep
+  | NotificationStep
   | UpdateStatusStep
   | ConditionStep
   | SendEmailStep
@@ -225,6 +243,7 @@ export interface Task {
   workflowExecutionId?: string
   contactId?: string
   assignedTo?: string // Specific user if claimed
+  assignedToName?: string // Display name for assigned user (UI only)
   assignedRole?: string // Role if role-based assignment
   title: string
   description?: string
@@ -237,6 +256,22 @@ export interface Task {
   dueDate?: string
   completedAt?: string
   createdByStepId?: string // Which workflow step created this task
+  metadata: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Notification {
+  id: string
+  orgId: string
+  userId: string
+  type: string
+  title: string
+  message: string
+  entityType?: string
+  entityId?: string
+  isRead: boolean
+  readAt?: string
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string

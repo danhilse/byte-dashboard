@@ -39,6 +39,7 @@ export type WorkflowAction =
       config: {
         title: string
         description?: string
+        links?: string[]
         taskType: "standard" | "approval"
         assignTo: { type: "role"; role: string } | { type: "user"; userId: string }
         priority: "low" | "medium" | "high"

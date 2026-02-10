@@ -12,7 +12,7 @@ export function detectVariables(workflow: WorkflowDefinitionV2): WorkflowVariabl
   const detected: WorkflowVariable[] = []
 
   // Detect from trigger
-  const triggerVars = detectFromTrigger(workflow.trigger)
+  const triggerVars = getTriggerVariables(workflow.trigger)
   detected.push(...triggerVars)
 
   // Detect from actions
@@ -29,7 +29,7 @@ export function detectVariables(workflow: WorkflowDefinitionV2): WorkflowVariabl
 /**
  * Detect variables from trigger
  */
-function detectFromTrigger(trigger: WorkflowTrigger): WorkflowVariable[] {
+export function getTriggerVariables(trigger: WorkflowTrigger): WorkflowVariable[] {
   const variables: WorkflowVariable[] = []
 
   switch (trigger.type) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useReducer, useRef } from "react"
+import { useEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { WorkflowDefinitionV2, WorkflowVariable, StandardStepV2 } from "../types/workflow-v2"
 import { StepListV2 } from "./step-list-v2"
 import { StepConfigPanelV2 } from "./step-config-panel-v2"
@@ -14,6 +14,7 @@ import {
   createInitialBuilderSessionState,
 } from "@/lib/workflow-builder-v2/builder-session-state"
 import { findSelectedStep } from "@/lib/workflow-builder-v2/workflow-operations"
+import type { OrganizationUserOption } from "./organization-user-option"
 
 interface WorkflowBuilderV2Props {
   workflow: WorkflowDefinitionV2
@@ -35,7 +36,43 @@ export function WorkflowBuilderV2({
     workflow,
     createInitialBuilderSessionState
   )
+  const [organizationUsers, setOrganizationUsers] = useState<OrganizationUserOption[]>([])
+  const [organizationUsersLoading, setOrganizationUsersLoading] = useState(true)
   const hasSyncedInitialWorkflow = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadOrganizationUsers = async () => {
+      try {
+        const response = await fetch("/api/users")
+        const payload = await response.json().catch(() => null)
+
+        if (!response.ok || !Array.isArray(payload?.users)) {
+          throw new Error(payload?.error || "Failed to load organization users")
+        }
+
+        if (!cancelled) {
+          setOrganizationUsers(payload.users as OrganizationUserOption[])
+        }
+      } catch (error) {
+        console.error("Error fetching organization users:", error)
+        if (!cancelled) {
+          setOrganizationUsers([])
+        }
+      } finally {
+        if (!cancelled) {
+          setOrganizationUsersLoading(false)
+        }
+      }
+    }
+
+    loadOrganizationUsers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!hasSyncedInitialWorkflow.current) {
@@ -196,6 +233,8 @@ export function WorkflowBuilderV2({
               allSteps={session.builder.workflow.steps}
               variables={allVariables}
               statuses={session.builder.workflow.statuses}
+              organizationUsers={organizationUsers}
+              organizationUsersLoading={organizationUsersLoading}
               onStepUpdate={handleStepUpdate}
               onAddVariable={handleAddVariable}
             />

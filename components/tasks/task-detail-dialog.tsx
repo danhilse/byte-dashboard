@@ -2,7 +2,17 @@
 
 import { useState } from "react"
 import { format, parseISO } from "date-fns"
-import { Calendar, User, Trash2, Workflow, CheckCircle2, XCircle, Shield } from "lucide-react"
+import {
+  Calendar,
+  User,
+  Trash2,
+  Workflow,
+  CheckCircle2,
+  XCircle,
+  Shield,
+  Link2,
+  ExternalLink,
+} from "lucide-react"
 
 import {
   Dialog,
@@ -37,6 +47,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
+import { getTaskLinks, toTaskLinkHref } from "@/lib/tasks/presentation"
+import { cn } from "@/lib/utils"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
 import type { Task, TaskStatus, TaskPriority } from "@/types"
 
@@ -114,10 +126,17 @@ export function TaskDetailDialog({
 
   const isApprovalTask = displayTask.taskType === "approval"
   const isApprovalPending = isApprovalTask && !displayTask.outcome
+  const links = getTaskLinks(displayTask.metadata)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent
+        className={cn(
+          "sm:max-w-[550px]",
+          isApprovalTask &&
+            "border-amber-200/70 bg-gradient-to-br from-amber-50/60 via-background to-emerald-50/40 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15"
+        )}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
@@ -147,38 +166,51 @@ export function TaskDetailDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="grid gap-2">
-            <Label className="text-muted-foreground text-xs uppercase">Status</Label>
-            <div className="flex items-center gap-2">
-              <TaskStatusBadge status={displayTask.status} />
-              <div className="flex gap-1">
-                {(["backlog", "todo", "in_progress", "done"] as TaskStatus[])
-                  .filter((s) => s !== displayTask.status)
-                  .map((status) => (
-                    <Button
-                      key={status}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={() => {
-                        if (onStatusChange && task) {
-                          onStatusChange(task.id, status)
-                        } else {
-                          handleQuickStatusUpdate(status)
-                        }
-                      }}
-                    >
-                      Move to {taskStatusConfig[status].label}
-                    </Button>
-                  ))}
+          {!isApprovalTask && (
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground text-xs uppercase">Status</Label>
+              <div className="flex items-center gap-2">
+                <TaskStatusBadge status={displayTask.status} />
+                <div className="flex gap-1">
+                  {(["backlog", "todo", "in_progress", "done"] as TaskStatus[])
+                    .filter((s) => s !== displayTask.status)
+                    .map((status) => (
+                      <Button
+                        key={status}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          if (onStatusChange && task) {
+                            onStatusChange(task.id, status)
+                          } else {
+                            handleQuickStatusUpdate(status)
+                          }
+                        }}
+                      >
+                        Move to {taskStatusConfig[status].label}
+                      </Button>
+                    ))}
+                </div>
               </div>
+              {isEditing && (
+                <p className="text-xs text-muted-foreground">
+                  Status updates are saved immediately using the move actions above.
+                </p>
+              )}
             </div>
-            {isEditing && (
-              <p className="text-xs text-muted-foreground">
-                Status updates are saved immediately using the move actions above.
-              </p>
-            )}
-          </div>
+          )}
+
+          {isApprovalTask && (
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground text-xs uppercase">Review State</Label>
+              <TaskStatusBadge
+                status={displayTask.status}
+                taskType={displayTask.taskType}
+                outcome={displayTask.outcome ?? null}
+              />
+            </div>
+          )}
 
           <div className="grid gap-2">
             <Label className="text-muted-foreground text-xs uppercase">Description</Label>
@@ -195,6 +227,27 @@ export function TaskDetailDialog({
               </p>
             )}
           </div>
+
+          {links.length > 0 && (
+            <div className="grid gap-2">
+              <Label className="text-muted-foreground text-xs uppercase">Links</Label>
+              <div className="space-y-1">
+                {links.map((link) => (
+                  <a
+                    key={link}
+                    href={toTaskLinkHref(link)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    <Link2 className="size-3.5" />
+                    <span className="truncate">{link}</span>
+                    <ExternalLink className="size-3" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isEditing ? (
             <div className="grid grid-cols-2 gap-4">
@@ -232,7 +285,7 @@ export function TaskDetailDialog({
               {displayTask.assignedTo && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <User className="size-4" />
-                  <span>{displayTask.assignedTo}</span>
+                  <span>{displayTask.assignedToName || displayTask.assignedTo}</span>
                 </div>
               )}
               {!displayTask.assignedTo && displayTask.assignedRole && (
@@ -251,7 +304,7 @@ export function TaskDetailDialog({
           )}
 
           {isApprovalTask && (
-            <div className="grid gap-3 rounded-lg border p-4 bg-muted/50">
+            <div className="grid gap-3 rounded-lg border border-amber-200/70 bg-gradient-to-br from-amber-50/70 via-background to-emerald-50/50 p-4 dark:border-amber-900/40 dark:from-amber-950/20 dark:via-background dark:to-emerald-950/15">
               <Label className="text-xs uppercase font-semibold">Approval Decision</Label>
               {displayTask.outcome ? (
                 <div className="space-y-2">

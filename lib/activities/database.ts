@@ -14,8 +14,20 @@ import type {
   WorkflowStep,
   DefinitionStatus,
   WorkflowExecutionState,
+  WorkflowNotificationRecipients,
 } from "@/types";
 import { logActivity } from "@/lib/db/log-activity";
+import {
+  compileAuthoringToRuntime,
+  fromDefinitionToAuthoring,
+  hasPersistedAuthoringPayload,
+  type DefinitionRecordLike,
+} from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
+import {
+  createTaskAssignedNotification,
+  createWorkflowActionNotifications,
+} from "@/lib/notifications/service";
+import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 
 /**
  * Configuration for creating a task
@@ -62,7 +74,7 @@ export async function createTask(
       priority: config.priority || "medium",
       dueDate: config.dueDate ? config.dueDate.toISOString().split('T')[0] : undefined,
       createdByStepId: config.createdByStepId,
-      metadata: config.metadata || {},
+      metadata: normalizeTaskMetadata(config.metadata),
     })
     .returning({ id: tasks.id });
 
@@ -76,6 +88,21 @@ export async function createTask(
     action: "created",
     details: { title: config.title, source: "workflow" },
   });
+
+  try {
+    await createTaskAssignedNotification({
+      orgId: config.orgId,
+      userId: config.assignedTo,
+      taskId: task.id,
+      taskTitle: config.title,
+      assignedByUserId: null,
+    });
+  } catch (notificationError) {
+    console.error(
+      `Activity: Failed to create task assignment notification for task ${task.id}`,
+      notificationError
+    );
+  }
 
   return task.id;
 }
@@ -296,6 +323,8 @@ export async function updateTask(
   const [existingTask] = await db
     .select({
       id: tasks.id,
+      assignedTo: tasks.assignedTo,
+      title: tasks.title,
     })
     .from(tasks)
     .where(eq(tasks.id, taskId));
@@ -352,7 +381,11 @@ export async function updateTask(
     .update(tasks)
     .set(updateData)
     .where(eq(tasks.id, taskId))
-    .returning({ orgId: tasks.orgId });
+    .returning({
+      orgId: tasks.orgId,
+      assignedTo: tasks.assignedTo,
+      title: tasks.title,
+    });
 
   if (updatedTask) {
     await logActivity({
@@ -363,9 +396,58 @@ export async function updateTask(
       action: "updated",
       details: { source: "workflow", fields: Object.keys(fields) },
     });
+
+    if (
+      updatedTask.assignedTo &&
+      updatedTask.assignedTo !== existingTask.assignedTo
+    ) {
+      try {
+        await createTaskAssignedNotification({
+          orgId: updatedTask.orgId,
+          userId: updatedTask.assignedTo,
+          taskId,
+          taskTitle: updatedTask.title ?? existingTask.title ?? "Task",
+          assignedByUserId: null,
+        });
+      } catch (notificationError) {
+        console.error(
+          `Activity: Failed to create reassignment notification for task ${taskId}`,
+          notificationError
+        );
+      }
+    }
   }
 
   console.log(`Activity: Task updated`);
+}
+
+/**
+ * Creates in-app notifications from workflow notification actions.
+ */
+export async function notifyUsers(
+  workflowExecutionId: string,
+  config: {
+    orgId: string;
+    recipients: WorkflowNotificationRecipients;
+    title: string;
+    message: string;
+  }
+): Promise<number> {
+  console.log(`Activity: Creating notifications for workflow ${workflowExecutionId}`);
+
+  const createdCount = await createWorkflowActionNotifications({
+    orgId: config.orgId,
+    workflowExecutionId,
+    recipients: config.recipients,
+    title: config.title,
+    message: config.message,
+    metadata: { source: "workflow_action" },
+  });
+
+  console.log(
+    `Activity: Created ${createdCount} notifications for workflow ${workflowExecutionId}`
+  );
+  return createdCount;
 }
 
 /**
@@ -405,10 +487,15 @@ export async function getWorkflowDefinition(
 
   const [definition] = await db
     .select({
+      id: workflowDefinitions.id,
+      name: workflowDefinitions.name,
+      description: workflowDefinitions.description,
       steps: workflowDefinitions.steps,
       phases: workflowDefinitions.phases,
       variables: workflowDefinitions.variables,
       statuses: workflowDefinitions.statuses,
+      createdAt: workflowDefinitions.createdAt,
+      updatedAt: workflowDefinitions.updatedAt,
     })
     .from(workflowDefinitions)
     .where(eq(workflowDefinitions.id, definitionId));
@@ -418,10 +505,34 @@ export async function getWorkflowDefinition(
     return { steps: [], phases: [], variables: {}, statuses: [] };
   }
 
+  const statuses = (definition.statuses as DefinitionStatus[]) ?? [];
+  let steps = (definition.steps as WorkflowStep[]) ?? [];
+
+  if (hasPersistedAuthoringPayload(definition.variables)) {
+    try {
+      const authoring = fromDefinitionToAuthoring({
+        ...(definition as unknown as DefinitionRecordLike),
+        id: definition.id,
+        name: definition.name,
+        description: definition.description,
+        createdAt: definition.createdAt.toISOString(),
+        updatedAt: definition.updatedAt.toISOString(),
+      });
+      steps = compileAuthoringToRuntime(authoring, {
+        definitionStatuses: statuses,
+      });
+    } catch (compileError) {
+      console.error(
+        `Activity: Failed to compile authoring payload for definition ${definitionId}; falling back to stored runtime steps`,
+        compileError
+      );
+    }
+  }
+
   return {
-    steps: (definition.steps as WorkflowStep[]) ?? [],
+    steps,
     phases: (definition.phases as unknown[]) ?? [],
     variables: (definition.variables as Record<string, unknown>) ?? {},
-    statuses: (definition.statuses as DefinitionStatus[]) ?? [],
+    statuses,
   };
 }

@@ -6,10 +6,13 @@ import {
   resolveWorkflowStatusDisplay,
   workflowExecutionStateConfig,
 } from "@/lib/status-config"
+import { getTaskStatusDisplay } from "@/lib/tasks/presentation"
 import type {
   ContactStatus,
   TaskStatus,
   TaskPriority,
+  TaskType,
+  TaskOutcome,
   DefinitionStatus,
   WorkflowExecutionState,
 } from "@/types"
@@ -56,11 +59,22 @@ export function WorkflowExecutionStateBadge({
 
 interface TaskStatusBadgeProps {
   status: TaskStatus
+  taskType?: TaskType
+  outcome?: TaskOutcome
 }
 
-export function TaskStatusBadge({ status }: TaskStatusBadgeProps) {
-  const config = taskStatusConfig[status]
-  return <Badge variant={config.variant}>{config.label}</Badge>
+export function TaskStatusBadge({ status, taskType, outcome }: TaskStatusBadgeProps) {
+  const fallback = taskStatusConfig[status]
+  const display = getTaskStatusDisplay(
+    {
+      taskType: taskType ?? "standard",
+      status,
+      outcome: outcome ?? null,
+    },
+    fallback
+  )
+
+  return <Badge variant={display.variant}>{display.label}</Badge>
 }
 
 interface TaskPriorityBadgeProps {
