@@ -213,7 +213,6 @@ export async function PATCH(
     }
 
     const authoring = fromDefinitionToAuthoring({
-      ...(existingDefinition as DefinitionRecordLike),
       id: existingDefinition.id,
       name: normalizedName ?? existingDefinition.name,
       description:

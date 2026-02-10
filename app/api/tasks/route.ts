@@ -195,29 +195,23 @@ export async function POST(req: Request) {
       }
     }
 
-    const insertValues: Record<string, unknown> = {
-      orgId,
-      title,
-      description: description || null,
-      status: status || "todo",
-      priority: priority || "medium",
-      taskType: taskType || "standard",
-      assignedTo: assignedTo || userId,
-      assignedRole: assignedRole || null,
-      contactId: contactId || null,
-      dueDate: dueDate || null,
-      position: position ?? 0,
-      metadata: normalizeTaskMetadata(metadata),
-    };
-
-    // Keep this optional so local environments with stale task schemas can still create tasks.
-    if (workflowExecutionId) {
-      insertValues.workflowExecutionId = workflowExecutionId;
-    }
-
     const [task] = await db
       .insert(tasks)
-      .values(insertValues)
+      .values({
+        orgId,
+        title,
+        description: description || null,
+        status: status || "todo",
+        priority: priority || "medium",
+        taskType: taskType || "standard",
+        assignedTo: assignedTo || userId,
+        assignedRole: assignedRole || null,
+        contactId: contactId || null,
+        dueDate: dueDate || null,
+        position: position ?? 0,
+        metadata: normalizeTaskMetadata(metadata),
+        ...(workflowExecutionId ? { workflowExecutionId } : {}),
+      })
       .returning({
         id: tasks.id,
         orgId: tasks.orgId,

@@ -18,7 +18,7 @@ import { eq, and } from "drizzle-orm"
 import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { WorkflowExecutionStateBadge } from "@/components/common/status-badge"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
-import type { WorkflowPhase, WorkflowStep, DefinitionStatus } from "@/types"
+import type { WorkflowPhase, WorkflowStep, DefinitionStatus, WorkflowExecutionState } from "@/types"
 
 interface WorkflowDetailPageProps {
   params: Promise<{ id: string }>
@@ -133,7 +133,7 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                       <p className="text-sm font-medium">Execution State</p>
                       <div className="flex items-center gap-2">
                         <WorkflowExecutionStateBadge
-                          state={workflow.workflowExecutionState ?? "running"}
+                          state={(workflow.workflowExecutionState as WorkflowExecutionState) ?? "running"}
                         />
                         {workflow.errorDefinition && (
                           <span className="text-xs text-destructive">
@@ -171,7 +171,7 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
                         currentStepId={workflow.currentStepId}
                         currentPhaseId={workflow.currentPhaseId}
                         workflowStatus={workflow.status}
-                        workflowExecutionState={workflow.workflowExecutionState}
+                        workflowExecutionState={workflow.workflowExecutionState as WorkflowExecutionState | undefined}
                         definitionStatuses={parsedStatuses}
                       />
                     </div>
