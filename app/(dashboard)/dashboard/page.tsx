@@ -1,155 +1,485 @@
 import { Suspense } from "react"
-import { Users, FileText, CheckSquare, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { addDays, format, formatDistanceToNowStrict, isAfter, isBefore, startOfDay } from "date-fns"
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarClock,
+  CircleDot,
+  Clock3,
+  ContactRound,
+  Layers3,
+  ListTodo,
+  Sparkles,
+  Workflow,
+} from "lucide-react"
 import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { PageHeader } from "@/components/layout/page-header"
-import { StatCard } from "@/components/dashboard/stat-card"
-import { WorkflowStatusChart } from "@/components/dashboard/workflow-status-chart"
-import { WorkflowsOverTimeChart } from "@/components/dashboard/workflows-over-time-chart"
-import { RecentWorkflowsWidget } from "@/components/dashboard/recent-workflows-widget"
-import { MyTasksWidget } from "@/components/dashboard/my-tasks-widget"
-import { DashboardActivity } from "@/components/dashboard/dashboard-activity"
-import { getDashboardStats, getWorkflowCountsByStatus, getRecentWorkflows, getMyTasks, getRecentActivity } from "@/lib/db/queries"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { UserPlus, FileUp, ListTodo } from "lucide-react"
+import {
+  getDashboardStats,
+  getMyTasks,
+  getRecentActivity,
+  getRecentWorkflows,
+  getWorkflowCountsByStatus,
+} from "@/lib/db/queries"
+import { cn, formatStatus } from "@/lib/utils"
 
-function StatCardSkeleton() {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="size-4" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-8 w-16 mb-1" />
-        <Skeleton className="h-3 w-32" />
-      </CardContent>
-    </Card>
-  )
+type RecentActivity = Awaited<ReturnType<typeof getRecentActivity>>[number]
+type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
+
+const BLOCKED_STATUS_KEYWORDS = ["error", "failed", "timeout", "cancel", "reject", "hold"]
+const COMPLETED_STATUS_KEYWORDS = ["complete", "approved", "done", "success", "closed"]
+const ATTENTION_STATUS_KEYWORDS = ["pending", "review", "draft"]
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return value
+  if (typeof value === "bigint") return Number(value)
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
-function WidgetSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-4 w-48" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-4">
-            <Skeleton className="size-9 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  )
+function normalizeStatus(status: string): string {
+  return status.trim().toLowerCase().replace(/\s+/g, "_")
 }
 
-async function DashboardStatsRow() {
-  const { userId, orgId } = await auth()
-  if (!userId || !orgId) redirect("/sign-in")
+function includesStatusKeyword(status: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => status.includes(keyword))
+}
 
-  const stats = await getDashboardStats(orgId)
+function statusBadgeVariant(status: string): BadgeVariant {
+  const normalized = normalizeStatus(status)
+  if (includesStatusKeyword(normalized, BLOCKED_STATUS_KEYWORDS)) return "destructive"
+  if (includesStatusKeyword(normalized, COMPLETED_STATUS_KEYWORDS)) return "default"
+  if (includesStatusKeyword(normalized, ATTENTION_STATUS_KEYWORDS)) return "secondary"
+  return "outline"
+}
+
+function parseMaybeDate(value: string | Date | null): Date | null {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+
+  const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value
+  const parsed = new Date(normalizedValue)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function formatAction(action: string): string {
+  return action.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function activityDotClass(entityType: RecentActivity["entityType"]): string {
+  if (entityType === "workflow") return "bg-blue-500/80"
+  if (entityType === "task") return "bg-emerald-500/80"
+  return "bg-amber-500/80"
+}
+
+function WorkflowLane({
+  label,
+  count,
+  total,
+  className,
+}: {
+  label: string
+  count: number
+  total: number
+  className: string
+}) {
+  const width = total > 0 ? Math.max(6, Math.round((count / total) * 100)) : 0
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <div className="animate-slide-up stagger-1">
-        <StatCard
-          title="Total Contacts"
-          value={stats.totalContacts}
-          description="in your organization"
-          icon={Users}
-        />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">{count}</span>
       </div>
-      <div className="animate-slide-up stagger-2">
-        <StatCard
-          title="Active Workflows"
-          value={stats.activeWorkflows}
-          description="in pipeline"
-          icon={FileText}
-        />
-      </div>
-      <div className="animate-slide-up stagger-3">
-        <StatCard
-          title="Pending Tasks"
-          value={stats.pendingTasks}
-          description="need attention"
-          icon={CheckSquare}
-        />
-      </div>
-      <div className="animate-slide-up stagger-4">
-        <StatCard
-          title="Completed This Week"
-          value={stats.completedTasksThisWeek}
-          description="tasks finished"
-          icon={TrendingUp}
-        />
+      <div className="h-2 rounded-full bg-muted">
+        <div className={cn("h-2 rounded-full transition-all", className)} style={{ width: `${width}%` }} />
       </div>
     </div>
   )
 }
 
-async function DashboardChartsRow() {
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-72 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+    </div>
+  )
+}
+
+async function DashboardContent() {
   const { userId, orgId } = await auth()
   if (!userId || !orgId) redirect("/sign-in")
 
-  const [workflowsByStatus, myTasks] = await Promise.all([
+  const [stats, workflowsByStatus, myTasks, recentWorkflows, recentActivity] = await Promise.all([
+    getDashboardStats(orgId),
     getWorkflowCountsByStatus(orgId),
-    getMyTasks(orgId, userId, 5),
+    getMyTasks(orgId, userId, 8),
+    getRecentWorkflows(orgId, 8),
+    getRecentActivity(orgId, 8),
   ])
 
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      <div className="lg:col-span-4">
-        <WorkflowStatusChart data={workflowsByStatus} />
-      </div>
-      <div className="lg:col-span-3">
-        <MyTasksWidget tasks={myTasks} />
-      </div>
-    </div>
+  const totalWorkflows = workflowsByStatus.reduce((sum, row) => sum + toNumber(row.count), 0)
+  const lanes = workflowsByStatus.reduce(
+    (acc, row) => {
+      const normalized = normalizeStatus(String(row.status ?? "unknown"))
+      const count = toNumber(row.count)
+
+      if (includesStatusKeyword(normalized, BLOCKED_STATUS_KEYWORDS)) {
+        acc.blocked += count
+      } else if (includesStatusKeyword(normalized, COMPLETED_STATUS_KEYWORDS)) {
+        acc.completed += count
+      } else {
+        acc.active += count
+      }
+
+      return acc
+    },
+    { active: 0, blocked: 0, completed: 0 }
   )
-}
 
-async function DashboardTimelineRow() {
-  const { userId, orgId } = await auth()
-  if (!userId || !orgId) redirect("/sign-in")
+  const topStatuses = workflowsByStatus
+    .map((row) => ({
+      status: String(row.status ?? "unknown"),
+      count: toNumber(row.count),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
 
-  const recentWorkflows = await getRecentWorkflows(orgId, 5)
+  const parsedTasks = myTasks.map((task) => ({
+    ...task,
+    normalizedPriority: String(task.priority).toLowerCase(),
+    dueAt: parseMaybeDate(task.dueDate),
+  }))
 
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      <div className="lg:col-span-4">
-        <WorkflowsOverTimeChart />
-      </div>
-      <div className="lg:col-span-3">
-        <RecentWorkflowsWidget workflows={recentWorkflows} />
-      </div>
-    </div>
+  const today = startOfDay(new Date())
+  const dueSoonWindow = addDays(today, 3)
+
+  const overdueTasks = parsedTasks.filter((task) => task.dueAt && isBefore(startOfDay(task.dueAt), today))
+  const dueSoonTasks = parsedTasks.filter(
+    (task) =>
+      task.dueAt &&
+      !isBefore(startOfDay(task.dueAt), today) &&
+      !isAfter(startOfDay(task.dueAt), dueSoonWindow)
   )
-}
+  const highPriorityTasks = parsedTasks.filter(
+    (task) => task.normalizedPriority === "urgent" || task.normalizedPriority === "high"
+  )
 
-async function DashboardActivityRow() {
-  const { userId, orgId } = await auth()
-  if (!userId || !orgId) redirect("/sign-in")
+  const attentionWorkflows = recentWorkflows.filter((workflow) => {
+    const normalized = normalizeStatus(workflow.status)
+    return (
+      includesStatusKeyword(normalized, BLOCKED_STATUS_KEYWORDS) ||
+      includesStatusKeyword(normalized, ATTENTION_STATUS_KEYWORDS)
+    )
+  })
 
-  const recentActivity = await getRecentActivity(orgId, 6)
+  const activityByEntity = recentActivity.reduce(
+    (acc, item) => {
+      acc[item.entityType] += 1
+      return acc
+    },
+    { workflow: 0, task: 0, contact: 0 }
+  )
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      <div className="lg:col-span-4">
-        <DashboardActivity activities={recentActivity} />
-      </div>
-      <div className="lg:col-span-3">
-        <QuickActions />
-      </div>
+    <div className="flex flex-1 flex-col gap-4 p-4">
+      <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+        <Card className="animate-slide-up stagger-1 border-0 bg-gradient-to-br from-primary/95 via-primary to-slate-800 text-primary-foreground shadow-refined-lg">
+          <CardContent className="p-6 md:p-7">
+            <div className="flex h-full flex-col justify-between gap-6">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+                  <Sparkles className="size-3.5" />
+                  Dashboard Overview
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+                  Current status across workflows, tasks, and activity.
+                </h1>
+                <p className="max-w-2xl text-sm text-primary-foreground/80 md:text-base">
+                  {stats.activeWorkflows} active workflows, {stats.pendingTasks} open tasks, and{" "}
+                  {stats.completedTasksThisWeek} tasks completed this week.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
+                  <p className="text-xs text-primary-foreground/75">Contacts</p>
+                  <p className="mt-2 text-2xl font-semibold">{stats.totalContacts}</p>
+                </div>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
+                  <p className="text-xs text-primary-foreground/75">Active Workflows</p>
+                  <p className="mt-2 text-2xl font-semibold">{stats.activeWorkflows}</p>
+                </div>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
+                  <p className="text-xs text-primary-foreground/75">Open Tasks</p>
+                  <p className="mt-2 text-2xl font-semibold">{stats.pendingTasks}</p>
+                </div>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
+                  <p className="text-xs text-primary-foreground/75">Completed This Week</p>
+                  <p className="mt-2 text-2xl font-semibold">{stats.completedTasksThisWeek}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" className="h-9" asChild>
+                  <Link href="/workflows">
+                    Open Workflows
+                    <ArrowRight className="ml-2 size-4" />
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-9 border-white/30 bg-transparent text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                  asChild
+                >
+                  <Link href="/my-work">Open My Work</Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="animate-slide-up stagger-2 hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="size-4" />
+              Needs Attention Today
+            </CardTitle>
+            <CardDescription>Items that need near-term action.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-sm text-muted-foreground">Overdue tasks</p>
+              <p className={cn("text-lg font-semibold", overdueTasks.length > 0 && "text-destructive")}>
+                {overdueTasks.length}
+              </p>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-sm text-muted-foreground">Tasks due in 72h</p>
+              <p className="text-lg font-semibold">{dueSoonTasks.length}</p>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-sm text-muted-foreground">High / urgent assigned</p>
+              <p className="text-lg font-semibold">{highPriorityTasks.length}</p>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
+              <p className="text-sm text-muted-foreground">Blocked workflows</p>
+              <p className={cn("text-lg font-semibold", lanes.blocked > 0 && "text-destructive")}>{lanes.blocked}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <Card className="animate-slide-up stagger-1 hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ListTodo className="size-4" />
+              My Priorities
+            </CardTitle>
+            <CardDescription>Assigned work ordered by urgency and due date.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {parsedTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No assigned tasks.</p>
+            ) : (
+              parsedTasks.slice(0, 5).map((task) => {
+                const isOverdue = task.dueAt && isBefore(startOfDay(task.dueAt), today)
+                const dueLabel = task.dueAt
+                  ? isOverdue
+                    ? `Overdue ${formatDistanceToNowStrict(task.dueAt, { addSuffix: true })}`
+                    : `Due ${format(task.dueAt, "EEE, MMM d")}`
+                  : "No due date"
+
+                return (
+                  <div
+                    key={task.id}
+                    className="rounded-lg border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/35"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium leading-snug">{task.title}</p>
+                      <Badge variant={task.normalizedPriority === "urgent" ? "destructive" : "secondary"}>
+                        {formatStatus(task.priority)}
+                      </Badge>
+                    </div>
+                    <p className={cn("mt-2 text-xs", isOverdue ? "text-destructive" : "text-muted-foreground")}>
+                      {dueLabel}
+                    </p>
+                  </div>
+                )
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-slide-up stagger-2 hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Layers3 className="size-4" />
+              Workflow Status
+            </CardTitle>
+            <CardDescription>Simple view of current workflow distribution.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <WorkflowLane label="Active" count={lanes.active} total={totalWorkflows} className="bg-blue-500/80" />
+            <WorkflowLane label="Blocked" count={lanes.blocked} total={totalWorkflows} className="bg-red-500/80" />
+            <WorkflowLane
+              label="Completed"
+              count={lanes.completed}
+              total={totalWorkflows}
+              className="bg-emerald-500/80"
+            />
+            <div className="flex flex-wrap gap-2 pt-1">
+              {topStatuses.length === 0 ? (
+                <span className="text-xs text-muted-foreground">No workflow status data yet.</span>
+              ) : (
+                topStatuses.map((status) => (
+                  <Badge key={status.status} variant={statusBadgeVariant(status.status)} className="gap-1.5">
+                    <CircleDot className="size-3" />
+                    {formatStatus(status.status)} ({status.count})
+                  </Badge>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="animate-slide-up stagger-3 hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Workflow className="size-4" />
+              Recent Workflows
+            </CardTitle>
+            <CardDescription>Most recently started workflows.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentWorkflows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No workflows started yet.</p>
+            ) : (
+              recentWorkflows.slice(0, 6).map((workflow) => (
+                <div key={workflow.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{workflow.definitionName ?? "Untitled Workflow"}</p>
+                    <p className="text-xs text-muted-foreground">{workflow.contactName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Started {formatDistanceToNowStrict(new Date(workflow.startedAt), { addSuffix: true })}
+                    </p>
+                  </div>
+                  <Badge variant={statusBadgeVariant(workflow.status)}>{formatStatus(workflow.status)}</Badge>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <Card className="animate-slide-up stagger-1 hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="size-4" />
+              Workflows Needing Attention
+            </CardTitle>
+            <CardDescription>Status is blocked, pending, or in review.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {attentionWorkflows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No workflows currently flagged for attention in recent activity.
+              </p>
+            ) : (
+              attentionWorkflows.slice(0, 6).map((workflow) => (
+                <div key={workflow.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{workflow.definitionName ?? "Untitled Workflow"}</p>
+                    <p className="text-xs text-muted-foreground">{workflow.contactName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Started {formatDistanceToNowStrict(new Date(workflow.startedAt), { addSuffix: true })}
+                    </p>
+                  </div>
+                  <Badge variant={statusBadgeVariant(workflow.status)}>{formatStatus(workflow.status)}</Badge>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-slide-up stagger-2 hover-lift">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock3 className="size-4" />
+              Recent Activity
+            </CardTitle>
+            <CardDescription>Latest updates across workflows, tasks, and contacts.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Workflow className="size-3.5" />
+                  Workflows
+                </div>
+                <p className="mt-1 text-lg font-semibold">{activityByEntity.workflow}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ListTodo className="size-3.5" />
+                  Tasks
+                </div>
+                <p className="mt-1 text-lg font-semibold">{activityByEntity.task}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ContactRound className="size-3.5" />
+                  Contacts
+                </div>
+                <p className="mt-1 text-lg font-semibold">{activityByEntity.contact}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No recent activity logged.</p>
+              ) : (
+                recentActivity.map((item) => (
+                  <div key={item.id} className="flex items-start gap-3">
+                    <span className={cn("mt-1 size-2 rounded-full", activityDotClass(item.entityType))} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">
+                        <span className="font-medium">{item.userName}</span>{" "}
+                        <span className="text-muted-foreground">
+                          {formatAction(item.action).toLowerCase()} a {item.entityType}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   )
 }
@@ -158,83 +488,9 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader breadcrumbs={[{ label: "Dashboard" }]} />
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <Suspense
-          fallback={
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <StatCardSkeleton key={i} />
-              ))}
-            </div>
-          }
-        >
-          <DashboardStatsRow />
-        </Suspense>
-
-        <Suspense
-          fallback={
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <div className="lg:col-span-4"><WidgetSkeleton /></div>
-              <div className="lg:col-span-3"><WidgetSkeleton /></div>
-            </div>
-          }
-        >
-          <DashboardChartsRow />
-        </Suspense>
-
-        <Suspense
-          fallback={
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <div className="lg:col-span-4"><WidgetSkeleton /></div>
-              <div className="lg:col-span-3"><WidgetSkeleton /></div>
-            </div>
-          }
-        >
-          <DashboardTimelineRow />
-        </Suspense>
-
-        <Suspense
-          fallback={
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <div className="lg:col-span-4"><WidgetSkeleton /></div>
-              <div className="lg:col-span-3"><WidgetSkeleton /></div>
-            </div>
-          }
-        >
-          <DashboardActivityRow />
-        </Suspense>
-      </div>
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardContent />
+      </Suspense>
     </>
-  )
-}
-
-function QuickActions() {
-  return (
-    <Card className="animate-slide-up stagger-2">
-      <CardHeader>
-        <CardTitle className="text-lg">Quick Actions</CardTitle>
-        <CardDescription>Common tasks to get you started</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-2">
-        <Button variant="outline" className="justify-start h-11" asChild>
-          <Link href="/people">
-            <UserPlus className="mr-2 size-4" />
-            Add New Contact
-          </Link>
-        </Button>
-        <Button variant="outline" className="justify-start h-11" asChild>
-          <Link href="/my-work">
-            <FileUp className="mr-2 size-4" />
-            View My Work
-          </Link>
-        </Button>
-        <Button variant="outline" className="justify-start h-11" asChild>
-          <Link href="/calendar">
-            <ListTodo className="mr-2 size-4" />
-            Check Calendar
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
   )
 }
