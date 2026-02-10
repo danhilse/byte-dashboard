@@ -1,11 +1,10 @@
 "use client"
 
-import type { WorkflowAction } from "../../../types/workflow-v2"
+import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
 import { allRoles, roleConfig } from "@/lib/roles-config"
 import type { Role } from "@/lib/roles-config"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -14,9 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { OrganizationUserOption } from "../../organization-user-option"
+import { TemplatedTextInput } from "../../templated-text-input"
 
 interface NotificationConfigProps {
   action: Extract<WorkflowAction, { type: "notification" }>
+  variables: WorkflowVariable[]
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
   onChange: (action: WorkflowAction) => void
@@ -26,6 +27,7 @@ type RecipientType = Extract<WorkflowAction, { type: "notification" }>["config"]
 
 export function NotificationConfig({
   action,
+  variables,
   organizationUsers,
   organizationUsersLoading,
   onChange,
@@ -178,21 +180,24 @@ export function NotificationConfig({
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-title`}>Notification Title</Label>
-        <Input
+        <TemplatedTextInput
           id={`${action.id}-title`}
           value={action.config.title}
-          onChange={(e) => handleChange("title", e.target.value)}
+          onChange={(value) => handleChange("title", value)}
+          variables={variables}
           placeholder="Enter notification title..."
         />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-message`}>Message</Label>
-        <Textarea
+        <TemplatedTextInput
           id={`${action.id}-message`}
           value={action.config.message}
-          onChange={(e) => handleChange("message", e.target.value)}
+          onChange={(value) => handleChange("message", value)}
+          variables={variables}
           placeholder="Enter notification message..."
+          multiline
           rows={4}
         />
       </div>

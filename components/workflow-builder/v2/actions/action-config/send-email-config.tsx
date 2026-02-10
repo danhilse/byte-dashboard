@@ -1,10 +1,9 @@
 "use client"
 
 import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { VariableSelector } from "../../variable-selector"
+import { TemplatedTextInput } from "../../templated-text-input"
 
 interface SendEmailConfigProps {
   action: Extract<WorkflowAction, { type: "send_email" }>
@@ -43,26 +42,26 @@ export function SendEmailConfig({ action, variables, onChange }: SendEmailConfig
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-subject`}>Subject</Label>
-        <Input
+        <TemplatedTextInput
           id={`${action.id}-subject`}
           value={action.config.subject}
-          onChange={(e) => handleChange("subject", e.target.value)}
+          onChange={(value) => handleChange("subject", value)}
+          variables={variables}
           placeholder="Enter email subject..."
         />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-body`}>Body</Label>
-        <Textarea
+        <TemplatedTextInput
           id={`${action.id}-body`}
           value={action.config.body}
-          onChange={(e) => handleChange("body", e.target.value)}
+          onChange={(value) => handleChange("body", value)}
+          variables={variables}
           placeholder="Email body..."
+          multiline
           rows={6}
         />
-        <p className="text-xs text-muted-foreground">
-          Body supports plain text (variable insertion coming soon)
-        </p>
       </div>
 
       <div className="space-y-2">

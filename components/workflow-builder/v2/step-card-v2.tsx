@@ -154,8 +154,8 @@ export function StepCardV2({
                         style={{ backgroundColor: display.color }}
                       />
                     )}
-                    {count > 1 ? `${count} ` : ""}
-                    {display.label}
+                    Status: {display.label}
+                    {count > 1 ? ` x${count}` : ""}
                   </Badge>
                 )
               })}

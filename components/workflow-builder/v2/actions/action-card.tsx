@@ -170,6 +170,7 @@ export function ActionCard({
           {action.type === "create_task" && (
             <CreateTaskConfig
               action={action}
+              variables={variables}
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
               onChange={onUpdate}
@@ -193,6 +194,7 @@ export function ActionCard({
           {action.type === "notification" && (
             <NotificationConfig
               action={action}
+              variables={variables}
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
               onChange={onUpdate}

@@ -1,9 +1,8 @@
 "use client"
 
-import type { WorkflowAction } from "../../../types/workflow-v2"
+import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v2"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -14,10 +13,12 @@ import {
 } from "@/components/ui/select"
 import { allRoles, roleConfig } from "@/lib/roles-config"
 import type { OrganizationUserOption } from "../../organization-user-option"
+import { TemplatedTextInput } from "../../templated-text-input"
 import { Plus, Trash2 } from "lucide-react"
 
 interface CreateTaskConfigProps {
   action: Extract<WorkflowAction, { type: "create_task" }>
+  variables: WorkflowVariable[]
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
   onChange: (action: WorkflowAction) => void
@@ -25,6 +26,7 @@ interface CreateTaskConfigProps {
 
 export function CreateTaskConfig({
   action,
+  variables,
   organizationUsers,
   organizationUsersLoading,
   onChange,
@@ -70,21 +72,24 @@ export function CreateTaskConfig({
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-title`}>Task Title</Label>
-        <Input
+        <TemplatedTextInput
           id={`${action.id}-title`}
           value={action.config.title}
-          onChange={(e) => handleChange("title", e.target.value)}
+          onChange={(value) => handleChange("title", value)}
+          variables={variables}
           placeholder="Enter task title..."
         />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-description`}>Description (Optional)</Label>
-        <Textarea
+        <TemplatedTextInput
           id={`${action.id}-description`}
           value={action.config.description || ""}
-          onChange={(e) => handleChange("description", e.target.value)}
+          onChange={(value) => handleChange("description", value)}
+          variables={variables}
           placeholder="Task description..."
+          multiline
           rows={3}
         />
       </div>
