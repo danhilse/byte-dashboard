@@ -131,6 +131,7 @@ export function ActionList({
                 return (
                   <DropdownMenuItem
                     key={action.type}
+                    disabled={action.disabled}
                     onClick={() => handleAddAction(action.type)}
                   >
                     <Icon className="mr-2 size-4" />

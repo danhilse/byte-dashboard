@@ -7,14 +7,17 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { getTriggerVariables } from "@/lib/workflow-builder-v2/variable-utils"
 import { Zap } from "lucide-react"
+import type { DefinitionStatus } from "@/types"
 
 interface TriggerConfigPanelProps {
   trigger: WorkflowTrigger
+  statuses: DefinitionStatus[]
   onTriggerChange: (trigger: WorkflowTrigger) => void
 }
 
 export function TriggerConfigPanel({
   trigger,
+  statuses,
   onTriggerChange,
 }: TriggerConfigPanelProps) {
   const triggerVariables = useMemo(() => getTriggerVariables(trigger), [trigger])
@@ -53,7 +56,11 @@ export function TriggerConfigPanel({
         </div>
 
         {/* Trigger Config */}
-        <TriggerConfig trigger={trigger} onChange={onTriggerChange} />
+        <TriggerConfig
+          trigger={trigger}
+          statuses={statuses}
+          onChange={onTriggerChange}
+        />
 
         {/* Trigger Variables */}
         <div className="rounded-lg border p-4">

@@ -22,6 +22,7 @@ export interface ActionMetadata {
   description: string
   category: "communication" | "tasks" | "data" | "workflow"
   defaultConfig: WorkflowAction
+  disabled?: boolean
 }
 
 export const actionRegistry: Record<ActionType, ActionMetadata> = {
@@ -31,6 +32,7 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
     icon: Mail,
     description: "Send an email to a contact or team member",
     category: "communication",
+    disabled: true,
     defaultConfig: {
       type: "send_email",
       id: "",

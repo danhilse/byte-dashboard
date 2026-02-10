@@ -148,6 +148,7 @@ export function WorkflowsContent() {
         ? {
             contactId: data.contactId,
             workflowDefinitionId: data.workflowDefinitionId,
+            initialStatus: data.status,
           }
         : data
 

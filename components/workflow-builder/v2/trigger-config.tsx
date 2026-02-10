@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -16,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import type { LucideIcon } from "lucide-react"
+import type { DefinitionStatus } from "@/types"
 import {
   Calendar,
   ChevronDown,
@@ -32,6 +40,7 @@ import {
 
 interface TriggerConfigProps {
   trigger: WorkflowTrigger
+  statuses: DefinitionStatus[]
   onChange: (trigger: WorkflowTrigger) => void
 }
 
@@ -60,6 +69,8 @@ const CONTACT_FIELD_OPTIONS = [
   { value: "status", label: "Status" },
   { value: "tags", label: "Tags" },
 ]
+
+const UNSET_STATUS_VALUE = "__unset__"
 
 const TRIGGER_MENU_CATEGORIES: TriggerMenuCategory[] = [
   {
@@ -174,28 +185,49 @@ const TRIGGER_MENU_CATEGORIES: TriggerMenuCategory[] = [
   },
 ]
 
-export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
+export function TriggerConfig({ trigger, statuses, onChange }: TriggerConfigProps) {
   const selectedOption = TRIGGER_MENU_CATEGORIES.flatMap((category) => category.options)
     .find((option) => option.triggerType === trigger.type)
 
-  const handleTypeChange = (type: TriggerType) => {
+  const createTrigger = (
+    type: TriggerType,
+    initialStatus?: string,
+    watchedFields?: string[]
+  ): WorkflowTrigger => {
     switch (type) {
       case "manual":
-        onChange({ type: "manual" })
-        break
+        return initialStatus ? { type: "manual", initialStatus } : { type: "manual" }
       case "contact_created":
-        onChange({ type: "contact_created" })
-        break
+        return initialStatus
+          ? { type: "contact_created", initialStatus }
+          : { type: "contact_created" }
       case "contact_field_changed":
-        onChange({ type: "contact_field_changed", watchedFields: [] })
-        break
+        return initialStatus
+          ? {
+              type: "contact_field_changed",
+              watchedFields: watchedFields ?? [],
+              initialStatus,
+            }
+          : { type: "contact_field_changed", watchedFields: watchedFields ?? [] }
       case "form_submission":
-        onChange({ type: "form_submission", formId: "" })
-        break
+        return initialStatus
+          ? { type: "form_submission", formId: "", initialStatus }
+          : { type: "form_submission", formId: "" }
       case "api":
-        onChange({ type: "api" })
-        break
+        return initialStatus ? { type: "api", initialStatus } : { type: "api" }
     }
+  }
+
+  const handleTypeChange = (type: TriggerType) => {
+    onChange(
+      createTrigger(
+        type,
+        trigger.initialStatus,
+        type === "contact_field_changed" && trigger.type === "contact_field_changed"
+          ? trigger.watchedFields
+          : []
+      )
+    )
   }
 
   const toggleWatchedField = (field: string, checked: boolean) => {
@@ -207,10 +239,28 @@ export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
       ? [...new Set([...trigger.watchedFields, field])]
       : trigger.watchedFields.filter((item) => item !== field)
 
-    onChange({
-      type: "contact_field_changed",
-      watchedFields: nextFields,
-    })
+    onChange(
+      createTrigger(
+        "contact_field_changed",
+        trigger.initialStatus,
+        nextFields
+      )
+    )
+  }
+
+  const handleInitialStatusChange = (value: string) => {
+    const initialStatus =
+      value === UNSET_STATUS_VALUE
+        ? undefined
+        : value
+
+    onChange(
+      createTrigger(
+        trigger.type,
+        initialStatus,
+        trigger.type === "contact_field_changed" ? trigger.watchedFields : undefined
+      )
+    )
   }
 
   return (
@@ -302,6 +352,31 @@ export function TriggerConfig({ trigger, onChange }: TriggerConfigProps) {
           </p>
         </div>
       )}
+
+      <div className="space-y-2">
+        <Label htmlFor="trigger-initial-status">Workflow Status At Trigger (Optional)</Label>
+        <Select
+          value={trigger.initialStatus ?? UNSET_STATUS_VALUE}
+          onValueChange={handleInitialStatusChange}
+        >
+          <SelectTrigger id="trigger-initial-status" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNSET_STATUS_VALUE}>--</SelectItem>
+            {[...statuses]
+              .sort((a, b) => a.order - b.order)
+              .map((status) => (
+                <SelectItem key={status.id} value={status.id}>
+                  {status.label}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Default is no status (`--`).
+        </p>
+      </div>
 
       {trigger.type === "form_submission" && (
         <div className="space-y-2">

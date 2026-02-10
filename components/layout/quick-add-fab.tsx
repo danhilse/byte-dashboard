@@ -126,6 +126,7 @@ export function QuickAddFab() {
           ? {
               contactId: data.contactId,
               workflowDefinitionId: data.workflowDefinitionId,
+              initialStatus: data.status,
             }
           : data
 

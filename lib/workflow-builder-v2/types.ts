@@ -2,12 +2,16 @@ import type { DefinitionStatus } from "@/types"
 
 export type WorkflowStatus = DefinitionStatus
 
+type TriggerWithInitialStatus = {
+  initialStatus?: string
+}
+
 export type WorkflowTrigger =
-  | { type: "manual" }
-  | { type: "contact_created" }
-  | { type: "contact_field_changed"; watchedFields: string[] }
-  | { type: "form_submission"; formId: string }
-  | { type: "api" }
+  | ({ type: "manual" } & TriggerWithInitialStatus)
+  | ({ type: "contact_created" } & TriggerWithInitialStatus)
+  | ({ type: "contact_field_changed"; watchedFields: string[] } & TriggerWithInitialStatus)
+  | ({ type: "form_submission"; formId: string } & TriggerWithInitialStatus)
+  | ({ type: "api" } & TriggerWithInitialStatus)
 
 export type WorkflowAction =
   | {

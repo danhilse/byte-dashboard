@@ -21,10 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import type { DefinitionStatus } from "@/types"
 
 interface WorkflowTriggerDialogProps {
   contacts: Array<{ id: string; firstName: string; lastName: string; email?: string }>
-  onTriggerWorkflow: (contactId: string) => Promise<void>
+  statuses?: DefinitionStatus[]
+  onTriggerWorkflow: (contactId: string, initialStatus?: string) => Promise<void>
 }
 
 /**
@@ -34,10 +36,12 @@ interface WorkflowTriggerDialogProps {
  */
 export function WorkflowTriggerDialog({
   contacts,
+  statuses,
   onTriggerWorkflow,
 }: WorkflowTriggerDialogProps) {
   const [open, setOpen] = useState(false)
   const [selectedContactId, setSelectedContactId] = useState<string>("")
+  const [selectedStatus, setSelectedStatus] = useState<string>("")
   const [isTriggering, setIsTriggering] = useState(false)
 
   const handleTrigger = async () => {
@@ -45,9 +49,10 @@ export function WorkflowTriggerDialog({
 
     setIsTriggering(true)
     try {
-      await onTriggerWorkflow(selectedContactId)
+      await onTriggerWorkflow(selectedContactId, selectedStatus || undefined)
       setOpen(false)
       setSelectedContactId("")
+      setSelectedStatus("")
     } catch (error) {
       console.error("Error triggering workflow:", error)
     } finally {
@@ -89,6 +94,27 @@ export function WorkflowTriggerDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {statuses && statuses.length > 0 && (
+            <div className="grid gap-2">
+              <Label htmlFor="status">Initial Status (Optional)</Label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Choose initial status..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {statuses
+                    .sort((a, b) => a.order - b.order)
+                    .map((status) => (
+                      <SelectItem key={status.id} value={status.id}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="rounded-lg border p-3 bg-muted/50 text-sm">
             <p className="font-medium mb-1">This workflow will:</p>

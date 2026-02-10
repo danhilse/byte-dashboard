@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { WorkflowStepV2, WorkflowVariable, BranchStepV2, AdvancementCondition, WorkflowStatus, VariableType } from "../types/workflow-v2"
 import { isBranchStep } from "../types/workflow-v2"
 import { ActionList } from "./actions/action-list"
@@ -52,6 +52,35 @@ export function StepConfigPanelV2({
   onAddVariable,
 }: StepConfigPanelV2Props) {
   const [showDescription, setShowDescription] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const prevStepCountRef = useRef(allSteps.length)
+  const autoFocusedStepsRef = useRef(new Set<string>())
+
+  // Auto-focus and select the step name input ONLY for newly created steps
+  useEffect(() => {
+    if (!step) return
+
+    const currentStepCount = allSteps.length
+    const stepCountIncreased = currentStepCount > prevStepCountRef.current
+    const isDefaultName = step.name === "New Step" || step.name === "New Branch"
+    const notYetAutoFocused = !autoFocusedStepsRef.current.has(step.id)
+
+    if (stepCountIncreased && isDefaultName && notYetAutoFocused && nameInputRef.current) {
+      // Mark this step as auto-focused
+      autoFocusedStepsRef.current.add(step.id)
+
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        if (nameInputRef.current) {
+          nameInputRef.current.focus()
+          nameInputRef.current.select()
+        }
+      }, 50)
+    }
+
+    // Update the ref for next comparison
+    prevStepCountRef.current = currentStepCount
+  }, [allSteps.length, step?.id])
 
   if (!step) {
     return (
@@ -239,6 +268,7 @@ export function StepConfigPanelV2({
         <div className="space-y-2">
           <Label htmlFor="step-name">Step Name</Label>
           <Input
+            ref={nameInputRef}
             id="step-name"
             value={step.name}
             onChange={(e) => handleNameChange(e.target.value)}

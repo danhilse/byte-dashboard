@@ -18,8 +18,9 @@ import { getTemporalTaskQueue } from "@/lib/temporal/task-queue";
  *
  * Request body:
  * {
- *   "contactId": "uuid",
- *   "workflowDefinitionId": "uuid" (required)
+ *   "contactId": "uuid" (required),
+ *   "workflowDefinitionId": "uuid" (required),
+ *   "initialStatus": "string" (optional) - Sets the initial workflow status
  * }
  */
 export async function POST(req: Request) {
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { contactId, workflowDefinitionId } = body;
+    const { contactId, workflowDefinitionId, initialStatus } = body;
 
     if (!contactId || typeof contactId !== "string") {
       return NextResponse.json(
@@ -42,6 +43,12 @@ export async function POST(req: Request) {
     if (!workflowDefinitionId || typeof workflowDefinitionId !== "string") {
       return NextResponse.json(
         { error: "workflowDefinitionId is required" },
+        { status: 400 }
+      );
+    }
+    if (initialStatus !== undefined && typeof initialStatus !== "string") {
+      return NextResponse.json(
+        { error: "initialStatus must be a string if provided" },
         { status: 400 }
       );
     }
@@ -84,7 +91,8 @@ export async function POST(req: Request) {
     const definitionStatuses =
       (workflowDefinition.statuses as DefinitionStatus[] | null) ?? [];
 
-    const initialStatus = "";
+    // Use provided initialStatus or default to empty string
+    const workflowInitialStatus = initialStatus ?? "";
 
     // Create workflow execution record in DB
     const [workflowExecution] = await db
@@ -94,7 +102,7 @@ export async function POST(req: Request) {
         contactId,
         workflowDefinitionId,
         definitionVersion,
-        status: initialStatus,
+        status: workflowInitialStatus,
         workflowExecutionState: "running",
         source: "manual",
       })
@@ -153,7 +161,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         workflowExecutionId: workflowExecution.id,
         temporalWorkflowId: handle.workflowId,
-        status: initialStatus,
+        status: workflowInitialStatus,
         workflowExecutionState: "running",
         workflow: {
           ...workflowExecution,
@@ -173,7 +181,7 @@ export async function POST(req: Request) {
         const failedStatus =
           definitionStatuses?.some((status) => status.id === "failed")
             ? "failed"
-            : initialStatus;
+            : workflowInitialStatus;
 
         await db
           .update(workflowExecutions)
