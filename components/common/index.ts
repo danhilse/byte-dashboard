@@ -9,3 +9,4 @@ export {
 export { ViewToggle, type ViewOption } from "./view-toggle"
 export { StatusFilter } from "./status-filter"
 export { FormDialog } from "./form-dialog"
+export { AnimatedCounter } from "./animated-counter"

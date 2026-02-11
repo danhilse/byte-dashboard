@@ -1,8 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import { motion } from "framer-motion"
 import { formatDistanceToNowStrict } from "date-fns"
 import { Clock3, ContactRound, ListTodo, Workflow } from "lucide-react"
+import { AnimatedCounter } from "@/components/common/animated-counter"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -43,8 +45,18 @@ function activityDotClass(entityType: DashboardActivityItem["entityType"]): stri
 function ActivityList({ activities }: { activities: DashboardActivityItem[] }) {
   return (
     <div className="space-y-3">
-      {activities.map((item) => (
-        <div key={item.id} className="flex items-start gap-3">
+      {activities.map((item, index) => (
+        <motion.div
+          key={item.id}
+          className="flex items-start gap-3"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            delay: index * 0.05,
+            duration: 0.5,
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
+        >
           <span className={cn("mt-1 size-2 rounded-full", activityDotClass(item.entityType))} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm">
@@ -57,7 +69,7 @@ function ActivityList({ activities }: { activities: DashboardActivityItem[] }) {
               {formatDistanceToNowStrict(new Date(item.createdAt), { addSuffix: true })}
             </p>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   )
@@ -103,21 +115,21 @@ export function DashboardRecentActivityCard({ activities }: DashboardRecentActiv
                 <Workflow className="size-3.5" />
                 Workflows
               </div>
-              <p className="mt-1 text-lg font-semibold">{activityByEntity.workflow}</p>
+              <AnimatedCounter value={activityByEntity.workflow} className="mt-1 text-lg font-semibold block" />
             </div>
             <div className="rounded-lg border bg-muted/20 p-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <ListTodo className="size-3.5" />
                 Tasks
               </div>
-              <p className="mt-1 text-lg font-semibold">{activityByEntity.task}</p>
+              <AnimatedCounter value={activityByEntity.task} className="mt-1 text-lg font-semibold block" />
             </div>
             <div className="rounded-lg border bg-muted/20 p-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <ContactRound className="size-3.5" />
                 Contacts
               </div>
-              <p className="mt-1 text-lg font-semibold">{activityByEntity.contact}</p>
+              <AnimatedCounter value={activityByEntity.contact} className="mt-1 text-lg font-semibold block" />
             </div>
           </div>
 

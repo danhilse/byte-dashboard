@@ -1,11 +1,10 @@
 import { Suspense } from "react"
 import Link from "next/link"
-import { addDays, format, formatDistanceToNowStrict, isAfter, isBefore, startOfDay } from "date-fns"
+import { addDays, isAfter, isBefore, startOfDay } from "date-fns"
 import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
-  CircleDot,
   Layers3,
   ListTodo,
   Sparkles,
@@ -15,7 +14,13 @@ import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { PageHeader } from "@/components/layout/page-header"
 import { DashboardRecentActivityCard } from "@/components/dashboard/dashboard-recent-activity-card"
-import { Badge } from "@/components/ui/badge"
+import { AnimatedStatCard } from "@/components/dashboard/animated-stat-card"
+import { AnimatedWorkflowLane } from "@/components/dashboard/animated-workflow-lane"
+import { AnimatedAttentionItem } from "@/components/dashboard/animated-attention-item"
+import { AnimatedTaskCard } from "@/components/dashboard/animated-task-card"
+import { AnimatedWorkflowCard } from "@/components/dashboard/animated-workflow-card"
+import { AnimatedBadgeGroup } from "@/components/dashboard/animated-badge-group"
+import { AnimatedButtonGroup } from "@/components/dashboard/animated-button-group"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -26,9 +31,6 @@ import {
   getRecentWorkflows,
   getWorkflowCountsByStatus,
 } from "@/lib/db/queries"
-import { cn, formatStatus } from "@/lib/utils"
-
-type BadgeVariant = "default" | "secondary" | "outline" | "destructive"
 
 const BLOCKED_STATUS_KEYWORDS = ["error", "failed", "timeout", "cancel", "reject", "hold"]
 const COMPLETED_STATUS_KEYWORDS = ["complete", "approved", "done", "success", "closed"]
@@ -49,14 +51,6 @@ function includesStatusKeyword(status: string, keywords: string[]): boolean {
   return keywords.some((keyword) => status.includes(keyword))
 }
 
-function statusBadgeVariant(status: string): BadgeVariant {
-  const normalized = normalizeStatus(status)
-  if (includesStatusKeyword(normalized, BLOCKED_STATUS_KEYWORDS)) return "destructive"
-  if (includesStatusKeyword(normalized, COMPLETED_STATUS_KEYWORDS)) return "default"
-  if (includesStatusKeyword(normalized, ATTENTION_STATUS_KEYWORDS)) return "secondary"
-  return "outline"
-}
-
 function parseMaybeDate(value: string | Date | null): Date | null {
   if (!value) return null
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
@@ -66,31 +60,7 @@ function parseMaybeDate(value: string | Date | null): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-function WorkflowLane({
-  label,
-  count,
-  total,
-  className,
-}: {
-  label: string
-  count: number
-  total: number
-  className: string
-}) {
-  const width = total > 0 ? Math.max(6, Math.round((count / total) * 100)) : 0
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{count}</span>
-      </div>
-      <div className="h-2 rounded-full bg-muted">
-        <div className={cn("h-2 rounded-full transition-all", className)} style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  )
-}
+// Removed: WorkflowLane - replaced with AnimatedWorkflowLane client component
 
 function DashboardSkeleton() {
   return (
@@ -182,7 +152,7 @@ async function DashboardContent() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <Card className="animate-slide-up stagger-1 border-0 bg-gradient-to-br from-primary/95 via-primary to-slate-800 text-primary-foreground shadow-refined-lg">
+        <Card className="border-0 bg-gradient-to-br from-primary/95 via-primary to-slate-800 text-primary-foreground shadow-refined-lg">
           <CardContent className="p-6 md:p-7">
             <div className="flex h-full flex-col justify-between gap-6">
               <div className="space-y-3">
@@ -200,44 +170,36 @@ async function DashboardContent() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-4">
-                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs text-primary-foreground/75">Contacts</p>
-                  <p className="mt-2 text-2xl font-semibold">{stats.totalContacts}</p>
-                </div>
-                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs text-primary-foreground/75">Active Workflows</p>
-                  <p className="mt-2 text-2xl font-semibold">{stats.activeWorkflows}</p>
-                </div>
-                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs text-primary-foreground/75">Open Tasks</p>
-                  <p className="mt-2 text-2xl font-semibold">{stats.pendingTasks}</p>
-                </div>
-                <div className="rounded-lg border border-white/20 bg-white/10 p-4">
-                  <p className="text-xs text-primary-foreground/75">Completed This Week</p>
-                  <p className="mt-2 text-2xl font-semibold">{stats.completedTasksThisWeek}</p>
-                </div>
+                <AnimatedStatCard label="Contacts" value={stats.totalContacts} delay={0.2} />
+                <AnimatedStatCard label="Active Workflows" value={stats.activeWorkflows} delay={0.3} />
+                <AnimatedStatCard label="Open Tasks" value={stats.pendingTasks} delay={0.4} />
+                <AnimatedStatCard label="Completed This Week" value={stats.completedTasksThisWeek} delay={0.5} />
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" className="h-9" asChild>
-                  <Link href="/workflows">
-                    Open Workflows
-                    <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-9 border-white/30 bg-transparent text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
-                  asChild
-                >
-                  <Link href="/my-work">Open My Work</Link>
-                </Button>
+                <AnimatedButtonGroup delay={0.7}>
+                  <Button variant="secondary" className="h-9" asChild>
+                    <Link href="/workflows">
+                      Open Workflows
+                      <ArrowRight className="ml-2 size-4" />
+                    </Link>
+                  </Button>
+                </AnimatedButtonGroup>
+                <AnimatedButtonGroup delay={0.8}>
+                  <Button
+                    variant="outline"
+                    className="h-9 border-white/30 bg-transparent text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                    asChild
+                  >
+                    <Link href="/my-work">Open My Work</Link>
+                  </Button>
+                </AnimatedButtonGroup>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-2">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <CalendarClock className="size-4" />
@@ -246,30 +208,26 @@ async function DashboardContent() {
             <CardDescription>Items that need near-term action.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
-              <p className="text-sm text-muted-foreground">Overdue tasks</p>
-              <p className={cn("text-lg font-semibold", overdueTasks.length > 0 && "text-destructive")}>
-                {overdueTasks.length}
-              </p>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
-              <p className="text-sm text-muted-foreground">Tasks due in 72h</p>
-              <p className="text-lg font-semibold">{dueSoonTasks.length}</p>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
-              <p className="text-sm text-muted-foreground">High / urgent assigned</p>
-              <p className="text-lg font-semibold">{highPriorityTasks.length}</p>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
-              <p className="text-sm text-muted-foreground">Blocked workflows</p>
-              <p className={cn("text-lg font-semibold", lanes.blocked > 0 && "text-destructive")}>{lanes.blocked}</p>
-            </div>
+            <AnimatedAttentionItem
+              label="Overdue tasks"
+              value={overdueTasks.length}
+              isAlert={overdueTasks.length > 0}
+              delay={0.1}
+            />
+            <AnimatedAttentionItem label="Tasks due in 72h" value={dueSoonTasks.length} delay={0.2} />
+            <AnimatedAttentionItem label="High / urgent assigned" value={highPriorityTasks.length} delay={0.3} />
+            <AnimatedAttentionItem
+              label="Blocked workflows"
+              value={lanes.blocked}
+              isAlert={lanes.blocked > 0}
+              delay={0.4}
+            />
           </CardContent>
         </Card>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="animate-slide-up stagger-1">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ListTodo className="size-4" />
@@ -281,36 +239,16 @@ async function DashboardContent() {
             {parsedTasks.length === 0 ? (
               <p className="text-sm text-muted-foreground">No assigned tasks.</p>
             ) : (
-              parsedTasks.slice(0, 5).map((task) => {
-                const isOverdue = task.dueAt && isBefore(startOfDay(task.dueAt), today)
-                const dueLabel = task.dueAt
-                  ? isOverdue
-                    ? `Overdue ${formatDistanceToNowStrict(task.dueAt, { addSuffix: true })}`
-                    : `Due ${format(task.dueAt, "EEE, MMM d")}`
-                  : "No due date"
-
-                return (
-                  <div
-                    key={task.id}
-                    className="rounded-lg border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/35"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium leading-snug">{task.title}</p>
-                      <Badge variant={task.normalizedPriority === "urgent" ? "destructive" : "secondary"}>
-                        {formatStatus(task.priority)}
-                      </Badge>
-                    </div>
-                    <p className={cn("mt-2 text-xs", isOverdue ? "text-destructive" : "text-muted-foreground")}>
-                      {dueLabel}
-                    </p>
-                  </div>
-                )
-              })
+              parsedTasks
+                .slice(0, 5)
+                .map((task, index) => (
+                  <AnimatedTaskCard key={task.id} task={task} delay={index * 0.08} />
+                ))
             )}
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-2">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Layers3 className="size-4" />
@@ -319,30 +257,32 @@ async function DashboardContent() {
             <CardDescription>Simple view of current workflow distribution.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <WorkflowLane label="Active" count={lanes.active} total={totalWorkflows} className="bg-blue-500/80" />
-            <WorkflowLane label="Blocked" count={lanes.blocked} total={totalWorkflows} className="bg-red-500/80" />
-            <WorkflowLane
+            <AnimatedWorkflowLane
+              label="Active"
+              count={lanes.active}
+              total={totalWorkflows}
+              className="bg-blue-500/80"
+              delay={0}
+            />
+            <AnimatedWorkflowLane
+              label="Blocked"
+              count={lanes.blocked}
+              total={totalWorkflows}
+              className="bg-red-500/80"
+              delay={0.15}
+            />
+            <AnimatedWorkflowLane
               label="Completed"
               count={lanes.completed}
               total={totalWorkflows}
               className="bg-emerald-500/80"
+              delay={0.3}
             />
-            <div className="flex flex-wrap gap-2 pt-1">
-              {topStatuses.length === 0 ? (
-                <span className="text-xs text-muted-foreground">No workflow status data yet.</span>
-              ) : (
-                topStatuses.map((status) => (
-                  <Badge key={status.status} variant={statusBadgeVariant(status.status)} className="gap-1.5">
-                    <CircleDot className="size-3" />
-                    {formatStatus(status.status)} ({status.count})
-                  </Badge>
-                ))
-              )}
-            </div>
+            <AnimatedBadgeGroup statuses={topStatuses} />
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-3">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Workflow className="size-4" />
@@ -354,25 +294,18 @@ async function DashboardContent() {
             {recentWorkflows.length === 0 ? (
               <p className="text-sm text-muted-foreground">No workflows started yet.</p>
             ) : (
-              recentWorkflows.slice(0, 6).map((workflow) => (
-                <div key={workflow.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{workflow.definitionName ?? "Untitled Workflow"}</p>
-                    <p className="text-xs text-muted-foreground">{workflow.contactName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Started {formatDistanceToNowStrict(new Date(workflow.startedAt), { addSuffix: true })}
-                    </p>
-                  </div>
-                  <Badge variant={statusBadgeVariant(workflow.status)}>{formatStatus(workflow.status)}</Badge>
-                </div>
-              ))
+              recentWorkflows
+                .slice(0, 6)
+                .map((workflow, index) => (
+                  <AnimatedWorkflowCard key={workflow.id} workflow={workflow} delay={index * 0.07} />
+                ))
             )}
           </CardContent>
         </Card>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <Card className="animate-slide-up stagger-1">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="size-4" />
@@ -386,18 +319,11 @@ async function DashboardContent() {
                 No workflows currently flagged for attention in recent activity.
               </p>
             ) : (
-              attentionWorkflows.slice(0, 6).map((workflow) => (
-                <div key={workflow.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{workflow.definitionName ?? "Untitled Workflow"}</p>
-                    <p className="text-xs text-muted-foreground">{workflow.contactName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Started {formatDistanceToNowStrict(new Date(workflow.startedAt), { addSuffix: true })}
-                    </p>
-                  </div>
-                  <Badge variant={statusBadgeVariant(workflow.status)}>{formatStatus(workflow.status)}</Badge>
-                </div>
-              ))
+              attentionWorkflows
+                .slice(0, 6)
+                .map((workflow, index) => (
+                  <AnimatedWorkflowCard key={workflow.id} workflow={workflow} delay={index * 0.07} />
+                ))
             )}
           </CardContent>
         </Card>

@@ -338,8 +338,6 @@ export function TemplatedTextInput({
                     </span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent
-                    side={submenuSide}
-                    align="start"
                     sideOffset={8}
                     className="w-[320px] max-h-72 overflow-auto"
                   >
