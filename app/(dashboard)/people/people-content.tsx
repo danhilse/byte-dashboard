@@ -32,7 +32,10 @@ import { DataTableBulkActions } from "@/components/data-table/data-table-bulk-ac
 import { ViewToggle, type ViewOption } from "@/components/common/view-toggle"
 import { ContactFormDialog } from "@/components/contacts/contact-form-dialog"
 import { ContactDeleteDialog } from "@/components/contacts/contact-delete-dialog"
-import { ContactCard } from "@/components/contacts/contact-card"
+import { AnimatedContactCard } from "@/components/contacts/animated-contact-card"
+import { AnimatedTableRow } from "@/components/common/animated-table-row"
+import { AnimatedHeader } from "@/components/common/animated-header"
+import { AnimatedButtonGroup } from "@/components/dashboard/animated-button-group"
 import { ContactFiltersDialog, type ContactFilters } from "@/components/contacts/contact-filters-dialog"
 import { createContactColumns } from "@/components/data-table/columns/contact-columns"
 import type { Contact } from "@/types"
@@ -335,37 +338,45 @@ export function PeopleContent() {
     <div className="flex flex-1 flex-col gap-4 p-4">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">People</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your contacts and their information.
-          </p>
-        </div>
+        <AnimatedHeader delay={0}>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">People</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage your contacts and their information.
+            </p>
+          </div>
+        </AnimatedHeader>
         <div className="flex items-center gap-2">
-          <Button variant="outline" disabled title="Coming soon">
-            <Upload className="size-4" />
-            Import from CSV
-          </Button>
-          <ContactFormDialog mode="create" onSubmit={handleCreateContact} />
+          <AnimatedButtonGroup delay={0.1}>
+            <Button variant="outline" disabled title="Coming soon">
+              <Upload className="size-4" />
+              Import from CSV
+            </Button>
+          </AnimatedButtonGroup>
+          <AnimatedButtonGroup delay={0.2}>
+            <ContactFormDialog mode="create" onSubmit={handleCreateContact} />
+          </AnimatedButtonGroup>
         </div>
       </div>
 
       {/* Table controls */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <ContactFiltersDialog
-            filters={advancedFilters}
-            onApply={setAdvancedFilters}
-          />
-          {view === "table" && <DataTableColumnToggle table={table} />}
-          <DataTableToolbar
-            table={table}
-            searchKey="firstName"
-            searchPlaceholder="Search contacts..."
-          />
+      <AnimatedHeader delay={0.15}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <ContactFiltersDialog
+              filters={advancedFilters}
+              onApply={setAdvancedFilters}
+            />
+            {view === "table" && <DataTableColumnToggle table={table} />}
+            <DataTableToolbar
+              table={table}
+              searchKey="firstName"
+              searchPlaceholder="Search contacts..."
+            />
+          </div>
+          <ViewToggle views={viewOptions} value={view} onChange={setView as (value: string) => void} />
         </div>
-        <ViewToggle views={viewOptions} value={view} onChange={setView as (value: string) => void} />
-      </div>
+      </AnimatedHeader>
 
       {/* Content */}
       <div className="relative flex-1">
@@ -391,18 +402,19 @@ export function PeopleContent() {
                 </TableHeader>
                 <TableBody>
                   {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow
+                    table.getRowModel().rows.map((row, index) => (
+                      <AnimatedTableRow
                         key={row.id}
-                        data-state={row.getIsSelected() && "selected"}
+                        dataState={row.getIsSelected() ? "selected" : undefined}
                         className="table-row-optimized"
+                        delay={index * 0.03}
                       >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id}>
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </TableCell>
                         ))}
-                      </TableRow>
+                      </AnimatedTableRow>
                     ))
                   ) : (
                     <TableRow>
@@ -420,12 +432,13 @@ export function PeopleContent() {
 
         {view === "card" && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredContacts.map((contact) => (
-              <ContactCard
+            {filteredContacts.map((contact, index) => (
+              <AnimatedContactCard
                 key={contact.id}
                 contact={contact}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                delay={index * 0.05}
               />
             ))}
             {filteredContacts.length === 0 && (

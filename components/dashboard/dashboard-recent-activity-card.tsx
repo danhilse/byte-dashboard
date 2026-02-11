@@ -29,7 +29,7 @@ interface DashboardRecentActivityCardProps {
   activities: DashboardActivityItem[]
 }
 
-const INLINE_ACTIVITY_LIMIT = 5
+const INLINE_ACTIVITY_LIMIT = 3
 const MODAL_PAGE_SIZE = 5
 
 function formatAction(action: string): string {

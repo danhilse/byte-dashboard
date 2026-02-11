@@ -252,9 +252,9 @@ async function DashboardContent() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Layers3 className="size-4" />
-              Workflow Status
+              Workflow Run Status
             </CardTitle>
-            <CardDescription>Simple view of current workflow distribution.</CardDescription>
+            <CardDescription>Distribution of active workflow runs.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <AnimatedWorkflowLane
@@ -286,16 +286,16 @@ async function DashboardContent() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Workflow className="size-4" />
-              Recent Workflows
+              Recent Workflow Runs
             </CardTitle>
-            <CardDescription>Most recently started workflows.</CardDescription>
+            <CardDescription>Most recently started workflow runs.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {recentWorkflows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No workflows started yet.</p>
+              <p className="text-sm text-muted-foreground">No workflow runs started yet.</p>
             ) : (
               recentWorkflows
-                .slice(0, 6)
+                .slice(0, 3)
                 .map((workflow, index) => (
                   <AnimatedWorkflowCard key={workflow.id} workflow={workflow} delay={index * 0.07} />
                 ))
@@ -309,14 +309,14 @@ async function DashboardContent() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="size-4" />
-              Workflows Needing Attention
+              Workflow Runs Needing Attention
             </CardTitle>
-            <CardDescription>Status is blocked, pending, or in review.</CardDescription>
+            <CardDescription>Runs with blocked, pending, or in-review status.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {attentionWorkflows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No workflows currently flagged for attention in recent activity.
+                No workflow runs currently flagged for attention.
               </p>
             ) : (
               attentionWorkflows
