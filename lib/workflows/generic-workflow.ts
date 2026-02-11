@@ -26,6 +26,7 @@ import type {
   WaitForApprovalStep,
   NotificationStep,
   UpdateStatusStep,
+  SetVariableStep,
   ConditionStep,
   SendEmailStep,
   DelayStep,
@@ -39,6 +40,11 @@ import {
   type ApprovalSignal,
   type TaskCompletedSignal,
 } from "./signal-types";
+import {
+  buildCustomVariableTokenKeyMap,
+  getCustomVariableRuntimeKeys,
+} from "@/lib/workflow-builder-v2/template-variable-utils";
+import type { WorkflowVariable } from "@/lib/workflow-builder-v2/types";
 
 const {
   createTask,
@@ -68,6 +74,7 @@ export interface GenericWorkflowInput {
   contactLastName: string;
   contactPhone: string;
   definitionId: string;
+  initialStatus?: string;
 }
 
 export interface GenericWorkflowResult {
@@ -92,6 +99,56 @@ const ALLOWED_UPDATE_TASK_FIELDS = new Set([
   "assignedRole",
   "assignedTo",
 ]);
+
+const AUTHORING_STORAGE_KEY = "__builderV2Authoring";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeWorkflowVariables(variables: unknown): WorkflowVariable[] {
+  if (!Array.isArray(variables)) {
+    return [];
+  }
+
+  return variables.filter((variable): variable is WorkflowVariable => {
+    if (!isRecord(variable)) {
+      return false;
+    }
+
+    return (
+      typeof variable.id === "string" &&
+      typeof variable.name === "string" &&
+      typeof variable.type === "string" &&
+      isRecord(variable.source)
+    );
+  });
+}
+
+function extractAuthoringVariablesFromDefinition(
+  definitionVariables: unknown
+): WorkflowVariable[] {
+  const inlineVariables = normalizeWorkflowVariables(definitionVariables);
+  if (inlineVariables.length > 0) {
+    return inlineVariables;
+  }
+
+  if (!isRecord(definitionVariables)) {
+    return [];
+  }
+
+  const payload = definitionVariables[AUTHORING_STORAGE_KEY];
+  if (!isRecord(payload)) {
+    return [];
+  }
+
+  const workflowPayload = payload.workflow;
+  if (!isRecord(workflowPayload)) {
+    return [];
+  }
+
+  return normalizeWorkflowVariables(workflowPayload.variables);
+}
 
 // --- Interpreter ---
 
@@ -134,9 +191,44 @@ export async function genericWorkflow(
   variables["contact.lastName"] = input.contactLastName;
   variables["contact.phone"] = input.contactPhone;
   variables["contact.id"] = input.contactId;
+  variables["workflow.status"] = input.initialStatus ?? "";
+
+  const toVariableString = (value: unknown): string => {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    return "";
+  };
 
   // Fetch definition steps
   const definition = await getWorkflowDefinition(input.definitionId);
+  variables["workflow.name"] = definition.name ?? "";
+  variables["workflow.id"] = definition.id ?? input.definitionId;
+  variables["workflow.definitionId"] = input.definitionId;
+  const authoringVariables =
+    definition.authoringVariables?.length > 0
+      ? definition.authoringVariables
+      : extractAuthoringVariablesFromDefinition(definition.variables);
+  const customVariableKeyMap = buildCustomVariableTokenKeyMap(
+    authoringVariables
+  );
+  const customTokenKeyToVariableId = new Map<string, string>();
+  for (const [variableId, tokenKey] of customVariableKeyMap.entries()) {
+    customTokenKeyToVariableId.set(tokenKey, variableId);
+  }
+
+  for (const variable of authoringVariables) {
+    if (variable.source.type !== "custom") continue;
+    const value = toVariableString(variable.source.value);
+    for (const runtimeKey of getCustomVariableRuntimeKeys(
+      variable.id,
+      customVariableKeyMap
+    )) {
+      variables[runtimeKey] = value;
+    }
+  }
+
   const steps = definition.steps;
   const definitionStatuses = definition.statuses;
   const hasDefinitionStatuses = definitionStatuses.length > 0;
@@ -174,7 +266,23 @@ export async function genericWorkflow(
     return template.replace(
       /\{\{([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\}\}/g,
       (_match, stepId, field) => {
-        return variables[`${stepId}.${field}`] ?? "";
+        const key = `${stepId}.${field}`;
+        const direct = variables[key];
+        if (direct !== undefined) {
+          return direct;
+        }
+
+        if (stepId === "custom") {
+          const mappedVariableId = customTokenKeyToVariableId.get(field);
+          if (mappedVariableId) {
+            const fallback = variables[`custom.${mappedVariableId}`];
+            if (fallback !== undefined) {
+              return fallback;
+            }
+          }
+        }
+
+        return "";
       }
     );
   }
@@ -278,6 +386,7 @@ export async function genericWorkflow(
                 workflowExecutionState: "timeout",
               });
               lastStatusSet = timeoutStatus;
+              variables["workflow.status"] = timeoutStatus;
             } else {
               await setWorkflowExecutionState(
                 input.workflowExecutionId,
@@ -321,6 +430,7 @@ export async function genericWorkflow(
                 workflowExecutionState: "timeout",
               });
               lastStatusSet = timeoutStatus;
+              variables["workflow.status"] = timeoutStatus;
             } else {
               await setWorkflowExecutionState(
                 input.workflowExecutionId,
@@ -353,6 +463,31 @@ export async function genericWorkflow(
           }
           await setWorkflowStatus(input.workflowExecutionId, config.status);
           lastStatusSet = config.status;
+          variables["workflow.status"] = config.status;
+          break;
+        }
+
+        case "set_variable": {
+          const config = (step as SetVariableStep).config;
+          const variableId = config.variableId?.trim();
+          if (!variableId) {
+            throw new Error(
+              `[GenericWorkflow] set_variable misconfigured at step "${step.label}": variableId is required`
+            );
+          }
+          const resolvedValue = resolveVariable(config.value);
+          for (const runtimeKey of getCustomVariableRuntimeKeys(
+            variableId,
+            customVariableKeyMap
+          )) {
+            variables[runtimeKey] = resolvedValue;
+          }
+          console.log(
+            `[GenericWorkflow] set_variable "${variableId}" assigned "${resolvedValue}" across ${getCustomVariableRuntimeKeys(
+              variableId,
+              customVariableKeyMap
+            ).join(", ")}`
+          );
           break;
         }
 
@@ -506,6 +641,7 @@ export async function genericWorkflow(
     // All steps completed successfully. Business status is only changed by
     // explicit update_status actions; runtime completion is tracked separately.
     const finalStatus = lastStatusSet ?? orderedDefinitionStatuses[0]?.id ?? "completed";
+    variables["workflow.status"] = finalStatus;
     await setWorkflowExecutionState(input.workflowExecutionId, "completed");
     console.log(`[GenericWorkflow] All steps completed for ${input.workflowExecutionId}`);
 
@@ -524,6 +660,7 @@ export async function genericWorkflow(
           errorDefinition: error instanceof Error ? error.message : String(error),
         });
         lastStatusSet = failedStatus;
+        variables["workflow.status"] = failedStatus;
       } else {
         await setWorkflowExecutionState(input.workflowExecutionId, "error", {
           errorDefinition: error instanceof Error ? error.message : String(error),

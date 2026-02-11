@@ -156,6 +156,7 @@ export async function POST(req: Request) {
         contactLastName: contact.lastName || "",
         contactPhone: contact.phone || "",
         definitionId: workflowDefinitionId,
+        initialStatus: workflowInitialStatus,
       };
 
       const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;

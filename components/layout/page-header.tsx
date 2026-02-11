@@ -156,6 +156,9 @@ const EMPTY_NOTIFICATIONS_STATE: NotificationsState = {
   unreadCount: 0,
 }
 
+const NOTIFICATIONS_MAX_ATTEMPTS = 2
+const NOTIFICATIONS_RETRY_DELAY_MS = 1200
+
 type SearchTaskApi = Task & { contactName?: string }
 
 function includesQuery(values: Array<string | undefined>, query: string): boolean {
@@ -168,6 +171,16 @@ function formatNotificationDate(value: string): string {
     return "Just now"
   }
   return date.toLocaleString()
+}
+
+function isRetryableNotificationsStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
@@ -248,38 +261,71 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
     if (!silent) {
       setNotificationsLoading(true)
     }
-    setNotificationsError(null)
+    if (!silent || !notificationsLoaded) {
+      setNotificationsError(null)
+    }
 
+    let lastError: unknown = null
     try {
-      const response = await fetch("/api/notifications?limit=20")
-      if (!response.ok) {
-        throw new Error("Notifications fetch failed")
+      for (let attempt = 1; attempt <= NOTIFICATIONS_MAX_ATTEMPTS; attempt += 1) {
+        try {
+          const response = await fetch("/api/notifications?limit=20", { cache: "no-store" })
+          if (!response.ok) {
+            if (
+              attempt < NOTIFICATIONS_MAX_ATTEMPTS &&
+              isRetryableNotificationsStatus(response.status)
+            ) {
+              await sleep(NOTIFICATIONS_RETRY_DELAY_MS)
+              continue
+            }
+
+            const details = await response.text()
+            const message = details.trim() || response.statusText || "Unknown error"
+            throw new Error(`Notifications fetch failed (${response.status}): ${message}`)
+          }
+
+          const payload = await response.json() as {
+            notifications?: Array<AppNotification & { readAt?: string | null }>
+            unreadCount?: number
+          }
+
+          const notifications = (payload.notifications ?? []).map((notification) => ({
+            ...notification,
+            readAt: notification.readAt ?? undefined,
+          }))
+
+          setNotificationsData({
+            notifications,
+            unreadCount: payload.unreadCount ?? 0,
+          })
+          setNotificationsLoaded(true)
+          return
+        } catch (error) {
+          lastError = error
+          const networkError = error instanceof TypeError
+
+          if (attempt < NOTIFICATIONS_MAX_ATTEMPTS && networkError) {
+            await sleep(NOTIFICATIONS_RETRY_DELAY_MS)
+            continue
+          }
+
+          throw error
+        }
       }
-
-      const payload = await response.json() as {
-        notifications?: Array<AppNotification & { readAt?: string | null }>
-        unreadCount?: number
-      }
-
-      const notifications = (payload.notifications ?? []).map((notification) => ({
-        ...notification,
-        readAt: notification.readAt ?? undefined,
-      }))
-
-      setNotificationsData({
-        notifications,
-        unreadCount: payload.unreadCount ?? 0,
-      })
-      setNotificationsLoaded(true)
     } catch (error) {
-      console.error("Error loading notifications:", error)
-      setNotificationsError("Unable to load notifications right now.")
+      const failure = error ?? lastError
+      if (silent && notificationsLoaded) {
+        console.warn("Background notification refresh failed:", failure)
+      } else {
+        console.error("Error loading notifications:", failure)
+        setNotificationsError("Unable to load notifications right now.")
+      }
     } finally {
       if (!silent) {
         setNotificationsLoading(false)
       }
     }
-  }, [])
+  }, [notificationsLoaded])
 
   const markAllNotificationsRead = React.useCallback(async () => {
     if (notificationsData.unreadCount === 0 || notificationsLoading) {
@@ -416,21 +462,45 @@ export function PageHeader({ breadcrumbs, actions }: PageHeaderProps) {
   }, [loadNotifications, notificationsLoaded, notificationsLoading, notificationsOpen])
 
   React.useEffect(() => {
-    void loadNotifications({ silent: true })
-
-    const intervalId = window.setInterval(() => {
-      void loadNotifications({ silent: true })
-    }, 30000)
-
-    const handleWindowFocus = () => {
+    const refreshNotifications = () => {
+      if (document.visibilityState !== "visible") {
+        return
+      }
+      if (!navigator.onLine) {
+        return
+      }
       void loadNotifications({ silent: true })
     }
 
+    refreshNotifications()
+
+    const intervalId = window.setInterval(() => {
+      refreshNotifications()
+    }, 30000)
+
+    const handleWindowFocus = () => {
+      refreshNotifications()
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshNotifications()
+      }
+    }
+
+    const handleNetworkReconnect = () => {
+      refreshNotifications()
+    }
+
     window.addEventListener("focus", handleWindowFocus)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("online", handleNetworkReconnect)
 
     return () => {
       window.clearInterval(intervalId)
       window.removeEventListener("focus", handleWindowFocus)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("online", handleNetworkReconnect)
     }
   }, [loadNotifications])
 

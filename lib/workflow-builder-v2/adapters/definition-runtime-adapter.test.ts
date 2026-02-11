@@ -197,9 +197,12 @@ describe("definition-runtime-adapter", () => {
           name: "Unsupported",
           actions: [
             {
-              type: "set_variable",
-              id: "set_1",
-              config: { variableId: "custom_1", value: "x" },
+              type: "update_task",
+              id: "update_task_1",
+              config: {
+                taskActionId: "task_1",
+                fields: [{ field: "status", value: "in_progress" }],
+              },
             },
           ],
           advancementCondition: { type: "automatic" },
@@ -297,7 +300,7 @@ describe("definition-runtime-adapter", () => {
               type: "send_email",
               id: "email_1",
               config: {
-                to: "var-custom-1",
+                to: "var-legacy-unsupported-1",
                 subject: "Subject",
                 body: "Body",
               },
@@ -309,6 +312,88 @@ describe("definition-runtime-adapter", () => {
     })
 
     expect(() => compileAuthoringToRuntime(workflow)).toThrow(AuthoringCompileError)
+  })
+
+  it("compiles set_variable and custom variable references", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "step_a",
+          name: "Set and Use",
+          actions: [
+            {
+              type: "set_variable",
+              id: "set_var",
+              config: {
+                variableId: "var-custom-score",
+                value: "var-contact.firstName",
+              },
+            },
+            {
+              type: "send_email",
+              id: "email_1",
+              config: {
+                to: "var-contact.email",
+                subject: "Score update",
+                body: "Hello var-custom-score",
+              },
+            },
+          ],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    const runtimeSteps = compileAuthoringToRuntime(workflow)
+    const setVariable = runtimeSteps.find((step) => step.type === "set_variable")
+    const sendEmail = runtimeSteps.find((step) => step.type === "send_email")
+
+    expect(setVariable).toMatchObject({
+      type: "set_variable",
+      config: {
+        variableId: "var-custom-score",
+        value: "{{contact.firstName}}",
+      },
+    })
+    expect(sendEmail).toMatchObject({
+      type: "send_email",
+      config: {
+        body: "Hello {{custom.var-custom-score}}",
+      },
+    })
+  })
+
+  it("does not rewrite already-templated custom references", () => {
+    const workflow = buildWorkflow({
+      steps: [
+        {
+          id: "step_a",
+          name: "Notify",
+          actions: [
+            {
+              type: "notification",
+              id: "notify_1",
+              config: {
+                recipients: { type: "organization" },
+                title: "Testing for {{custom.var-custom-score}}",
+                message: "",
+              },
+            },
+          ],
+          advancementCondition: { type: "automatic" },
+        },
+      ],
+    })
+
+    const runtimeSteps = compileAuthoringToRuntime(workflow)
+    const notification = runtimeSteps.find((step) => step.type === "notification")
+
+    expect(notification).toMatchObject({
+      type: "notification",
+      config: {
+        title: "Testing for {{custom.var-custom-score}}",
+      },
+    })
   })
 
   it("compiles branch conditions with templated refs and not_equals operator", () => {

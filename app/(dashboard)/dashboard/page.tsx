@@ -237,7 +237,7 @@ async function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-2 hover-lift">
+        <Card className="animate-slide-up stagger-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <CalendarClock className="size-4" />
@@ -269,7 +269,7 @@ async function DashboardContent() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="animate-slide-up stagger-1 hover-lift">
+        <Card className="animate-slide-up stagger-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ListTodo className="size-4" />
@@ -310,7 +310,7 @@ async function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-2 hover-lift">
+        <Card className="animate-slide-up stagger-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Layers3 className="size-4" />
@@ -342,7 +342,7 @@ async function DashboardContent() {
           </CardContent>
         </Card>
 
-        <Card className="animate-slide-up stagger-3 hover-lift">
+        <Card className="animate-slide-up stagger-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Workflow className="size-4" />
@@ -372,7 +372,7 @@ async function DashboardContent() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
-        <Card className="animate-slide-up stagger-1 hover-lift">
+        <Card className="animate-slide-up stagger-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="size-4" />

@@ -88,7 +88,7 @@ export function DashboardRecentActivityCard({ activities }: DashboardRecentActiv
 
   return (
     <>
-      <Card className="hover-lift">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Clock3 className="size-4" />

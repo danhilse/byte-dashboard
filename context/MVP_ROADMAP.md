@@ -619,27 +619,7 @@ Field mapping config maps Field IDs to contact/workflow fields.
 
 These features will be built after the core platform is proven and when specific customer needs arise.
 
-### tbd
-- [ ] copy/paste system for steps and workflows
 
-### Formstack Integration (Post-MVP)
-
-**Webhook Ingestion**
-- [ ] API route for Formstack webhook
-- [ ] Webhook signature verification
-- [ ] Field mapping config (Formstack fields → workflow/contact fields)
-- [ ] Temporal workflow triggered by webhook (not direct DB writes)
-- [ ] Workflow orchestrates: create contact → create workflow instance → send notifications → create tasks
-- [ ] Log ingestion in activity_log
-
-**Admin Config**
-- [ ] Settings page for Formstack integration
-- [ ] Field mapping UI (or config file for MVP)
-
-**Out of scope (post-v1):**
-- [ ] CSV export for workflows
-- [ ] CSV export for contacts
-- [ ] Basic PDF report (workflow summary)
 
 **Deliverable:** Workflow instances (for application tracking) auto-created via Temporal when Formstack forms submitted. Temporal workflow handles retries and error recovery.
 
@@ -665,6 +645,29 @@ These are explicitly deferred until post-PMF:
 - [ ] Custom fields on contacts/applications
 - [ ] Advanced reporting / analytics
 - [ ] Audit log export
+- [ ] UI is polished with proper loading/error states
+
+### tbd
+- [ ] copy/paste system for steps and workflows
+
+### Formstack Integration (Post-MVP)
+
+**Webhook Ingestion**
+- [ ] API route for Formstack webhook
+- [ ] Webhook signature verification
+- [ ] Field mapping config (Formstack fields → workflow/contact fields)
+- [ ] Temporal workflow triggered by webhook (not direct DB writes)
+- [ ] Workflow orchestrates: create contact → create workflow instance → send notifications → create tasks
+- [ ] Log ingestion in activity_log
+
+**Admin Config**
+- [ ] Settings page for Formstack integration
+- [ ] Field mapping UI (or config file for MVP)
+
+**Out of scope (post-v1):**
+- [ ] JSON export for workflows
+- [ ] CSV export for contacts
+- [ ] Basic PDF report (workflow summary)
 
 ---
 
@@ -697,7 +700,7 @@ MVP is complete when:
 8. Temporal workflows can orchestrate multi-step processes
 9. All data is properly scoped to organization
 10. No cross-tenant data leakage
-11. UI is polished with proper loading/error states
+
 
 ---
 

@@ -23,6 +23,7 @@ import {
   hasPersistedAuthoringPayload,
   type DefinitionRecordLike,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
+import type { WorkflowVariable } from "@/lib/workflow-builder-v2/types";
 import {
   createTaskAssignedNotification,
   createWorkflowActionNotifications,
@@ -70,6 +71,28 @@ function toTaskDueDate(dueDate: CreateTaskConfig["dueDate"]): string | undefined
   }
 
   return parsedDueDate.toISOString().split("T")[0];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeAuthoringVariables(variables: unknown): WorkflowVariable[] {
+  if (!Array.isArray(variables)) {
+    return [];
+  }
+
+  return variables.filter((variable): variable is WorkflowVariable => {
+    if (!isRecord(variable)) {
+      return false;
+    }
+    return (
+      typeof variable.id === "string" &&
+      typeof variable.name === "string" &&
+      typeof variable.type === "string" &&
+      isRecord(variable.source)
+    );
+  });
 }
 
 /**
@@ -515,9 +538,12 @@ export async function getTask(taskId: string) {
 export async function getWorkflowDefinition(
   definitionId: string
 ): Promise<{
+  id?: string;
+  name: string;
   steps: WorkflowStep[];
   phases: unknown[];
   variables: Record<string, unknown>;
+  authoringVariables: WorkflowVariable[];
   statuses: DefinitionStatus[];
 }> {
   console.log(`Activity: Fetching workflow definition ${definitionId}`);
@@ -539,11 +565,19 @@ export async function getWorkflowDefinition(
 
   if (!definition) {
     console.log(`Activity: Workflow definition ${definitionId} not found`);
-    return { steps: [], phases: [], variables: {}, statuses: [] };
+    return {
+      name: "",
+      steps: [],
+      phases: [],
+      variables: {},
+      authoringVariables: [],
+      statuses: [],
+    };
   }
 
   const statuses = (definition.statuses as DefinitionStatus[]) ?? [];
   let steps = (definition.steps as WorkflowStep[]) ?? [];
+  let authoringVariables = normalizeAuthoringVariables(definition.variables);
 
   if (hasPersistedAuthoringPayload(definition.variables)) {
     try {
@@ -555,6 +589,7 @@ export async function getWorkflowDefinition(
         createdAt: definition.createdAt.toISOString(),
         updatedAt: definition.updatedAt.toISOString(),
       });
+      authoringVariables = authoring.variables;
       steps = compileAuthoringToRuntime(authoring, {
         definitionStatuses: statuses,
       });
@@ -567,9 +602,12 @@ export async function getWorkflowDefinition(
   }
 
   return {
+    id: definition.id,
+    name: definition.name,
     steps,
     phases: (definition.phases as unknown[]) ?? [],
     variables: (definition.variables as Record<string, unknown>) ?? {},
+    authoringVariables,
     statuses,
   };
 }

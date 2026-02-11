@@ -26,6 +26,7 @@ type SupportedActionType =
   | "create_task"
   | "update_contact"
   | "update_status"
+  | "set_variable"
 
 const SUPPORTED_ACTION_TYPES = new Set<SupportedActionType>([
   "send_email",
@@ -33,6 +34,7 @@ const SUPPORTED_ACTION_TYPES = new Set<SupportedActionType>([
   "create_task",
   "update_contact",
   "update_status",
+  "set_variable",
 ])
 
 const SUPPORTED_ADVANCEMENT_TYPES = new Set([
@@ -337,13 +339,45 @@ function toDefinitionPhases(phases: WorkflowPhaseV2[]): WorkflowPhase[] {
 
 function findUnsupportedVariableRefs(value: string): string[] {
   const matches = value.match(/\bvar-[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?\b/g) ?? []
-  return matches.filter((ref) => !ref.startsWith("var-contact."))
+  return matches.filter((ref) => {
+    if (ref.startsWith("var-contact.")) {
+      return false
+    }
+    if (ref.startsWith("var-custom-")) {
+      return false
+    }
+    if (/^var-(task|contact)-[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(ref)) {
+      return false
+    }
+    return true
+  })
+}
+
+function convertLegacyVariableRef(ref: string): string {
+  const contactMatch = ref.match(/^var-contact\.([A-Za-z0-9_-]+)$/)
+  if (contactMatch) {
+    return `{{contact.${contactMatch[1]}}}`
+  }
+
+  if (ref.startsWith("var-custom-")) {
+    return `{{custom.${ref}}}`
+  }
+
+  const actionOutputMatch = ref.match(
+    /^var-(task|contact)-([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/
+  )
+  if (actionOutputMatch) {
+    const [, , actionId, field] = actionOutputMatch
+    return `{{${actionId}.${field}}}`
+  }
+
+  return ref
 }
 
 function convertValueTemplate(value: string): string {
   return value.replace(
-    /\bvar-contact\.([A-Za-z0-9_-]+)\b/g,
-    (_match, field: string) => `{{contact.${field}}}`
+    /\{\{[^}]+\}\}|\bvar-[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?\b/g,
+    (match: string) => (match.startsWith("{{") ? match : convertLegacyVariableRef(match))
   )
 }
 
@@ -499,6 +533,9 @@ export function validateAuthoring(
           for (const field of action.config.fields) {
             variableSensitiveValues.push(field.value)
           }
+          break
+        case "set_variable":
+          variableSensitiveValues.push(action.config.value)
           break
         case "update_status":
           break
@@ -819,6 +856,20 @@ function compileStandardStep(
         phaseId: step.phaseId,
         config: {
           status: action.config.status,
+        },
+      })
+      continue
+    }
+
+    if (action.type === "set_variable") {
+      runtimeSteps.push({
+        id: actionStepId,
+        type: "set_variable",
+        label: `${step.name}: Set Variable`,
+        phaseId: step.phaseId,
+        config: {
+          variableId: action.config.variableId,
+          value: convertValueTemplate(action.config.value),
         },
       })
       continue

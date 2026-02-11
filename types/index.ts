@@ -56,6 +56,7 @@ export type StepType =
   | "wait_for_approval"
   | "notification"
   | "update_status"
+  | "set_variable"
   | "condition"
   | "send_email"
   | "delay"
@@ -132,6 +133,14 @@ export interface UpdateStatusStep extends BaseStep {
   }
 }
 
+export interface SetVariableStep extends BaseStep {
+  type: "set_variable"
+  config: {
+    variableId: string
+    value: string
+  }
+}
+
 export interface ConditionStep extends BaseStep {
   type: "condition"
   config: {
@@ -180,6 +189,7 @@ export type WorkflowStep =
   | WaitForApprovalStep
   | NotificationStep
   | UpdateStatusStep
+  | SetVariableStep
   | ConditionStep
   | SendEmailStep
   | DelayStep
