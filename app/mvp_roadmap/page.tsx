@@ -1,5 +1,5 @@
 import { RoadmapView } from "./roadmap-view"
-import backlogData from "@/context/TBD_PHASE2.json"
+import backlogData from "./backlog-data.json"
 
 export default function MvpRoadmapPage() {
   return <RoadmapView data={backlogData} />

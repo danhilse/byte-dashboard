@@ -1,0 +1,575 @@
+{
+  "meta": {
+    "updated": "2026-02-11",
+    "scales": {
+      "effort": "E0 (trivial) → E4 (major project)",
+      "mvp_priority": "P0 (must have for launch) → P3 (nice to have, post-MVP)",
+      "impact": "UX | Admin | Revenue | Strategic | DX",
+      "strategic_alignment": "S0 (no alignment) → S4 (core to product vision)"
+    }
+  },
+  "categories": [
+    {
+      "id": 1,
+      "name": "Auth / Orgs / Permissions",
+      "items": [
+        {
+          "title": "Middleware deprecated - restore or replace Clerk route protection",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["Admin", "DX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "User sync webhook (Clerk -> local users table)",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["Admin", "DX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Role-based access (Owner, Admin, User)",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["Admin", "UX"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Workflow Builder Enhancements",
+      "subcategories": [
+        {
+          "name": "Variables",
+          "items": [
+            {
+              "title": "Variables must be downstream - references should only access upstream step outputs",
+              "effort": "E2",
+              "mvp_priority": "P1",
+              "impact": ["UX", "DX"],
+              "strategic_alignment": "S4"
+            },
+            {
+              "title": "Text body variable input - rich text/body fields with variable insertion",
+              "effort": "E2",
+              "mvp_priority": "P1",
+              "impact": ["UX"],
+              "strategic_alignment": "S4"
+            },
+            {
+              "title": "Formalize variable typing, centralized input styles",
+              "effort": "E2",
+              "mvp_priority": "P1",
+              "impact": ["DX", "UX"],
+              "strategic_alignment": "S3"
+            }
+          ]
+        },
+        {
+          "name": "Steps & Actions",
+          "items": [
+            {
+              "title": "Step definitions - formalize/refine step type system",
+              "effort": "E2",
+              "mvp_priority": "P1",
+              "impact": ["DX"],
+              "strategic_alignment": "S4"
+            },
+            {
+              "title": "New action: send_notification (Slack/Teams/SMS, separate from email)",
+              "effort": "E2",
+              "mvp_priority": "P2",
+              "impact": ["Strategic", "UX"],
+              "strategic_alignment": "S3"
+            },
+            {
+              "title": "New action: business_hours_gate condition (hold until business hours/time zone window)",
+              "effort": "E2",
+              "mvp_priority": "P3",
+              "impact": ["UX"],
+              "strategic_alignment": "S2"
+            },
+            {
+              "title": "New action: for_each step type (iterate over a collection)",
+              "effort": "E3",
+              "mvp_priority": "P2",
+              "impact": ["Strategic", "DX"],
+              "strategic_alignment": "S3"
+            },
+            {
+              "title": "New trigger: scheduled trigger (cron-like schedule)",
+              "effort": "E2",
+              "mvp_priority": "P2",
+              "impact": ["Strategic"],
+              "strategic_alignment": "S3"
+            },
+            {
+              "title": "New trigger: event_webhook trigger (inbound event with payload mapping)",
+              "effort": "E2",
+              "mvp_priority": "P2",
+              "impact": ["Strategic", "DX"],
+              "strategic_alignment": "S3"
+            },
+            {
+              "title": "Email notifications action",
+              "effort": "E2",
+              "mvp_priority": "P1",
+              "impact": ["UX", "Strategic"],
+              "strategic_alignment": "S4"
+            }
+          ]
+        },
+        {
+          "name": "Definitions & Templates",
+          "items": [
+            {
+              "title": "Workflow definition types - classify definitions (manually triggered, contact-related, etc.)",
+              "effort": "E1",
+              "mvp_priority": "P1",
+              "impact": ["UX"],
+              "strategic_alignment": "S3"
+            },
+            {
+              "title": "Generate definition description on save (AI or summary)",
+              "effort": "E1",
+              "mvp_priority": "P2",
+              "impact": ["UX", "DX"],
+              "strategic_alignment": "S2"
+            },
+            {
+              "title": "Workflow templates - pre-built starter workflows",
+              "effort": "E2",
+              "mvp_priority": "P2",
+              "impact": ["UX"],
+              "strategic_alignment": "S3"
+            },
+            {
+              "title": "Version history view, restore (show all versions of a definition)",
+              "effort": "E2",
+              "mvp_priority": "P2",
+              "impact": ["Admin", "UX"],
+              "strategic_alignment": "S2"
+            }
+          ]
+        },
+        {
+          "name": "Builder UX",
+          "items": [
+            {
+              "title": "Support test-run or run from builder",
+              "effort": "E3",
+              "mvp_priority": "P1",
+              "impact": ["DX", "UX"],
+              "strategic_alignment": "S4"
+            },
+            {
+              "title": "Visual node-based workflow builder (post-MVP)",
+              "effort": "E4",
+              "mvp_priority": "P3",
+              "impact": ["Strategic", "UX"],
+              "strategic_alignment": "S4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Settings & Admin",
+      "items": [
+        {
+          "title": "General settings (org info, preferences)",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["Admin"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "User management (invite, edit, remove)",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["Admin", "UX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Billing & plans",
+          "effort": "E3",
+          "mvp_priority": "P2",
+          "impact": ["Revenue"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Integrations config page",
+          "effort": "E1",
+          "mvp_priority": "P2",
+          "impact": ["Admin"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Audit logs (activity history view + export)",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["Admin"],
+          "strategic_alignment": "S2"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Validation & Data Quality",
+      "items": [
+        {
+          "title": "Validation for form/field inputs (contact fields, manual entry, etc.)",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["UX", "Admin"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Input validation review (security-focused)",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["Admin"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "UX / UI Polish",
+      "items": [
+        {
+          "title": "Loading states",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Toast notifications",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Error handling",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["UX", "DX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Empty states",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Responsive design check",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["UX"],
+          "strategic_alignment": "S1"
+        },
+        {
+          "title": "Deletion -> archived (soft delete pattern instead of hard delete)",
+          "effort": "E2",
+          "mvp_priority": "P1",
+          "impact": ["Admin", "UX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Real-time polling / live updates",
+          "effort": "E2",
+          "mvp_priority": "P1",
+          "impact": ["UX"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Security",
+      "items": [
+        {
+          "title": "Rate limiting on API routes",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["Admin"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Org isolation audit (no cross-tenant data leaks)",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["Admin"],
+          "strategic_alignment": "S4"
+        },
+        {
+          "title": "Encryption as required",
+          "effort": "E2",
+          "mvp_priority": "P1",
+          "impact": ["Admin"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "DevOps / Infrastructure",
+      "items": [
+        {
+          "title": "Temporal Cloud - provision namespace, connection credentials, production setup",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["DX"],
+          "strategic_alignment": "S4"
+        },
+        {
+          "title": "Temporal cleanup - clean up dev artifacts, unused workflows, worker config",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["DX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "CI/CD setup",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["DX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Sentry",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["DX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Datadog",
+          "effort": "E1",
+          "mvp_priority": "P2",
+          "impact": ["DX"],
+          "strategic_alignment": "S2"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Integrations",
+      "subcategories": [
+        {
+          "name": "Formstack (Post-MVP)",
+          "items": [
+            {
+              "title": "Formstack integration (webhook ingestion, field mapping, workflow triggering)",
+              "effort": "E3",
+              "mvp_priority": "P2",
+              "impact": ["Strategic"],
+              "strategic_alignment": "S4"
+            }
+          ]
+        },
+        {
+          "name": "Other Integrations (Post-MVP)",
+          "items": [
+            {
+              "title": "Calendar integrations / scheduling (Google/Outlook sync)",
+              "effort": "E3",
+              "mvp_priority": "P3",
+              "impact": ["UX"],
+              "strategic_alignment": "S2"
+            },
+            {
+              "title": "Advanced integrations (Mailchimp, SendGrid, Typeform, etc.)",
+              "effort": "E3",
+              "mvp_priority": "P3",
+              "impact": ["Strategic"],
+              "strategic_alignment": "S2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Testing",
+      "items": [
+        {
+          "title": "Core flow E2E tests",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["DX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Auth flow tests",
+          "effort": "E1",
+          "mvp_priority": "P0",
+          "impact": ["DX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "QA",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["UX", "DX"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Data Export & Reporting",
+      "items": [
+        {
+          "title": "JSON export for workflows",
+          "effort": "E1",
+          "mvp_priority": "P2",
+          "impact": ["Admin"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "CSV import for contacts",
+          "effort": "E2",
+          "mvp_priority": "P1",
+          "impact": ["UX", "Admin"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "CSV export for contacts",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["Admin"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Basic PDF report (workflow summary)",
+          "effort": "E2",
+          "mvp_priority": "P2",
+          "impact": ["Admin"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Advanced reporting / analytics (post-MVP)",
+          "effort": "E4",
+          "mvp_priority": "P3",
+          "impact": ["Strategic", "Admin"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "User Onboarding & Education",
+      "items": [
+        {
+          "title": "Organization onboarding flow and invites",
+          "effort": "E2",
+          "mvp_priority": "P0",
+          "impact": ["UX"],
+          "strategic_alignment": "S4"
+        },
+        {
+          "title": "Tooltips throughout the app",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Empty states with guidance (first-time user experience)",
+          "effort": "E1",
+          "mvp_priority": "P1",
+          "impact": ["UX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "In-app documentation / help",
+          "effort": "E2",
+          "mvp_priority": "P2",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Product",
+      "items": [
+        {
+          "title": "Payment processing / Stripe",
+          "effort": "E3",
+          "mvp_priority": "P2",
+          "impact": ["Revenue"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Tasks",
+      "items": [
+        {
+          "title": "Calendar - calendar views and task scheduling",
+          "effort": "E3",
+          "mvp_priority": "P2",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Bigger Features (Post-MVP / v1.5+)",
+      "items": [
+        {
+          "title": "Asset Management - complete asset system (storage, uploads, previews, thumbnails, metadata UI, quotas, task attachments)",
+          "effort": "E4",
+          "mvp_priority": "P3",
+          "impact": ["UX"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Form Builder",
+          "effort": "E4",
+          "mvp_priority": "P3",
+          "impact": ["Strategic", "UX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "AI assistant",
+          "effort": "E4",
+          "mvp_priority": "P3",
+          "impact": ["Strategic"],
+          "strategic_alignment": "S2"
+        },
+        {
+          "title": "Public widgets, applicant portal",
+          "effort": "E3",
+          "mvp_priority": "P3",
+          "impact": ["Strategic", "UX"],
+          "strategic_alignment": "S3"
+        },
+        {
+          "title": "Bulk import/export",
+          "effort": "E2",
+          "mvp_priority": "P3",
+          "impact": ["Admin"],
+          "strategic_alignment": "S1"
+        },
+        {
+          "title": "Custom fields on contacts/applications",
+          "effort": "E3",
+          "mvp_priority": "P3",
+          "impact": ["UX", "Strategic"],
+          "strategic_alignment": "S3"
+        }
+      ]
+    }
+  ]
+}
