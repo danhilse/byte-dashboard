@@ -4,7 +4,7 @@ import dynamic from "next/dynamic"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { LayoutGrid, List, Grid3X3, ShieldCheck, Link2 } from "lucide-react"
 import { parseISO } from "date-fns"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, SortingState } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -74,6 +74,23 @@ export function MyWorkContent() {
   const [selectedApprovalTaskId, setSelectedApprovalTaskId] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [approvalDetailOpen, setApprovalDetailOpen] = useState(false)
+
+  const [sorting, setSorting] = useState<SortingState>(() => {
+    try {
+      const stored = localStorage.getItem("byte-sort-my-work")
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  })
+  const handleSortingChange = useCallback((next: SortingState) => {
+    setSorting(next)
+    try {
+      localStorage.setItem("byte-sort-my-work", JSON.stringify(next))
+    } catch {
+      // localStorage unavailable
+    }
+  }, [])
 
   const assigneeNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -717,6 +734,8 @@ export function MyWorkContent() {
           <DataTable
             columns={myWorkColumns}
             data={filteredTasks}
+            sorting={sorting}
+            onSortingChange={handleSortingChange}
             onRowClick={(row) => handleTaskClick(row.original)}
             rowClassName={(row) =>
               row.original.taskType === "approval"

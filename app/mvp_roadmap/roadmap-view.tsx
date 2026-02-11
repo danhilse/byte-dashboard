@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, type ReactNode } from "react"
 
 // ---------- types ----------
 
@@ -233,7 +233,7 @@ export function RoadmapView({ data }: { data: BacklogData }) {
 
   const [sortKey, setSortKey] = useState<SortKey>("mvp_priority")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
-  const [groupBy, setGroupBy] = useState<"none" | "category" | "mvp_priority">("none")
+  const [groupBy, setGroupBy] = useState<"none" | "category" | "mvp_priority">("category")
 
   function toggle(set: Set<string>, val: string, setter: (s: Set<string>) => void) {
     const next = new Set(set)
@@ -301,43 +301,94 @@ export function RoadmapView({ data }: { data: BacklogData }) {
     setSelStr(new Set(strategics))
   }
 
-  function renderTable(items: FlatItem[]) {
+  function renderTable(items: FlatItem[], groupLabel?: string) {
+    const isGrouped = !!groupLabel
+    const hideCategoryCol = groupBy === "category" && isGrouped
+    const hidePriorityCol = groupBy === "mvp_priority" && isGrouped
+    const showSubcategories = groupBy === "category" && isGrouped
+    const firstColWidth = hideCategoryCol || hidePriorityCol ? "w-[54%]" : "w-[38%]"
+
+    // When showing subcategories, group items by subcategory while preserving sort order
+    const displayItems = showSubcategories
+      ? [...items].sort((a, b) => {
+          if (!a.subcategory && b.subcategory) return -1
+          if (a.subcategory && !b.subcategory) return 1
+          if (a.subcategory !== b.subcategory) return (a.subcategory ?? "").localeCompare(b.subcategory ?? "")
+          return 0
+        })
+      : items
+
+    const colCount = 6 - (hideCategoryCol ? 1 : 0) - (hidePriorityCol ? 1 : 0)
+
+    // Build rows with optional subcategory headers
+    const rows: ReactNode[] = []
+    let currentSub: string | null | undefined = undefined
+
+    for (let idx = 0; idx < displayItems.length; idx++) {
+      const item = displayItems[idx]
+
+      if (showSubcategories && item.subcategory && item.subcategory !== currentSub) {
+        rows.push(
+          <tr key={`sub-${item.subcategory}`} className="bg-zinc-50/80 dark:bg-zinc-900/40">
+            <td colSpan={colCount} className="px-4 py-1.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 tracking-wide">
+              {item.subcategory}
+            </td>
+          </tr>
+        )
+      }
+      currentSub = item.subcategory
+
+      rows.push(
+        <tr key={idx} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/20 transition-colors">
+          <td className="px-3 py-2.5">
+            <span className="text-zinc-900 dark:text-zinc-100">{item.title}</span>
+          </td>
+          {!hideCategoryCol && (
+            <td className="px-3 py-2.5">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">{item.category}</span>
+            </td>
+          )}
+          <td className="px-3 py-2.5"><Badge value={item.effort} palette={effortColors} /></td>
+          {!hidePriorityCol && (
+            <td className="px-3 py-2.5"><Badge value={item.mvp_priority} palette={priorityColors} /></td>
+          )}
+          <td className="px-3 py-2.5">
+            <div className="flex flex-wrap gap-1">
+              {item.impact.map((imp) => (
+                <Badge key={imp} value={imp} palette={impactColors} />
+              ))}
+            </div>
+          </td>
+          <td className="px-3 py-2.5"><Badge value={item.strategic_alignment} palette={strategicColors} /></td>
+        </tr>
+      )
+    }
+
     return (
       <table className="w-full text-sm">
         <thead className="bg-zinc-50 dark:bg-zinc-800/60 sticky top-0 z-10">
           <tr>
-            <SortHeader label="Item" sortKey="title" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[38%]" />
-            <SortHeader label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[16%]" />
+            <SortHeader
+              label={isGrouped ? `${groupLabel} (${items.length})` : "Item"}
+              sortKey="title"
+              currentSort={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+              className={firstColWidth}
+            />
+            {!hideCategoryCol && (
+              <SortHeader label="Category" sortKey="category" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[16%]" />
+            )}
             <SortHeader label="Effort" sortKey="effort" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[8%]" />
-            <SortHeader label="MVP" sortKey="mvp_priority" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[8%]" />
+            {!hidePriorityCol && (
+              <SortHeader label="MVP" sortKey="mvp_priority" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[8%]" />
+            )}
             <SortHeader label="Impact" sortKey="impact" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[18%]" />
             <SortHeader label="Strategic" sortKey="strategic_alignment" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[10%]" />
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
-          {items.map((item, i) => (
-            <tr key={i} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/20 transition-colors">
-              <td className="px-3 py-2.5">
-                <span className="text-zinc-900 dark:text-zinc-100">{item.title}</span>
-                {item.subcategory && (
-                  <span className="ml-2 text-[10px] text-zinc-400 dark:text-zinc-600">{item.subcategory}</span>
-                )}
-              </td>
-              <td className="px-3 py-2.5">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">{item.category}</span>
-              </td>
-              <td className="px-3 py-2.5"><Badge value={item.effort} palette={effortColors} /></td>
-              <td className="px-3 py-2.5"><Badge value={item.mvp_priority} palette={priorityColors} /></td>
-              <td className="px-3 py-2.5">
-                <div className="flex flex-wrap gap-1">
-                  {item.impact.map((imp) => (
-                    <Badge key={imp} value={imp} palette={impactColors} />
-                  ))}
-                </div>
-              </td>
-              <td className="px-3 py-2.5"><Badge value={item.strategic_alignment} palette={strategicColors} /></td>
-            </tr>
-          ))}
+          {rows}
         </tbody>
       </table>
     )
@@ -432,15 +483,9 @@ export function RoadmapView({ data }: { data: BacklogData }) {
         {/* table */}
         <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
           {grouped ? (
-            Array.from(grouped.entries()).map(([group, items]) => (
-              <div key={group}>
-                <div className="bg-zinc-100 dark:bg-zinc-800/80 px-4 py-2 border-b border-zinc-200 dark:border-zinc-700">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300">
-                    {group}
-                  </span>
-                  <span className="ml-2 text-[11px] text-zinc-400">{items.length}</span>
-                </div>
-                {renderTable(items)}
+            Array.from(grouped.entries()).map(([group, items], idx) => (
+              <div key={group} className={idx > 0 ? "border-t border-zinc-300 dark:border-zinc-700" : ""}>
+                {renderTable(items, group)}
               </div>
             ))
           ) : (

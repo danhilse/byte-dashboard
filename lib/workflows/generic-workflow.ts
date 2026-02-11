@@ -43,8 +43,8 @@ import {
 import {
   buildCustomVariableTokenKeyMap,
   getCustomVariableRuntimeKeys,
-} from "@/lib/workflow-builder-v2/template-variable-utils";
-import type { WorkflowVariable } from "@/lib/workflow-builder-v2/types";
+} from "../workflow-builder-v2/template-variable-utils";
+import type { WorkflowVariable } from "../workflow-builder-v2/types";
 
 const {
   createTask,

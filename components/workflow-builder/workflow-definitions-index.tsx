@@ -279,7 +279,11 @@ export function WorkflowDefinitionsIndex({ initialDefinitions }: WorkflowDefinit
               </TableHeader>
               <TableBody>
                 {filteredDefinitions.map((definition) => (
-                  <TableRow key={definition.id}>
+                  <TableRow
+                    key={definition.id}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/admin/workflow-builder/${definition.id}`)}
+                  >
                     <TableCell>
                       <div className="space-y-1">
                         <p className="font-medium">{definition.name}</p>

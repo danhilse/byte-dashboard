@@ -16,6 +16,9 @@ export default function LandingPage() {
             <span className="text-xl font-bold">Byte CRM</span>
           </div>
           <nav className="flex items-center gap-4">
+            <Link href="/mvp_roadmap" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Roadmap
+            </Link>
             <SignedOut>
               <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <Button variant="ghost">Sign In</Button>

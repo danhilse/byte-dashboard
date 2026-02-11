@@ -65,19 +65,129 @@ function parseMaybeDate(value: string | Date | null): Date | null {
 function DashboardSkeleton() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <Skeleton key={index} className="h-72 rounded-xl" />
-        ))}
-      </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Skeleton className="h-80 rounded-xl" />
-        <Skeleton className="h-80 rounded-xl" />
-      </div>
+      {/* Hero Section */}
+      <section className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+        {/* Hero Card */}
+        <Card className="border-0 bg-gradient-to-br from-primary/95 via-primary to-slate-800">
+          <CardContent className="p-6 md:p-7">
+            <div className="flex h-full flex-col justify-between gap-6">
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-32 rounded-full bg-white/20" />
+                <Skeleton className="h-8 w-full max-w-lg bg-white/20" />
+                <Skeleton className="h-5 w-full max-w-md bg-white/15" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 rounded-lg bg-white/15" />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-9 w-36 rounded-md bg-white/20" />
+                <Skeleton className="h-9 w-32 rounded-md bg-white/15" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Attention Card */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 rounded-lg" />
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Three Column Section */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        {/* My Priorities */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-4 w-56" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 rounded-lg" />
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Workflow Status */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-6 w-24 rounded-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Workflows */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-52" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-lg" />
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Two Column Section */}
+      <section className="grid gap-4 xl:grid-cols-2">
+        {/* Workflows Needing Attention */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-56" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-lg" />
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-4 w-60" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-lg" />
+              ))}
+            </div>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 rounded-lg" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   )
 }

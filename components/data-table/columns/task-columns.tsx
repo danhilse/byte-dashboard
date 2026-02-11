@@ -116,7 +116,17 @@ export const taskColumns: ColumnDef<Task>[] = [
   },
   {
     accessorKey: "dueDate",
-    header: "Due Date",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Due Date
+          <ArrowUpDown className="ml-2 size-4" />
+        </Button>
+      )
+    },
     cell: ({ row }) => {
       const date = row.getValue("dueDate") as string | undefined
       return date ? (
@@ -124,6 +134,14 @@ export const taskColumns: ColumnDef<Task>[] = [
       ) : (
         <span className="text-muted-foreground">-</span>
       )
+    },
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.getValue("dueDate") as string | undefined
+      const b = rowB.getValue("dueDate") as string | undefined
+      if (!a && !b) return 0
+      if (!a) return 1
+      if (!b) return -1
+      return a.localeCompare(b)
     },
   },
   {

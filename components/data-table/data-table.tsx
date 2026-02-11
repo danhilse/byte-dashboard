@@ -36,6 +36,8 @@ interface DataTableProps<TData, TValue> {
   filterOptions?: { label: string; value: string }[]
   onRowClick?: (row: Row<TData>) => void
   rowClassName?: string | ((row: Row<TData>) => string | undefined)
+  sorting?: SortingState
+  onSortingChange?: (sorting: SortingState) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -47,8 +49,22 @@ export function DataTable<TData, TValue>({
   filterOptions,
   onRowClick,
   rowClassName,
+  sorting: controlledSorting,
+  onSortingChange: controlledOnSortingChange,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
+  const sorting = controlledSorting ?? internalSorting
+  const setSorting = React.useCallback(
+    (updater: SortingState | ((prev: SortingState) => SortingState)) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater
+      if (controlledOnSortingChange) {
+        controlledOnSortingChange(next)
+      } else {
+        setInternalSorting(next)
+      }
+    },
+    [sorting, controlledOnSortingChange]
+  )
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
