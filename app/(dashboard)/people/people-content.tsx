@@ -6,11 +6,9 @@ import { List, LayoutGrid, Trash2, FileText, Loader2, Upload } from "lucide-reac
 import {
   useReactTable,
   getCoreRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   flexRender,
-  type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
   type RowSelectionState,
@@ -60,6 +58,7 @@ export function PeopleContent() {
   const [contacts, setContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [advancedFilters, setAdvancedFilters] = useState<ContactFilters>(defaultAdvancedFilters)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Dialog states
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
@@ -69,7 +68,6 @@ export function PeopleContent() {
 
   // Table states
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
@@ -104,6 +102,7 @@ export function PeopleContent() {
 
   const filteredContacts = useMemo(() => {
     let result = contacts
+    const query = searchQuery.trim().toLowerCase()
 
     // Apply advanced filters
     if (advancedFilters.statuses.length > 0) {
@@ -128,8 +127,23 @@ export function PeopleContent() {
       result = result.filter((contact) => new Date(contact.createdAt) <= beforeDate)
     }
 
+    if (query) {
+      result = result.filter((contact) => {
+        const fullName = `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim().toLowerCase()
+        const haystack = [
+          fullName,
+          contact.email?.toLowerCase(),
+          contact.company?.toLowerCase(),
+          contact.role?.toLowerCase(),
+          contact.phone?.toLowerCase(),
+          ...(contact.tags ?? []).map((tag) => tag.toLowerCase()),
+        ]
+        return haystack.some((value) => value?.includes(query))
+      })
+    }
+
     return result
-  }, [contacts, advancedFilters])
+  }, [contacts, advancedFilters, searchQuery])
 
   // Column actions handlers
   const handleEdit = useCallback((contact: Contact) => {
@@ -164,8 +178,6 @@ export function PeopleContent() {
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     initialState: {
@@ -175,7 +187,6 @@ export function PeopleContent() {
     },
     state: {
       sorting,
-      columnFilters,
       columnVisibility,
       rowSelection,
     },
@@ -367,8 +378,9 @@ export function PeopleContent() {
           {view === "table" && <DataTableColumnToggle table={table} />}
           <DataTableToolbar
             table={table}
-            searchKey="firstName"
             searchPlaceholder="Search contacts..."
+            searchValue={searchQuery}
+            onSearchValueChange={setSearchQuery}
           />
         </div>
         <ViewToggle views={viewOptions} value={view} onChange={setView as (value: string) => void} />

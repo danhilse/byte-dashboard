@@ -52,6 +52,15 @@ export function DataTable<TData, TValue>({
   sorting: controlledSorting,
   onSortingChange: controlledOnSortingChange,
 }: DataTableProps<TData, TValue>) {
+  const shouldIgnoreRowClick = React.useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false
+    return Boolean(
+      target.closest(
+        "a,button,input,textarea,select,[role='button'],[role='menuitem'],[role='checkbox'],[data-row-click-stop]"
+      )
+    )
+  }, [])
+
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const sorting = controlledSorting ?? internalSorting
   const setSorting = React.useCallback(
@@ -129,7 +138,11 @@ export function DataTable<TData, TValue>({
                     onRowClick && "cursor-pointer",
                     typeof rowClassName === "function" ? rowClassName(row) : rowClassName
                   )}
-                  onClick={() => onRowClick?.(row)}
+                  onClick={(event) => {
+                    if (!onRowClick) return
+                    if (shouldIgnoreRowClick(event.target)) return
+                    onRowClick(row)
+                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

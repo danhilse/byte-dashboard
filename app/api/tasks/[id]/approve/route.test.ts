@@ -33,7 +33,10 @@ vi.mock("@/lib/temporal/client", () => ({
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
 
 import { PATCH } from "@/app/api/tasks/[id]/approve/route";
-import { APPROVAL_SUBMITTED_SIGNAL_NAME } from "@/lib/workflows/signal-types";
+import {
+  APPROVAL_SUBMITTED_SIGNAL_NAME,
+  TASK_COMPLETED_SIGNAL_NAME,
+} from "@/lib/workflows/signal-types";
 
 function selectQuery(result: unknown[]) {
   return {
@@ -175,6 +178,11 @@ describe("app/api/tasks/[id]/approve/route", () => {
       task: { id: "task_1", workflowExecutionId: "wf_exec_1", outcome: "approved" },
     });
     expect(getHandle).toHaveBeenCalledWith("generic-workflow-wf_exec_1");
+    expect(signal).toHaveBeenCalledTimes(2);
+    expect(signal).toHaveBeenCalledWith(TASK_COMPLETED_SIGNAL_NAME, {
+      taskId: "task_1",
+      completedBy: "user_1",
+    });
     expect(signal).toHaveBeenCalledWith(APPROVAL_SUBMITTED_SIGNAL_NAME, {
       outcome: "approved",
       comment: "Looks good",

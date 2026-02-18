@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select"
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { taskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
+import { createTaskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TaskStatusBadge } from "@/components/common/status-badge"
@@ -164,52 +164,6 @@ export function MyWorkContent() {
         : null,
     [selectedApprovalTaskId, tasksWithAssigneeNames]
   )
-
-  const myWorkColumns = useMemo<ColumnDef<Task>[]>(() => {
-    return taskColumns.map((column) => {
-      if ("accessorKey" in column && column.accessorKey === "title") {
-        return {
-          ...column,
-          cell: ({ row }) => {
-            const task = row.original as Task
-            const taskLinks = getTaskLinks(task.metadata)
-            return (
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{task.title}</p>
-                  {task.taskType === "approval" && (
-                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
-                      <ShieldCheck className="mr-1 size-3" />
-                      Approval
-                    </Badge>
-                  )}
-                </div>
-                {task.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-1">
-                    {task.description}
-                  </p>
-                )}
-                {taskLinks.length > 0 && (
-                  <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Link2 className="size-3" />
-                    {taskLinks.length} link
-                    {taskLinks.length === 1 ? "" : "s"}
-                  </div>
-                )}
-              </div>
-            )
-          },
-        } satisfies ColumnDef<Task>
-      }
-      if ("accessorKey" in column && column.accessorKey === "status") {
-        return {
-          ...column,
-          header: "State",
-        } satisfies ColumnDef<Task>
-      }
-      return column
-    })
-  }, [])
 
   // Fetch organization users for assignee name display
   useEffect(() => {
@@ -606,6 +560,66 @@ export function MyWorkContent() {
       return next
     })
   }, [withAssigneeName])
+
+  const myWorkColumns: ColumnDef<Task>[] = (() => {
+    const columns = createTaskColumns({
+      onOpenTask: handleTaskClick,
+      onDeleteTask: (task) => {
+        void handleDeleteTask(task.id)
+      },
+      onStatusChange: (task, status) => {
+        void handleStatusChange(task.id, status)
+      },
+      onReviewApprovalTask: (task) => {
+        setSelectedApprovalTaskId(task.id)
+        setApprovalDetailOpen(true)
+      },
+    })
+
+    return columns.map((column) => {
+      if ("accessorKey" in column && column.accessorKey === "title") {
+        return {
+          ...column,
+          cell: ({ row }) => {
+            const task = row.original as Task
+            const taskLinks = getTaskLinks(task.metadata)
+            return (
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{task.title}</p>
+                  {task.taskType === "approval" && (
+                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
+                      <ShieldCheck className="mr-1 size-3" />
+                      Approval
+                    </Badge>
+                  )}
+                </div>
+                {task.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {task.description}
+                  </p>
+                )}
+                {taskLinks.length > 0 && (
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Link2 className="size-3" />
+                    {taskLinks.length} link
+                    {taskLinks.length === 1 ? "" : "s"}
+                  </div>
+                )}
+              </div>
+            )
+          },
+        } satisfies ColumnDef<Task>
+      }
+      if ("accessorKey" in column && column.accessorKey === "status") {
+        return {
+          ...column,
+          header: "State",
+        } satisfies ColumnDef<Task>
+      }
+      return column
+    })
+  })()
 
 
   return (

@@ -6,7 +6,9 @@ import { tasks, workflowExecutions } from "@/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import {
   APPROVAL_SUBMITTED_SIGNAL_NAME,
+  TASK_COMPLETED_SIGNAL_NAME,
   type ApprovalSignal,
+  type TaskCompletedSignal,
 } from "@/lib/workflows/signal-types";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { requiresApprovalComment } from "@/lib/tasks/approval-requirements";
@@ -193,19 +195,45 @@ export async function PATCH(
             workflowExecution.temporalWorkflowId
           );
 
-          // Send approvalSubmitted signal
-          const signal: ApprovalSignal = {
+          const taskCompletedSignal: TaskCompletedSignal = {
+            taskId,
+            completedBy: userId,
+          };
+
+          const approvalSignal: ApprovalSignal = {
             outcome: "approved",
             comment: normalizedComment,
             approvedBy: userId,
           };
 
-          await handle.signal(APPROVAL_SUBMITTED_SIGNAL_NAME, signal);
-          workflowSignaled = true;
+          const [taskCompletedResult, approvalResult] = await Promise.allSettled([
+            handle.signal(TASK_COMPLETED_SIGNAL_NAME, taskCompletedSignal),
+            handle.signal(APPROVAL_SUBMITTED_SIGNAL_NAME, approvalSignal),
+          ]);
 
-          console.log(
-            `Signaled workflow ${workflowExecution.temporalWorkflowId} with approvalSubmitted (approved)`
-          );
+          if (taskCompletedResult.status === "rejected") {
+            console.error(
+              `Failed signaling taskCompleted for workflow ${workflowExecution.temporalWorkflowId}:`,
+              taskCompletedResult.reason
+            );
+          }
+
+          if (approvalResult.status === "rejected") {
+            console.error(
+              `Failed signaling approvalSubmitted for workflow ${workflowExecution.temporalWorkflowId}:`,
+              approvalResult.reason
+            );
+          }
+
+          workflowSignaled =
+            taskCompletedResult.status === "fulfilled" ||
+            approvalResult.status === "fulfilled";
+
+          if (workflowSignaled) {
+            console.log(
+              `Signaled workflow ${workflowExecution.temporalWorkflowId} with taskCompleted and approvalSubmitted (approved)`
+            );
+          }
         }
       } catch (error) {
         console.error("Error signaling workflow:", error);

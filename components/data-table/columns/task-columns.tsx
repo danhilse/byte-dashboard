@@ -1,7 +1,7 @@
 "use client"
 
 import { type ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Check, Eye, Trash2, X } from "lucide-react"
 import { format, parseISO } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -17,11 +17,19 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusOptions } from "@/lib/status-config"
-import type { Task } from "@/types"
+import type { Task, TaskStatus } from "@/types"
 
 export { taskStatusOptions }
 
-export const taskColumns: ColumnDef<Task>[] = [
+export interface TaskColumnActions {
+  onOpenTask?: (task: Task) => void
+  onDeleteTask?: (task: Task) => void
+  onStatusChange?: (task: Task, status: TaskStatus) => void
+  onReviewApprovalTask?: (task: Task) => void
+}
+
+export function createTaskColumns(actions?: TaskColumnActions): ColumnDef<Task>[] {
+  return [
   {
     id: "select",
     header: ({ table }) => (
@@ -32,6 +40,7 @@ export const taskColumns: ColumnDef<Task>[] = [
         }
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
         aria-label="Select all"
+        onClick={(event) => event.stopPropagation()}
       />
     ),
     cell: ({ row }) => (
@@ -39,6 +48,7 @@ export const taskColumns: ColumnDef<Task>[] = [
         checked={row.getIsSelected()}
         onCheckedChange={(value) => row.toggleSelected(!!value)}
         aria-label="Select row"
+        onClick={(event) => event.stopPropagation()}
       />
     ),
     enableSorting: false,
@@ -146,10 +156,16 @@ export const taskColumns: ColumnDef<Task>[] = [
   },
   {
     id: "actions",
-    cell: () => {
+    cell: ({ row }) => {
+      const task = row.original
+      const statusTargets: TaskStatus[] = ["backlog", "todo", "in_progress", "done"]
+      const statusActions = statusTargets.filter((status) => status !== task.status)
+      const isApprovalTask = task.taskType === "approval"
+      const isDecisionPending = isApprovalTask && !task.outcome
+
       return (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
             <Button variant="ghost" className="size-8 p-0">
               <span className="sr-only">Open menu</span>
               <MoreHorizontal className="size-4" />
@@ -157,13 +173,73 @@ export const taskColumns: ColumnDef<Task>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem>Edit task</DropdownMenuItem>
-            <DropdownMenuItem>Change status</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation()
+                actions?.onOpenTask?.(task)
+              }}
+            >
+              <Eye className="mr-2 size-4" />
+              Open task
+            </DropdownMenuItem>
+
+            {isApprovalTask ? (
+              <DropdownMenuItem
+                onClick={(event) => {
+                  event.stopPropagation()
+                  const handler = actions?.onReviewApprovalTask ?? actions?.onOpenTask
+                  handler?.(task)
+                }}
+                disabled={!isDecisionPending}
+              >
+                {isDecisionPending ? (
+                  <>
+                    <Check className="mr-2 size-4" />
+                    Review decision
+                  </>
+                ) : (
+                  <>
+                    <Eye className="mr-2 size-4" />
+                    Decision submitted
+                  </>
+                )}
+              </DropdownMenuItem>
+            ) : (
+              statusActions.map((status) => (
+                <DropdownMenuItem
+                  key={status}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    actions?.onStatusChange?.(task, status)
+                  }}
+                >
+                  {status === "done" ? (
+                    <Check className="mr-2 size-4" />
+                  ) : (
+                    <X className="mr-2 size-4" />
+                  )}
+                  Move to {taskStatusOptions.find((option) => option.value === status)?.label ?? status}
+                </DropdownMenuItem>
+              ))
+            )}
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Delete task</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation()
+                actions?.onDeleteTask?.(task)
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 size-4" />
+              Delete task
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )
     },
   },
 ]
+}
+
+export const taskColumns = createTaskColumns()
