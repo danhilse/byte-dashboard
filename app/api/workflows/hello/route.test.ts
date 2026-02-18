@@ -59,6 +59,27 @@ describe("app/api/workflows/hello/route", () => {
     expect(await res.json()).toEqual({ error: "Forbidden" });
   });
 
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "POST allows %s and reaches request validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+
+      const res = await POST(
+        new Request("http://localhost/api/workflows/hello", {
+          method: "POST",
+          body: JSON.stringify({ email: "ada@example.com" }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Name is required" });
+    }
+  );
+
   it("POST returns 400 when name is missing", async () => {
     const res = await POST(
       new Request("http://localhost/api/workflows/hello", {
@@ -108,6 +129,37 @@ describe("app/api/workflows/hello/route", () => {
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Unauthorized" });
   });
+
+  it("GET returns 403 for guest role", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/workflows/hello?temporalWorkflowId=hello-org_1-user_1-1")
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "GET allows %s and reaches request validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+
+      const res = await GET(new Request("http://localhost/api/workflows/hello"));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "temporalWorkflowId is required" });
+    }
+  );
 
   it("GET returns 400 when temporalWorkflowId is missing", async () => {
     const res = await GET(new Request("http://localhost/api/workflows/hello"));

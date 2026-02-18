@@ -202,7 +202,7 @@ export async function genericWorkflow(
   };
 
   // Fetch definition steps
-  const definition = await getWorkflowDefinition(input.definitionId);
+  const definition = await getWorkflowDefinition(input.orgId, input.definitionId);
   variables["workflow.name"] = definition.name ?? "";
   variables["workflow.id"] = definition.id ?? input.definitionId;
   variables["workflow.definitionId"] = input.definitionId;
@@ -247,7 +247,11 @@ export async function genericWorkflow(
 
   if (!steps || steps.length === 0) {
     console.log(`[GenericWorkflow] No steps found, completing immediately`);
-    await setWorkflowExecutionState(input.workflowExecutionId, "completed");
+    await setWorkflowExecutionState(
+      input.orgId,
+      input.workflowExecutionId,
+      "completed"
+    );
     return {
       workflowExecutionId: input.workflowExecutionId,
       finalStatus: lastStatusSet ?? "completed",
@@ -323,7 +327,12 @@ export async function genericWorkflow(
         `[GenericWorkflow] Executing step ${stepIndex}: ${step.type} (${step.label})`
       );
 
-      await setWorkflowProgress(input.workflowExecutionId, step.id, step.phaseId);
+      await setWorkflowProgress(
+        input.orgId,
+        input.workflowExecutionId,
+        step.id,
+        step.phaseId
+      );
 
       switch (step.type) {
         case "trigger": {
@@ -381,14 +390,20 @@ export async function genericWorkflow(
             );
             const timeoutStatus = resolveSystemStatus("timeout");
             if (timeoutStatus) {
-              await setWorkflowStatus(input.workflowExecutionId, timeoutStatus, {
-                markCompletedAt: true,
-                workflowExecutionState: "timeout",
-              });
+              await setWorkflowStatus(
+                input.orgId,
+                input.workflowExecutionId,
+                timeoutStatus,
+                {
+                  markCompletedAt: true,
+                  workflowExecutionState: "timeout",
+                }
+              );
               lastStatusSet = timeoutStatus;
               variables["workflow.status"] = timeoutStatus;
             } else {
               await setWorkflowExecutionState(
+                input.orgId,
                 input.workflowExecutionId,
                 "timeout"
               );
@@ -425,14 +440,20 @@ export async function genericWorkflow(
             );
             const timeoutStatus = resolveSystemStatus("timeout");
             if (timeoutStatus) {
-              await setWorkflowStatus(input.workflowExecutionId, timeoutStatus, {
-                markCompletedAt: true,
-                workflowExecutionState: "timeout",
-              });
+              await setWorkflowStatus(
+                input.orgId,
+                input.workflowExecutionId,
+                timeoutStatus,
+                {
+                  markCompletedAt: true,
+                  workflowExecutionState: "timeout",
+                }
+              );
               lastStatusSet = timeoutStatus;
               variables["workflow.status"] = timeoutStatus;
             } else {
               await setWorkflowExecutionState(
+                input.orgId,
                 input.workflowExecutionId,
                 "timeout"
               );
@@ -461,7 +482,11 @@ export async function genericWorkflow(
               `[GenericWorkflow] update_status misconfigured at step "${step.label}": status "${config.status}" is not defined on workflow definition`
             );
           }
-          await setWorkflowStatus(input.workflowExecutionId, config.status);
+          await setWorkflowStatus(
+            input.orgId,
+            input.workflowExecutionId,
+            config.status
+          );
           lastStatusSet = config.status;
           variables["workflow.status"] = config.status;
           break;
@@ -551,7 +576,7 @@ export async function genericWorkflow(
           for (const { field, value } of config.fields) {
             fields[field] = resolveVariable(value);
           }
-          await updateContact(input.contactId, fields);
+          await updateContact(input.orgId, input.contactId, fields);
           break;
         }
 
@@ -629,7 +654,7 @@ export async function genericWorkflow(
             fields[field] = resolvedValue;
           }
 
-          await updateTask(taskId, fields);
+          await updateTask(input.orgId, taskId, fields);
           break;
         }
       }
@@ -642,7 +667,11 @@ export async function genericWorkflow(
     // explicit update_status actions; runtime completion is tracked separately.
     const finalStatus = lastStatusSet ?? orderedDefinitionStatuses[0]?.id ?? "completed";
     variables["workflow.status"] = finalStatus;
-    await setWorkflowExecutionState(input.workflowExecutionId, "completed");
+    await setWorkflowExecutionState(
+      input.orgId,
+      input.workflowExecutionId,
+      "completed"
+    );
     console.log(`[GenericWorkflow] All steps completed for ${input.workflowExecutionId}`);
 
     return {
@@ -654,7 +683,7 @@ export async function genericWorkflow(
     try {
       const failedStatus = resolveSystemStatus("failed");
       if (failedStatus) {
-        await setWorkflowStatus(input.workflowExecutionId, failedStatus, {
+        await setWorkflowStatus(input.orgId, input.workflowExecutionId, failedStatus, {
           markCompletedAt: true,
           workflowExecutionState: "error",
           errorDefinition: error instanceof Error ? error.message : String(error),
@@ -662,9 +691,14 @@ export async function genericWorkflow(
         lastStatusSet = failedStatus;
         variables["workflow.status"] = failedStatus;
       } else {
-        await setWorkflowExecutionState(input.workflowExecutionId, "error", {
-          errorDefinition: error instanceof Error ? error.message : String(error),
-        });
+        await setWorkflowExecutionState(
+          input.orgId,
+          input.workflowExecutionId,
+          "error",
+          {
+            errorDefinition: error instanceof Error ? error.message : String(error),
+          }
+        );
         console.log(
           `[GenericWorkflow] Definition has no "failed" status. Preserving business status for ${input.workflowExecutionId}.`
         );

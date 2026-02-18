@@ -53,6 +53,45 @@ describe("app/api/tasks/[id]/status/route", () => {
     mocks.logActivity.mockResolvedValue(undefined);
   });
 
+  it("returns 403 for guest requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "guest",
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ status: "done" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["owner", "admin", "user"])(
+    "allows %s to reach status validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole });
+
+      const res = await PATCH(
+        new Request("http://localhost", {
+          method: "PATCH",
+          body: JSON.stringify({ status: "bad" }),
+        }),
+        { params: Promise.resolve({ id: "task_1" }) }
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Invalid status" });
+    }
+  );
+
   it("returns 400 for invalid status", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
 

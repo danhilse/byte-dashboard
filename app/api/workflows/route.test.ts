@@ -141,6 +141,27 @@ describe("app/api/workflows/route", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "POST allows %s and reaches validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+
+      const res = await POST(
+        new Request("http://localhost/api/workflows", {
+          method: "POST",
+          body: JSON.stringify({ status: "draft" }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "contactId is required" });
+    }
+  );
+
   it("POST returns 400 when contactId is missing", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
@@ -153,6 +174,62 @@ describe("app/api/workflows/route", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "contactId is required" });
+  });
+
+  it("POST returns 404 when contact is outside the authenticated org", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.select.mockReturnValueOnce(selectQuery([]));
+
+    const res = await POST(
+      new Request("http://localhost/api/workflows", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_other_org",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Contact not found" });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("POST returns 404 when workflow definition is outside the authenticated org", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "contact_1",
+            firstName: "Ada",
+            lastName: "Lovelace",
+          },
+        ])
+      )
+      .mockReturnValueOnce(selectQuery([]));
+
+    const res = await POST(
+      new Request("http://localhost/api/workflows", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+          workflowDefinitionId: "def_other_org",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Workflow definition not found" });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("POST creates workflow and logs activity", async () => {

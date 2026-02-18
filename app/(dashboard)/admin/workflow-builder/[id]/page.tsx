@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation"
 import { and, eq } from "drizzle-orm"
-import { auth } from "@clerk/nextjs/server"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { WorkflowDefinitionEditor } from "@/components/workflow-builder/workflow-definition-editor"
+import { requirePageAuth } from "@/lib/auth/page-guard"
 import { db } from "@/lib/db"
 import { workflowDefinitions } from "@/lib/db/schema"
 
@@ -14,12 +14,10 @@ interface WorkflowBuilderEditorPageProps {
 export default async function WorkflowBuilderEditorPage({
   params,
 }: WorkflowBuilderEditorPageProps) {
-  const { userId, orgId } = await auth()
+  const { orgId } = await requirePageAuth({
+    requiredPermission: "workflow-definitions.read_full",
+  })
   const { id } = await params
-
-  if (!userId || !orgId) {
-    notFound()
-  }
 
   const [definition] = await db
     .select({

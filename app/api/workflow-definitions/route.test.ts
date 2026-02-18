@@ -85,6 +85,21 @@ describe("app/api/workflow-definitions/route", () => {
     expect(await res.json()).toEqual({ error: "Forbidden" });
   });
 
+  it("GET full=true returns 403 for org:user", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_2",
+      orgId: "org_1",
+      orgRole: "org:user",
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/workflow-definitions?full=true")
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("GET full=true returns 403 for guests", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
@@ -98,6 +113,24 @@ describe("app/api/workflow-definitions/route", () => {
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("GET returns definitions for full=true when role is org:owner", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:owner",
+    });
+    mocks.select.mockReturnValue(selectQuery([{ id: "def_owner_1", name: "Owner Flow" }]));
+
+    const res = await GET(
+      new Request("http://localhost/api/workflow-definitions?full=true")
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      definitions: [{ id: "def_owner_1", name: "Owner Flow" }],
+    });
   });
 
   it("GET returns lightweight definitions by default", async () => {
@@ -207,6 +240,24 @@ describe("app/api/workflow-definitions/route", () => {
     expect(await res.json()).toEqual({ error: "Forbidden" });
   });
 
+  it("POST returns 403 for org:user", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_2",
+      orgId: "org_1",
+      orgRole: "org:user",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "User cannot create" }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("POST returns 403 for guests", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
@@ -223,6 +274,24 @@ describe("app/api/workflow-definitions/route", () => {
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("POST permits org:owner (falls through to validation)", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_owner",
+      orgId: "org_1",
+      orgRole: "org:owner",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({}),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "name is required" });
   });
 
   it("POST returns 400 when description is not a string", async () => {

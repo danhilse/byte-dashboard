@@ -144,6 +144,31 @@ describe("app/api/contacts/route", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "POST allows %s and reaches validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+      const req = new Request("http://localhost/api/contacts", {
+        method: "POST",
+        body: JSON.stringify({ firstName: "Ada" }),
+      });
+
+      const res = await POST(req);
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("Validation failed");
+      expect(json.details).toEqual(
+        expect.arrayContaining([expect.objectContaining({ field: "lastName" })])
+      );
+      expect(mocks.insert).not.toHaveBeenCalled();
+    }
+  );
+
   it("returns 403 when payload includes forbidden fields", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",

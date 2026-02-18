@@ -78,7 +78,10 @@ export async function GET(req: Request) {
         contactLastName: contacts.lastName,
       })
       .from(tasks)
-      .leftJoin(contacts, eq(tasks.contactId, contacts.id))
+      .leftJoin(
+        contacts,
+        and(eq(tasks.contactId, contacts.id), eq(contacts.orgId, orgId))
+      )
       .where(eq(tasks.orgId, orgId))
       .orderBy(tasks.position, desc(tasks.createdAt));
 

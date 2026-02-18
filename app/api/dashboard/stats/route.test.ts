@@ -62,6 +62,31 @@ describe("app/api/dashboard/stats/route", () => {
     expect(mocks.getRecentActivity).toHaveBeenCalledWith("org_1", 10);
   });
 
+  it("allows guest role to read dashboard stats", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+    mocks.getDashboardStats.mockResolvedValue({ totalContacts: 10 });
+    mocks.getWorkflowCountsByStatus.mockResolvedValue({ running: 1 });
+    mocks.getRecentWorkflows.mockResolvedValue([]);
+    mocks.getMyTasks.mockResolvedValue([]);
+    mocks.getRecentActivity.mockResolvedValue([]);
+
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      stats: { totalContacts: 10 },
+      workflowsByStatus: { running: 1 },
+      recentWorkflows: [],
+      myTasks: [],
+      recentActivity: [],
+    });
+    expect(mocks.getMyTasks).toHaveBeenCalledWith("org_1", "user_guest", 5);
+  });
+
   it("returns 500 when data loading fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });

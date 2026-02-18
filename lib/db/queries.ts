@@ -137,10 +137,19 @@ export async function getRecentWorkflows(orgId: string, limit: number = 5) {
       definitionName: workflowDefinitions.name,
     })
     .from(workflowExecutions)
-    .leftJoin(contacts, eq(workflowExecutions.contactId, contacts.id))
+    .leftJoin(
+      contacts,
+      and(
+        eq(workflowExecutions.contactId, contacts.id),
+        eq(contacts.orgId, orgId)
+      )
+    )
     .leftJoin(
       workflowDefinitions,
-      eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
+      and(
+        eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id),
+        eq(workflowDefinitions.orgId, orgId)
+      )
     )
     .where(eq(workflowExecutions.orgId, orgId))
     .orderBy(desc(workflowExecutions.startedAt))

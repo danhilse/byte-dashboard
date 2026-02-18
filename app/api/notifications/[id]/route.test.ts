@@ -66,6 +66,27 @@ describe("app/api/notifications/[id]/route", () => {
     expect(mocks.markNotificationRead).not.toHaveBeenCalled();
   });
 
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "PATCH allows %s to mark notifications read",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+
+      const res = await PATCH(new Request("http://localhost"), {
+        params: Promise.resolve({ id: "notif_1" }),
+      });
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        success: true,
+        notificationId: "notif_1",
+      });
+    }
+  );
+
   it("marks an individual notification as read", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",

@@ -7,7 +7,7 @@
 
 import { db } from "@/lib/db";
 import { tasks, workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type {
   TaskType,
   TaskPriority,
@@ -172,6 +172,7 @@ export async function createTask(
  * @param status - The new status
  */
 export async function setWorkflowStatus(
+  orgId: string,
   workflowExecutionId: string,
   status: string,
   options?: {
@@ -213,23 +214,32 @@ export async function setWorkflowStatus(
         ? { completedAt: new Date() }
         : {}),
     })
-    .where(eq(workflowExecutions.id, workflowExecutionId))
+    .where(
+      and(
+        eq(workflowExecutions.id, workflowExecutionId),
+        eq(workflowExecutions.orgId, orgId)
+      )
+    )
     .returning({ orgId: workflowExecutions.orgId });
 
-  if (updatedWorkflow) {
-    await logActivity({
-      orgId: updatedWorkflow.orgId,
-      userId: null, // System-generated (Temporal)
-      entityType: "workflow",
-      entityId: workflowExecutionId,
-      action: "status_changed",
-      details: {
-        status,
-        workflowExecutionState: inferredExecutionState,
-        source: "temporal",
-      },
-    });
+  if (!updatedWorkflow) {
+    throw new Error(
+      `Workflow ${workflowExecutionId} not found in organization ${orgId}`
+    );
   }
+
+  await logActivity({
+    orgId: updatedWorkflow.orgId,
+    userId: null, // System-generated (Temporal)
+    entityType: "workflow",
+    entityId: workflowExecutionId,
+    action: "status_changed",
+    details: {
+      status,
+      workflowExecutionState: inferredExecutionState,
+      source: "temporal",
+    },
+  });
 
   console.log(`Activity: Workflow status updated to "${status}"`);
 }
@@ -238,6 +248,7 @@ export async function setWorkflowStatus(
  * Updates internal workflow execution state independent from business status.
  */
 export async function setWorkflowExecutionState(
+  orgId: string,
   workflowExecutionId: string,
   workflowExecutionState: WorkflowExecutionState,
   options?: { errorDefinition?: string }
@@ -262,19 +273,28 @@ export async function setWorkflowExecutionState(
       updatedAt: new Date(),
       ...(isTerminal ? { completedAt: new Date() } : {}),
     })
-    .where(eq(workflowExecutions.id, workflowExecutionId))
+    .where(
+      and(
+        eq(workflowExecutions.id, workflowExecutionId),
+        eq(workflowExecutions.orgId, orgId)
+      )
+    )
     .returning({ orgId: workflowExecutions.orgId });
 
-  if (updatedWorkflow) {
-    await logActivity({
-      orgId: updatedWorkflow.orgId,
-      userId: null,
-      entityType: "workflow",
-      entityId: workflowExecutionId,
-      action: "status_changed",
-      details: { workflowExecutionState, source: "temporal" },
-    });
+  if (!updatedWorkflow) {
+    throw new Error(
+      `Workflow ${workflowExecutionId} not found in organization ${orgId}`
+    );
   }
+
+  await logActivity({
+    orgId: updatedWorkflow.orgId,
+    userId: null,
+    entityType: "workflow",
+    entityId: workflowExecutionId,
+    action: "status_changed",
+    details: { workflowExecutionState, source: "temporal" },
+  });
 
   console.log(
     `Activity: Workflow execution state updated to "${workflowExecutionState}"`
@@ -289,6 +309,7 @@ export async function setWorkflowExecutionState(
  * @param phaseId - Current phase ID (optional)
  */
 export async function setWorkflowProgress(
+  orgId: string,
   workflowExecutionId: string,
   stepId: string,
   phaseId?: string
@@ -299,14 +320,26 @@ export async function setWorkflowProgress(
     }`
   );
 
-  await db
+  const [updatedWorkflow] = await db
     .update(workflowExecutions)
     .set({
       currentStepId: stepId,
       currentPhaseId: phaseId,
       updatedAt: new Date(),
     })
-    .where(eq(workflowExecutions.id, workflowExecutionId));
+    .where(
+      and(
+        eq(workflowExecutions.id, workflowExecutionId),
+        eq(workflowExecutions.orgId, orgId)
+      )
+    )
+    .returning({ id: workflowExecutions.id });
+
+  if (!updatedWorkflow) {
+    throw new Error(
+      `Workflow ${workflowExecutionId} not found in organization ${orgId}`
+    );
+  }
 
   console.log(`Activity: Workflow progress updated`);
 }
@@ -318,6 +351,7 @@ export async function setWorkflowProgress(
  * @param fields - Fields to update
  */
 export async function updateContact(
+  orgId: string,
   contactId: string,
   fields: {
     firstName?: string;
@@ -341,23 +375,25 @@ export async function updateContact(
       ...fields,
       updatedAt: new Date(),
     })
-    .where(eq(contacts.id, contactId))
+    .where(and(eq(contacts.id, contactId), eq(contacts.orgId, orgId)))
     .returning({ orgId: contacts.orgId });
 
-  if (updatedContact) {
-    const updatedFields = Object.entries(fields)
-      .filter(([, value]) => value !== undefined)
-      .map(([key]) => key);
-
-    await logActivity({
-      orgId: updatedContact.orgId,
-      userId: null, // System-generated (Temporal)
-      entityType: "contact",
-      entityId: contactId,
-      action: "updated",
-      details: { source: "workflow", fields: updatedFields },
-    });
+  if (!updatedContact) {
+    throw new Error(`Contact ${contactId} not found in organization ${orgId}`);
   }
+
+  const updatedFields = Object.entries(fields)
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key);
+
+  await logActivity({
+    orgId: updatedContact.orgId,
+    userId: null, // System-generated (Temporal)
+    entityType: "contact",
+    entityId: contactId,
+    action: "updated",
+    details: { source: "workflow", fields: updatedFields },
+  });
 
   console.log(`Activity: Contact updated`);
 }
@@ -369,6 +405,7 @@ export async function updateContact(
  * @param fields - Fields to update
  */
 export async function updateTask(
+  orgId: string,
   taskId: string,
   fields: {
     status?: string;
@@ -387,7 +424,7 @@ export async function updateTask(
       title: tasks.title,
     })
     .from(tasks)
-    .where(eq(tasks.id, taskId));
+    .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
   if (!existingTask) {
     throw new Error(`Task ${taskId} not found`);
@@ -440,7 +477,7 @@ export async function updateTask(
   const [updatedTask] = await db
     .update(tasks)
     .set(updateData)
-    .where(eq(tasks.id, taskId))
+    .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)))
     .returning({
       orgId: tasks.orgId,
       assignedTo: tasks.assignedTo,
@@ -516,13 +553,13 @@ export async function notifyUsers(
  * @param taskId - The task ID
  * @returns The task or null if not found
  */
-export async function getTask(taskId: string) {
+export async function getTask(orgId: string, taskId: string) {
   console.log(`Activity: Fetching task ${taskId}`);
 
   const [task] = await db
     .select()
     .from(tasks)
-    .where(eq(tasks.id, taskId));
+    .where(and(eq(tasks.id, taskId), eq(tasks.orgId, orgId)));
 
   return task || null;
 }
@@ -536,6 +573,7 @@ export async function getTask(taskId: string) {
  * @returns The definition's steps array, or empty array if not found
  */
 export async function getWorkflowDefinition(
+  orgId: string,
   definitionId: string
 ): Promise<{
   id?: string;
@@ -561,7 +599,12 @@ export async function getWorkflowDefinition(
       updatedAt: workflowDefinitions.updatedAt,
     })
     .from(workflowDefinitions)
-    .where(eq(workflowDefinitions.id, definitionId));
+    .where(
+      and(
+        eq(workflowDefinitions.id, definitionId),
+        eq(workflowDefinitions.orgId, orgId)
+      )
+    );
 
   if (!definition) {
     console.log(`Activity: Workflow definition ${definitionId} not found`);

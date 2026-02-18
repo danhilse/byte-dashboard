@@ -98,6 +98,23 @@ describe("app/api/workflows/trigger/route", () => {
     expect(mocks.getTemporalClient).not.toHaveBeenCalled();
   });
 
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "allows %s and reaches validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole });
+
+      const res = await POST(
+        new Request("http://localhost", {
+          method: "POST",
+          body: JSON.stringify({}),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "contactId is required" });
+    }
+  );
+
   it("returns 400 when workflowDefinitionId is missing", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
@@ -112,6 +129,29 @@ describe("app/api/workflows/trigger/route", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "workflowDefinitionId is required" });
+  });
+
+  it("returns 404 when contact is outside the authenticated org", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.select.mockReturnValueOnce(selectQuery([]));
+
+    const res = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_other_org",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Contact not found" });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("returns 404 when workflow definition is not found", async () => {

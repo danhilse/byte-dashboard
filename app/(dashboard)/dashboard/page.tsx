@@ -10,8 +10,6 @@ import {
   Sparkles,
   Workflow,
 } from "lucide-react"
-import { auth } from "@clerk/nextjs/server"
-import { redirect } from "next/navigation"
 import { PageHeader } from "@/components/layout/page-header"
 import { DashboardRecentActivityCard } from "@/components/dashboard/dashboard-recent-activity-card"
 import { AnimatedStatCard } from "@/components/dashboard/animated-stat-card"
@@ -31,6 +29,7 @@ import {
   getRecentWorkflows,
   getWorkflowCountsByStatus,
 } from "@/lib/db/queries"
+import { requirePageAuth } from "@/lib/auth/page-guard"
 
 const BLOCKED_STATUS_KEYWORDS = ["error", "failed", "timeout", "cancel", "reject", "hold"]
 const COMPLETED_STATUS_KEYWORDS = ["complete", "approved", "done", "success", "closed"]
@@ -193,8 +192,9 @@ function DashboardSkeleton() {
 }
 
 async function DashboardContent() {
-  const { userId, orgId } = await auth()
-  if (!userId || !orgId) redirect("/sign-in")
+  const { userId, orgId } = await requirePageAuth({
+    requiredPermission: "dashboard.read",
+  })
 
   const [stats, workflowsByStatus, myTasks, recentWorkflows, recentActivity] = await Promise.all([
     getDashboardStats(orgId),

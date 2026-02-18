@@ -56,6 +56,23 @@ describe("app/api/dashboard/workflows-over-time/route", () => {
     expect(mocks.getWorkflowsOverTime).toHaveBeenCalledWith("org_1", 30);
   });
 
+  it("allows guest role to read workflows-over-time", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+    mocks.getWorkflowsOverTime.mockResolvedValue([{ date: "2026-01-02", count: 2 }]);
+
+    const res = await GET(new Request("http://localhost/api/dashboard/workflows-over-time"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      data: [{ date: "2026-01-02", count: 2 }],
+    });
+    expect(mocks.getWorkflowsOverTime).toHaveBeenCalledWith("org_1", 30);
+  });
+
   it("clamps days query param to 90 max", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.getWorkflowsOverTime.mockResolvedValue([{ date: "2026-01-01", count: 1 }]);

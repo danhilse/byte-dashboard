@@ -110,6 +110,96 @@ describe("app/api/notes/route", () => {
     });
   });
 
+  it("GET allows guest role for notes reads", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+    mocks.select.mockReturnValue(
+      notesListQuery([
+        {
+          id: "note_2",
+          entityType: "task",
+          entityId: "task_1",
+          content: "Guest visible note",
+          createdAt: new Date("2026-02-03T10:00:00.000Z"),
+          userId: "user_1",
+          userFirstName: "Ada",
+          userLastName: "Lovelace",
+        },
+      ])
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/notes?entityType=task&entityId=task_1")
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      notes: [
+        {
+          id: "note_2",
+          entityType: "task",
+          entityId: "task_1",
+          content: "Guest visible note",
+          createdAt: "2026-02-03T10:00:00.000Z",
+          userId: "user_1",
+          userName: "Ada Lovelace",
+        },
+      ],
+    });
+  });
+
+  it("POST returns 403 for guest write requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/notes", {
+        method: "POST",
+        body: JSON.stringify({
+          entityType: "workflow",
+          entityId: "123e4567-e89b-12d3-a456-426614174000",
+          content: "hello",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "POST allows %s and reaches validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+
+      const res = await POST(
+        new Request("http://localhost/api/notes", {
+          method: "POST",
+          body: JSON.stringify({
+            entityType: "workflow",
+            entityId: "not-a-uuid",
+            content: "hello",
+          }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "entityId must be a valid UUID" });
+    }
+  );
+
   it("POST returns 400 when entityId is not UUID", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 

@@ -1,22 +1,19 @@
-import { notFound } from "next/navigation"
 import { and, desc, eq, sql } from "drizzle-orm"
-import { auth } from "@clerk/nextjs/server"
 
 import { PageHeader } from "@/components/layout/page-header"
 import {
   WorkflowDefinitionsIndex,
   type WorkflowDefinitionListItem,
 } from "@/components/workflow-builder/workflow-definitions-index"
+import { requirePageAuth } from "@/lib/auth/page-guard"
 import { db } from "@/lib/db"
 import { workflowDefinitions, workflowExecutions } from "@/lib/db/schema"
 import type { DefinitionStatus } from "@/types"
 
 export default async function WorkflowBuilderPage() {
-  const { userId, orgId } = await auth()
-
-  if (!userId || !orgId) {
-    notFound()
-  }
+  const { orgId } = await requirePageAuth({
+    requiredPermission: "workflow-definitions.read_full",
+  })
 
   const definitions = await db
     .select({

@@ -76,6 +76,39 @@ describe("app/api/tasks/[id]/route", () => {
     mocks.isUserInOrganization.mockResolvedValue(true);
   });
 
+  it("GET allows guest role when task-level access permits it", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "guest",
+    });
+    mocks.select.mockReturnValue(
+      taskDetailsQuery([
+        {
+          id: "task_1",
+          assignedTo: "user_1",
+          assignedRole: "reviewer",
+          contactFirstName: "Ada",
+          contactLastName: "Lovelace",
+        },
+      ])
+    );
+    mocks.canMutateTask.mockReturnValue(true);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "task_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      task: expect.objectContaining({
+        id: "task_1",
+        assignedTo: "user_1",
+        contactName: "Ada Lovelace",
+      }),
+    });
+  });
+
   it("GET returns 403 when user cannot mutate or claim task", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     mocks.select.mockReturnValue(
@@ -122,6 +155,54 @@ describe("app/api/tasks/[id]/route", () => {
     );
   });
 
+  it("PATCH returns 403 for guest write requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "guest",
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ title: "Guest cannot update" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["owner", "admin", "user"])(
+    "PATCH allows %s and reaches payload validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+
+      const res = await PATCH(
+        new Request("http://localhost", {
+          method: "PATCH",
+          body: JSON.stringify({ status: "done" }),
+        }),
+        { params: Promise.resolve({ id: "task_1" }) }
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual(
+        expect.objectContaining({
+          error:
+            "Use PATCH /api/tasks/{id}/status to update status (ensures workflow signaling)",
+        })
+      );
+    }
+  );
+
   it("PATCH updates task and logs activity", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     mocks.canMutateTask.mockReturnValue(true);
@@ -150,6 +231,30 @@ describe("app/api/tasks/[id]/route", () => {
         action: "updated",
       })
     );
+  });
+
+  it("PATCH returns 404 when provided contact is outside the authenticated org", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "member",
+    });
+    mocks.canMutateTask.mockReturnValue(true);
+    mocks.select
+      .mockReturnValueOnce(selectQuery([{ id: "task_1", assignedTo: "user_1" }]))
+      .mockReturnValueOnce(selectQuery([]));
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ contactId: "contact_other_org" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Contact not found" });
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 
   it("PATCH creates a notification when assignment changes", async () => {
@@ -258,6 +363,45 @@ describe("app/api/tasks/[id]/route", () => {
       error: "You do not have permission to delete this task",
     });
   });
+
+  it("DELETE returns 403 for guest write requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "guest",
+    });
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "task_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.delete).not.toHaveBeenCalled();
+  });
+
+  it.each(["owner", "admin", "user"])(
+    "DELETE allows %s and reaches task-access checks",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+      mocks.select.mockReturnValue(selectQuery([{ id: "task_1", assignedTo: "user_2" }]));
+      mocks.canMutateTask.mockReturnValue(false);
+
+      const res = await DELETE(new Request("http://localhost"), {
+        params: Promise.resolve({ id: "task_1" }),
+      });
+
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({
+        error: "You do not have permission to delete this task",
+      });
+    }
+  );
 
   it("DELETE removes task and logs activity", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });

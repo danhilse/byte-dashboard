@@ -130,6 +130,28 @@ describe("app/api/tasks/route", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it.each(["owner", "admin", "user"])(
+    "POST allows %s and reaches validation",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole });
+
+      const res = await POST(
+        new Request("http://localhost/api/tasks", {
+          method: "POST",
+          body: JSON.stringify({ priority: "high" }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("Validation failed");
+      expect(json.details).toEqual(
+        expect.arrayContaining([expect.objectContaining({ field: "title" })])
+      );
+      expect(mocks.insert).not.toHaveBeenCalled();
+    }
+  );
+
   it("returns only tasks mutable by the current user by default", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     const query = createTaskListQuery([
@@ -282,6 +304,29 @@ describe("app/api/tasks/route", () => {
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Contact not found" });
+  });
+
+  it("returns 404 when the provided workflow execution is not in org", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.select.mockReturnValueOnce(createSimpleSelectQuery([]));
+
+    const res = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "Review docs",
+          workflowExecutionId: "workflow_other_org",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Workflow not found" });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("auto-assigns task to creator when no assignedTo is provided", async () => {

@@ -109,8 +109,7 @@ export async function upsertClerkUserProfile(input: UpsertClerkUserProfileInput)
         email: input.email,
         firstName: input.firstName ?? null,
         lastName: input.lastName ?? null,
-        role: normalizedRole,
-        roles: [normalizedRole],
+        // Keep legacy org/role columns stable. org-scoped authority lives in organization_memberships.
         updatedAt: new Date(),
       },
     });

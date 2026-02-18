@@ -47,6 +47,40 @@ describe("app/api/tasks/[id]/claim/route", () => {
     mocks.buildTaskAccessContext.mockResolvedValue({ userId: "user_1" });
   });
 
+  it("returns 403 for guest requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "guest",
+    });
+
+    const res = await PATCH(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "task_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["owner", "admin", "user"])(
+    "allows %s to reach claim business rules",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole });
+      mocks.select.mockReturnValue(
+        selectQuery([{ id: "task_1", assignedTo: null, assignedRole: null }])
+      );
+
+      const res = await PATCH(new Request("http://localhost"), {
+        params: Promise.resolve({ id: "task_1" }),
+      });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Task is not role-assignable" });
+    }
+  );
+
   it("returns 400 when task is not role-assignable", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     mocks.select.mockReturnValue(

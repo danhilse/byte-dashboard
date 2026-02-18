@@ -59,7 +59,10 @@ export async function GET(
         contactLastName: contacts.lastName,
       })
       .from(tasks)
-      .leftJoin(contacts, eq(tasks.contactId, contacts.id))
+      .leftJoin(
+        contacts,
+        and(eq(tasks.contactId, contacts.id), eq(contacts.orgId, orgId))
+      )
       .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)));
 
     if (rows.length === 0) {

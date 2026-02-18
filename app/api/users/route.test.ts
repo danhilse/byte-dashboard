@@ -62,6 +62,69 @@ describe("app/api/users/route", () => {
     });
   });
 
+  it.each([
+    { role: "org:owner" },
+    { role: "org:admin" },
+  ])("allows $role to read org user directory", async ({ role }) => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_3",
+      orgId: "org_1",
+      orgRole: role,
+    });
+    mocks.getOrganizationUsers.mockResolvedValue([
+      {
+        id: "user_3",
+        email: "owner-admin@example.com",
+        firstName: "Owner",
+        lastName: "Admin",
+      },
+    ]);
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      users: [
+        {
+          id: "user_3",
+          email: "owner-admin@example.com",
+          firstName: "Owner",
+          lastName: "Admin",
+        },
+      ],
+    });
+  });
+
+  it("allows org:user to read org user directory", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_2",
+      orgId: "org_1",
+      orgRole: "org:user",
+    });
+    mocks.getOrganizationUsers.mockResolvedValue([
+      {
+        id: "user_2",
+        email: "grace@example.com",
+        firstName: "Grace",
+        lastName: "Hopper",
+      },
+    ]);
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      users: [
+        {
+          id: "user_2",
+          email: "grace@example.com",
+          firstName: "Grace",
+          lastName: "Hopper",
+        },
+      ],
+    });
+  });
+
   it("returns 403 when guest attempts to read org user directory", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",

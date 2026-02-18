@@ -135,6 +135,39 @@ describe("app/api/workflow-definitions/[id]/route", () => {
     expect(await res.json()).toEqual({ error: "Forbidden" });
   });
 
+  it("GET returns 403 for org:user", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_2",
+      orgId: "org_1",
+      orgRole: "org:user",
+    });
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("GET returns definition for org:owner", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_owner",
+      orgId: "org_1",
+      orgRole: "org:owner",
+    });
+    mocks.select.mockReturnValue(selectQuery([{ id: "def_owner", name: "Owner Definition" }]));
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_owner" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      definition: { id: "def_owner", name: "Owner Definition" },
+    });
+  });
+
   it("GET returns 404 when definition not found", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([]));
@@ -196,6 +229,46 @@ describe("app/api/workflow-definitions/[id]/route", () => {
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("PATCH returns 403 for org:user", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_2",
+      orgId: "org_1",
+      orgRole: "org:user",
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ name: "Updated" }),
+      }),
+      { params: Promise.resolve({ id: "def_1" }) }
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("PATCH permits org:owner (falls through to validation)", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_owner",
+      orgId: "org_1",
+      orgRole: "org:owner",
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ name: "   " }),
+      }),
+      { params: Promise.resolve({ id: "def_1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "name must be a non-empty string when provided",
+    });
   });
 
   it("PATCH returns 404 when transactional clone finds no active definition", async () => {
@@ -675,6 +748,37 @@ describe("app/api/workflow-definitions/[id]/route", () => {
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("DELETE returns 403 for org:user", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_2",
+      orgId: "org_1",
+      orgRole: "org:user",
+    });
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
+  it("DELETE permits org:owner (falls through to not found check)", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_owner",
+      orgId: "org_1",
+      orgRole: "org:owner",
+    });
+    mocks.select.mockReturnValueOnce(selectQuery([]));
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_missing" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Workflow definition not found" });
   });
 
   it("DELETE hard-deletes definition and linked records when no executions exist", async () => {

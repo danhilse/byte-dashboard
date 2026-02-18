@@ -113,6 +113,80 @@ describe("app/api/contacts/[id]/route", () => {
     expect(await res.json()).toEqual({ error: "Contact not found" });
   });
 
+  it("GET allows guest role and applies read redaction", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+    mocks.select.mockReturnValue(
+      selectQuery([{ id: "contact_1", firstName: "Ada", email: "ada@example.com" }])
+    );
+    mocks.redactContactForRead.mockReturnValue({
+      id: "contact_1",
+      firstName: "Ada",
+      email: null,
+    });
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "contact_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      contact: { id: "contact_1", firstName: "Ada", email: null },
+    });
+    expect(mocks.resolveContactFieldAccess).toHaveBeenCalledWith({
+      orgId: "org_1",
+      orgRoles: ["guest"],
+    });
+  });
+
+  it("PATCH returns 403 for guest write requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ firstName: "Guest Attempt" }),
+      }),
+      { params: Promise.resolve({ id: "contact_1" }) }
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.select).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "PATCH allows %s and reaches contact existence checks",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+      mocks.select.mockReturnValue(selectQuery([]));
+
+      const res = await PATCH(
+        new Request("http://localhost", {
+          method: "PATCH",
+          body: JSON.stringify({ firstName: "Ada" }),
+        }),
+        { params: Promise.resolve({ id: "contact_missing" }) }
+      );
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "Contact not found" });
+      expect(mocks.update).not.toHaveBeenCalled();
+    }
+  );
+
   it("PATCH updates contact and logs activity", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select.mockReturnValue(
@@ -265,4 +339,39 @@ describe("app/api/contacts/[id]/route", () => {
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Contact not found" });
   });
+
+  it("DELETE returns 403 for guest write requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_guest",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "contact_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.delete).not.toHaveBeenCalled();
+  });
+
+  it.each(["org:owner", "org:admin", "org:user"])(
+    "DELETE allows %s and reaches contact existence checks",
+    async (orgRole) => {
+      mocks.auth.mockResolvedValue({
+        userId: "user_1",
+        orgId: "org_1",
+        orgRole,
+      });
+      mocks.delete.mockReturnValue(deleteQuery([]));
+
+      const res = await DELETE(new Request("http://localhost"), {
+        params: Promise.resolve({ id: "contact_missing" }),
+      });
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "Contact not found" });
+    }
+  );
 });
