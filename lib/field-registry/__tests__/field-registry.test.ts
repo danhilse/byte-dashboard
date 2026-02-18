@@ -11,6 +11,9 @@ import {
   filterVariableOptions,
   getWatchableContactFieldOptions,
   getCustomVariableDataTypeOptions,
+  CONTACT_FIELD_KEYS,
+  TASK_FIELD_KEYS,
+  USER_FIELD_KEYS,
 } from "../index"
 
 // ============================================================================
@@ -71,6 +74,23 @@ describe("isDataTypeCompatible", () => {
 // ============================================================================
 
 describe("entity field registry", () => {
+  describe("key arrays match field definitions", () => {
+    it("CONTACT_FIELD_KEYS matches contact field definitions", () => {
+      const fieldKeys = getFieldsForEntity("contact").map((f) => f.key)
+      expect([...fieldKeys].sort()).toEqual([...CONTACT_FIELD_KEYS].sort())
+    })
+
+    it("TASK_FIELD_KEYS matches task field definitions", () => {
+      const fieldKeys = getFieldsForEntity("task").map((f) => f.key)
+      expect([...fieldKeys].sort()).toEqual([...TASK_FIELD_KEYS].sort())
+    })
+
+    it("USER_FIELD_KEYS matches user field definitions", () => {
+      const fieldKeys = getFieldsForEntity("user").map((f) => f.key)
+      expect([...fieldKeys].sort()).toEqual([...USER_FIELD_KEYS].sort())
+    })
+  })
+
   describe("contact fields", () => {
     it("uses DB-aligned keys", () => {
       const fields = getFieldsForEntity("contact")
@@ -155,7 +175,7 @@ describe("entity field registry", () => {
 // ============================================================================
 
 describe("getVariablesForTrigger", () => {
-  it("manual trigger provides contact variable with fields from registry", () => {
+  it("manual trigger provides only runtime-populated contact fields", () => {
     const vars = getVariablesForTrigger("manual")
     expect(vars).toHaveLength(1)
     expect(vars[0].id).toBe("var-contact")
@@ -163,13 +183,21 @@ describe("getVariablesForTrigger", () => {
     expect(vars[0].readOnly).toBe(true)
 
     const fields = vars[0].fields!
-    expect(fields.length).toBeGreaterThan(0)
-    // Should include DB-aligned field keys
     const keys = fields.map((f) => f.key)
+
+    // Runtime-populated fields (generic-workflow.ts:188-193)
     expect(keys).toContain("email")
     expect(keys).toContain("firstName")
-    expect(keys).toContain("addressLine1")
-    expect(keys).toContain("zip")
+    expect(keys).toContain("lastName")
+    expect(keys).toContain("phone")
+    expect(keys).toContain("id")
+
+    // Non-runtime-populated fields should NOT be present
+    expect(keys).not.toContain("company")
+    expect(keys).not.toContain("status")
+    expect(keys).not.toContain("addressLine1")
+    expect(keys).not.toContain("zip")
+    expect(keys).not.toContain("tags")
   })
 
   it("form_submission trigger provides contact + form submission variables", () => {
@@ -192,6 +220,9 @@ describe("getVariablesForTrigger", () => {
       const contactVar = vars.find((v) => v.id === "var-contact")
       expect(contactVar).toBeDefined()
       expect(contactVar!.type).toBe("contact")
+
+      // All should have same 5 fields (email, firstName, lastName, phone, id)
+      expect(contactVar!.fields).toHaveLength(5)
     }
   })
 })

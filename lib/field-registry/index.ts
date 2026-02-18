@@ -17,6 +17,13 @@ export {
 export {
   type EntityType,
   type EntityFieldDefinition,
+  type ContactFieldKey,
+  type TaskFieldKey,
+  type UserFieldKey,
+  type EntityFieldKey,
+  CONTACT_FIELD_KEYS,
+  TASK_FIELD_KEYS,
+  USER_FIELD_KEYS,
   getFieldsForEntity,
   getFieldDefinition,
   getWatchableFields,

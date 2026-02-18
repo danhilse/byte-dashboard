@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   upsertClerkUserProfile: vi.fn(),
   upsertOrganizationMembership: vi.fn(),
   removeOrganizationMembership: vi.fn(),
+  syncOrganizationUsersFromClerk: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -31,6 +32,7 @@ vi.mock("@/lib/users/service", () => ({
   upsertClerkUserProfile: mocks.upsertClerkUserProfile,
   upsertOrganizationMembership: mocks.upsertOrganizationMembership,
   removeOrganizationMembership: mocks.removeOrganizationMembership,
+  syncOrganizationUsersFromClerk: mocks.syncOrganizationUsersFromClerk,
 }));
 
 function deleteChain() {
@@ -147,6 +149,35 @@ describe("app/api/webhooks/clerk/route", () => {
     expect(mocks.upsertOrganizationMembership).toHaveBeenCalledTimes(2);
   });
 
+  it("verifies signature against raw request body", async () => {
+    mocks.headers.mockResolvedValue(
+      headersWith({
+        "svix-id": "id_1",
+        "svix-timestamp": "123",
+        "svix-signature": "sig",
+      })
+    );
+    mocks.verify.mockReturnValue({
+      type: "user.created",
+      data: {},
+    });
+
+    const rawBody = '{ "type":"user.created", "data":{} }';
+    const res = await POST(
+      new Request("http://localhost/api/webhooks/clerk", {
+        method: "POST",
+        body: rawBody,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.verify).toHaveBeenCalledWith(rawBody, {
+      "svix-id": "id_1",
+      "svix-timestamp": "123",
+      "svix-signature": "sig",
+    });
+  });
+
   it("updates membership on organizationMembership.updated", async () => {
     mocks.headers.mockResolvedValue(
       headersWith({
@@ -212,6 +243,30 @@ describe("app/api/webhooks/clerk/route", () => {
     );
   });
 
+  it("syncs org memberships on organization.created", async () => {
+    mocks.headers.mockResolvedValue(
+      headersWith({
+        "svix-id": "id_1",
+        "svix-timestamp": "123",
+        "svix-signature": "sig",
+      })
+    );
+    mocks.verify.mockReturnValue({
+      type: "organization.created",
+      data: { id: "org_1" },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/webhooks/clerk", {
+        method: "POST",
+        body: JSON.stringify({ hello: "world" }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.syncOrganizationUsersFromClerk).toHaveBeenCalledWith("org_1");
+  });
+
   it("deletes org memberships on organization.deleted", async () => {
     mocks.headers.mockResolvedValue(
       headersWith({
@@ -264,6 +319,40 @@ describe("app/api/webhooks/clerk/route", () => {
     expect(res.status).toBe(200);
     expect(mocks.dbDelete).toHaveBeenCalledTimes(1);
     expect(chain.where).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 500 when sync processing fails", async () => {
+    mocks.headers.mockResolvedValue(
+      headersWith({
+        "svix-id": "id_1",
+        "svix-timestamp": "123",
+        "svix-signature": "sig",
+      })
+    );
+    mocks.verify.mockReturnValue({
+      type: "organizationMembership.updated",
+      data: {
+        organization: { id: "org_1" },
+        public_user_data: {
+          user_id: "user_1",
+          identifier: "ada@example.com",
+        },
+        role: "org:admin",
+      },
+    });
+    mocks.upsertOrganizationMembership.mockRejectedValueOnce(
+      new Error("db unavailable")
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/webhooks/clerk", {
+        method: "POST",
+        body: JSON.stringify({ hello: "world" }),
+      })
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.text()).toBe("Error: Webhook processing failed");
   });
 
   afterEach(() => {

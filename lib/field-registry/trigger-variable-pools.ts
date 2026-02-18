@@ -6,22 +6,33 @@
 
 import type { TriggerType, WorkflowVariable, WorkflowVariableField } from "@/lib/workflow-builder-v2/types"
 import type { SemanticDataType } from "./data-types"
-import { getFieldsForEntity, type EntityType } from "./entity-fields"
+import { getFieldDefinition, type EntityType } from "./entity-fields"
 
 interface TriggerVariablePool {
   variableId: string
   variableName: string
   variableType: "contact" | "user" | "task" | "form_submission" | "custom"
   entity?: EntityType
-  /** If set, fields are derived from entity-fields registry. */
-  deriveFieldsFromEntity?: EntityType
-  /** Extra fields not covered by entity registry (e.g. form submittedAt). */
+  /**
+   * Explicit list of field keys that the runtime actually populates.
+   * Field metadata (label, dataType) is looked up from the entity-fields registry.
+   * This prevents the builder from advertising variables the runtime never provides.
+   */
+  runtimeFieldKeys?: readonly string[]
+  /** Extra fields not covered by entity registry (e.g. contact.id, form submittedAt). */
   extraFields?: WorkflowVariableField[]
 }
 
 interface TriggerPoolDefinition {
   pools: TriggerVariablePool[]
 }
+
+/**
+ * Contact field keys that generic-workflow.ts actually seeds as variables.
+ * See generic-workflow.ts:188-193 — only these 4 contact fields are populated.
+ * `id` is also populated but isn't in the contact entity-fields, so it's an extraField.
+ */
+const RUNTIME_CONTACT_FIELD_KEYS = ["email", "firstName", "lastName", "phone"] as const
 
 /**
  * Mapping each trigger type to the variable pools it provides.
@@ -35,7 +46,10 @@ const TRIGGER_POOLS: Record<TriggerType, TriggerPoolDefinition> = {
         variableId: "var-contact",
         variableName: "Contact",
         variableType: "contact",
-        deriveFieldsFromEntity: "contact",
+        runtimeFieldKeys: RUNTIME_CONTACT_FIELD_KEYS,
+        extraFields: [
+          { key: "id", label: "Contact ID", dataType: "text" },
+        ],
       },
     ],
   },
@@ -45,7 +59,10 @@ const TRIGGER_POOLS: Record<TriggerType, TriggerPoolDefinition> = {
         variableId: "var-contact",
         variableName: "Contact",
         variableType: "contact",
-        deriveFieldsFromEntity: "contact",
+        runtimeFieldKeys: RUNTIME_CONTACT_FIELD_KEYS,
+        extraFields: [
+          { key: "id", label: "Contact ID", dataType: "text" },
+        ],
       },
     ],
   },
@@ -55,7 +72,10 @@ const TRIGGER_POOLS: Record<TriggerType, TriggerPoolDefinition> = {
         variableId: "var-contact",
         variableName: "Contact",
         variableType: "contact",
-        deriveFieldsFromEntity: "contact",
+        runtimeFieldKeys: RUNTIME_CONTACT_FIELD_KEYS,
+        extraFields: [
+          { key: "id", label: "Contact ID", dataType: "text" },
+        ],
       },
     ],
   },
@@ -65,7 +85,10 @@ const TRIGGER_POOLS: Record<TriggerType, TriggerPoolDefinition> = {
         variableId: "var-contact",
         variableName: "Contact",
         variableType: "contact",
-        deriveFieldsFromEntity: "contact",
+        runtimeFieldKeys: RUNTIME_CONTACT_FIELD_KEYS,
+        extraFields: [
+          { key: "id", label: "Contact ID", dataType: "text" },
+        ],
       },
       {
         variableId: "var-form-submission",
@@ -83,26 +106,40 @@ const TRIGGER_POOLS: Record<TriggerType, TriggerPoolDefinition> = {
         variableId: "var-contact",
         variableName: "Contact",
         variableType: "contact",
-        deriveFieldsFromEntity: "contact",
+        runtimeFieldKeys: RUNTIME_CONTACT_FIELD_KEYS,
+        extraFields: [
+          { key: "id", label: "Contact ID", dataType: "text" },
+        ],
       },
     ],
   },
 }
 
-function entityFieldsToVariableFields(entity: EntityType): WorkflowVariableField[] {
-  const fields = getFieldsForEntity(entity)
-  return fields
-    .filter((f) => !f.isReadOnly)
-    .map((f) => ({
-      key: f.key,
-      label: f.label,
-      dataType: f.dataType as SemanticDataType,
-    }))
+/**
+ * Look up field metadata from entity-fields registry for the given keys.
+ * Only includes fields whose keys are in `runtimeFieldKeys`.
+ */
+function runtimeFieldsToVariableFields(
+  entity: EntityType,
+  runtimeFieldKeys: readonly string[]
+): WorkflowVariableField[] {
+  return runtimeFieldKeys
+    .map((key) => {
+      const field = getFieldDefinition(entity, key)
+      if (!field) return null
+      return {
+        key: field.key,
+        label: field.label,
+        dataType: field.dataType as SemanticDataType,
+      }
+    })
+    .filter((f): f is WorkflowVariableField => f !== null)
 }
 
 /**
  * Generate WorkflowVariable[] for a given trigger type.
- * Fields come from the entity-fields registry — single source of truth.
+ * Fields come from the entity-fields registry, filtered to only
+ * what the runtime actually populates — single source of truth.
  */
 export function getVariablesForTrigger(triggerType: TriggerType): WorkflowVariable[] {
   const definition = TRIGGER_POOLS[triggerType]
@@ -111,8 +148,8 @@ export function getVariablesForTrigger(triggerType: TriggerType): WorkflowVariab
   return definition.pools.map((pool) => {
     const fields: WorkflowVariableField[] = []
 
-    if (pool.deriveFieldsFromEntity) {
-      fields.push(...entityFieldsToVariableFields(pool.deriveFieldsFromEntity))
+    if (pool.runtimeFieldKeys) {
+      fields.push(...runtimeFieldsToVariableFields("contact", pool.runtimeFieldKeys))
     }
 
     if (pool.extraFields) {

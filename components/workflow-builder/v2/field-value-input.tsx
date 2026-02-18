@@ -23,6 +23,8 @@ interface FieldValueInputProps {
   statuses?: WorkflowStatus[]
   className?: string
   placeholder?: string
+  /** Values to exclude from enum-based inputs (e.g., exclude "done" for writable task status) */
+  excludeValues?: string[]
 }
 
 export function FieldValueInput({
@@ -32,6 +34,7 @@ export function FieldValueInput({
   statuses = [],
   className,
   placeholder,
+  excludeValues,
 }: FieldValueInputProps) {
   switch (inputType) {
     case "textarea":
@@ -115,14 +118,17 @@ export function FieldValueInput({
         </Select>
       )
 
-    case "task_status":
+    case "task_status": {
+      const filteredStatuses = excludeValues
+        ? allTaskStatuses.filter((s) => !excludeValues.includes(s))
+        : allTaskStatuses
       return (
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger className={className}>
             <SelectValue placeholder={placeholder || "Select task status..."} />
           </SelectTrigger>
           <SelectContent>
-            {allTaskStatuses.map((status) => (
+            {filteredStatuses.map((status) => (
               <SelectItem key={status} value={status}>
                 {taskStatusConfig[status].label}
               </SelectItem>
@@ -130,6 +136,7 @@ export function FieldValueInput({
           </SelectContent>
         </Select>
       )
+    }
 
     case "priority": {
       const priorityField = getFieldDefinition("task", "priority")

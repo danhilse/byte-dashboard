@@ -13,6 +13,7 @@ describe("auth permissions", () => {
   it("grants member/user operational access but not admin or definition writes", () => {
     expect(roleHasPermission("member", "workflows.trigger")).toBe(true);
     expect(roleHasPermission("org:user", "tasks.write")).toBe(true);
+    expect(roleHasPermission("member", "users.read")).toBe(true);
     expect(roleHasPermission("member", "admin.access")).toBe(false);
     expect(roleHasPermission("user", "workflow-definitions.write")).toBe(false);
     expect(roleHasPermission("member", "workflow-definitions.read_full")).toBe(
@@ -22,7 +23,9 @@ describe("auth permissions", () => {
 
   it("limits guest role to read-style permissions", () => {
     expect(roleHasPermission("guest", "contacts.read")).toBe(true);
+    expect(roleHasPermission("guest", "users.read")).toBe(false);
     expect(roleHasPermission("guest", "tasks.write")).toBe(false);
+    expect(roleHasPermission("guest", "workflows.trigger")).toBe(false);
   });
 
   it("falls back unknown/custom roles to member-equivalent permissions", () => {

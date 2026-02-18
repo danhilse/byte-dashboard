@@ -67,7 +67,11 @@ describe("app/api/contacts/route", () => {
   });
 
   it("returns contacts for the authenticated org", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
     const query = createListQuery([
       { id: "contact_1", firstName: "Ada", lastName: "Lovelace" },
     ]);
@@ -81,8 +85,30 @@ describe("app/api/contacts/route", () => {
     });
   });
 
+  it("returns 403 when guest attempts to create contacts", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+    const req = new Request("http://localhost/api/contacts", {
+      method: "POST",
+      body: JSON.stringify({ firstName: "Ada", lastName: "Lovelace" }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when required POST fields are missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
     const req = new Request("http://localhost/api/contacts", {
       method: "POST",
       body: JSON.stringify({ firstName: "Ada" }),
@@ -98,7 +124,11 @@ describe("app/api/contacts/route", () => {
   });
 
   it("creates a contact with defaults and logs activity", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
     const insertQuery = createInsertQuery([
       { id: "contact_1", firstName: "Ada", lastName: "Lovelace" },
     ]);
@@ -152,7 +182,11 @@ describe("app/api/contacts/route", () => {
 
   it("returns 500 when contact creation fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
     mocks.insert.mockImplementation(() => {
       throw new Error("database unavailable");
     });

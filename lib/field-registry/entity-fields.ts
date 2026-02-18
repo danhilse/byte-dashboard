@@ -7,6 +7,27 @@ import type { SemanticDataType } from "./data-types"
 
 export type EntityType = "contact" | "task" | "user"
 
+// ============================================================================
+// Explicit key arrays — single source of truth for field key literal types
+// ============================================================================
+
+export const CONTACT_FIELD_KEYS = [
+  "email", "firstName", "lastName", "phone", "company", "role", "status",
+  "addressLine1", "addressLine2", "city", "state", "zip", "tags",
+] as const
+export type ContactFieldKey = (typeof CONTACT_FIELD_KEYS)[number]
+
+export const TASK_FIELD_KEYS = [
+  "title", "description", "status", "priority", "assignedTo", "assignedRole",
+  "dueDate", "outcome", "completedAt",
+] as const
+export type TaskFieldKey = (typeof TASK_FIELD_KEYS)[number]
+
+export const USER_FIELD_KEYS = ["id", "name", "email", "role"] as const
+export type UserFieldKey = (typeof USER_FIELD_KEYS)[number]
+
+export type EntityFieldKey = ContactFieldKey | TaskFieldKey | UserFieldKey
+
 export interface EntityFieldDefinition {
   key: string
   label: string

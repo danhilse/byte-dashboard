@@ -49,7 +49,7 @@ const READING_ORDER: Step[] = [
 
 const PRESETS: Record<
   string,
-  { label: string; desc: string; sequence: Step[] }
+  { label: string; desc: string; sequence: Step[]; svgDraw?: boolean }
 > = {
   // ─── Original 4 (no rotation) ───
   trace: {
@@ -144,6 +144,29 @@ const PRESETS: Record<
   typewriter: {
     label: "Typewriter",
     desc: "Tiles stamp down in reading order with a rotational snap",
+    sequence: READING_ORDER,
+  },
+  // ─── SVG stroke-draw presets ───
+  draw: {
+    label: "Draw",
+    desc: "Stroke outlines draw progressively, then fill washes in",
+    svgDraw: true,
+    sequence: [
+      // Trace path order for connected drawing feel
+      { c: 0, r: 0, dir: null },
+      { c: 0, r: 1, dir: null },
+      { c: 1, r: 1, dir: null },
+      { c: 2, r: 1, dir: null },
+      { c: 0, r: 2, dir: null },
+      { c: 2, r: 2, dir: null },
+      { c: 2, r: 3, dir: null },
+      { c: 1, r: 3, dir: null },
+    ],
+  },
+  sketch: {
+    label: "Sketch",
+    desc: "All outlines sketch at once, then fills cascade in",
+    svgDraw: true,
     sequence: READING_ORDER,
   },
 };
@@ -340,6 +363,7 @@ function LogoAnimationLab() {
   const [showWordmark, setShowWordmark] = useState(true);
 
   const current = PRESETS[variant];
+  const isSvgDraw = !!current.svgDraw;
   const staggerBase =
     variant === "pop" || variant === "domino"
       ? 0.07
@@ -349,9 +373,22 @@ function LogoAnimationLab() {
           ? 0.14
           : 0.18;
   const stagger = staggerBase / speed;
-  const totalDuration = current.sequence.length * stagger;
+
+  // SVG draw timing (scaled by speed)
+  const strokeDur = 1 / speed;
+  const fillDur = 0.7 / speed;
+  const svgStagger = 0.12 / speed;
+  const isSketch = variant === "sketch";
+
+  // Total duration for wordmark delay
+  const totalDuration = isSvgDraw
+    ? isSketch
+      ? (1.0 + 7 * 0.08 + 0.7) / speed // sketch: simultaneous stroke → cascading fill
+      : (0.8 + 7 * 0.12 + 0.7) / speed // draw: staggered stroke → staggered fill
+    : current.sequence.length * stagger;
+
   const color = dark ? "#FFFFFF" : BYTE_BLUE;
-  const wordmarkGap = (TILE / 2) * (ANIM_MARK_H > 0 ? 1 : 1);
+  const wordmarkGap = TILE / 2;
 
   const replay = () => setAnimKey((k) => k + 1);
   const selectVariant = (v: string) => {
@@ -382,49 +419,125 @@ function LogoAnimationLab() {
         >
           <div key={animKey} className="flex items-center" style={{ gap: wordmarkGap }}>
             {/* Logomark */}
-            <div
-              className="relative"
-              style={{ width: ANIM_MARK_W, height: ANIM_MARK_H }}
-            >
-              {/* Ghost grid */}
-              {showGhosts &&
-                ALL_TILES.map(([c, r]) => (
-                  <div
-                    key={`ghost-${c}-${r}`}
-                    className="absolute"
-                    style={{
-                      width: TILE,
-                      height: TILE,
-                      left: c * ANIM_STEP,
-                      top: r * ANIM_STEP,
-                      borderRadius: ANIM_R,
-                      border: `1.5px dashed ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,71,171,0.1)"}`,
-                    }}
-                  />
-                ))}
+            {isSvgDraw ? (
+              <>
+                <style>{`
+                  @keyframes logo-draw-stroke {
+                    0% { stroke-dashoffset: 1; }
+                    100% { stroke-dashoffset: 0; }
+                  }
+                  @keyframes logo-draw-fill {
+                    0% { fill: transparent; }
+                    100% { fill: ${color}; }
+                  }
+                `}</style>
+                <svg
+                  width={ANIM_MARK_W + 4}
+                  height={ANIM_MARK_H + 4}
+                  viewBox={`-2 -2 ${ANIM_MARK_W + 4} ${ANIM_MARK_H + 4}`}
+                  fill="none"
+                >
+                  {/* Ghost grid */}
+                  {showGhosts &&
+                    ALL_TILES.map(([c, r]) => (
+                      <rect
+                        key={`ghost-${c}-${r}`}
+                        x={c * ANIM_STEP}
+                        y={r * ANIM_STEP}
+                        width={TILE}
+                        height={TILE}
+                        rx={ANIM_R}
+                        fill="none"
+                        stroke={
+                          dark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(0,71,171,0.1)"
+                        }
+                        strokeWidth={1.5}
+                        strokeDasharray="4 4"
+                      />
+                    ))}
 
-              {/* Animated tiles */}
-              {current.sequence.map((step, i) => {
-                const initial = getInitialState(step, i, variant);
-                return (
-                  <motion.div
-                    key={`tile-${step.c}-${step.r}`}
-                    className="absolute"
-                    style={{
-                      width: TILE,
-                      height: TILE,
-                      left: step.c * ANIM_STEP,
-                      top: step.r * ANIM_STEP,
-                      borderRadius: ANIM_R,
-                      backgroundColor: color,
-                    }}
-                    initial={initial}
-                    animate={{ opacity: 1, scale: 1, x: 0, y: 0, rotate: 0 }}
-                    transition={getTransition(i, stagger, variant)}
-                  />
-                );
-              })}
-            </div>
+                  {/* Animated tiles: stroke draw → fill wash */}
+                  {current.sequence.map((step, i) => {
+                    const sDelay = isSketch ? 0 : i * svgStagger;
+                    const fDelay = isSketch
+                      ? (1.0 + i * 0.08) / speed
+                      : (0.8 + i * 0.12) / speed;
+                    const easing = "cubic-bezier(0.47, 0, 0.745, 0.715)";
+
+                    return (
+                      <rect
+                        key={`tile-${step.c}-${step.r}`}
+                        x={step.c * ANIM_STEP}
+                        y={step.r * ANIM_STEP}
+                        width={TILE}
+                        height={TILE}
+                        rx={ANIM_R}
+                        pathLength={1}
+                        strokeDasharray={1}
+                        stroke={color}
+                        strokeWidth={1.5}
+                        fill="transparent"
+                        style={{
+                          animation: `logo-draw-stroke ${strokeDur}s ${easing} ${sDelay}s both, logo-draw-fill ${fillDur}s ${easing} ${fDelay}s both`,
+                        }}
+                      />
+                    );
+                  })}
+                </svg>
+              </>
+            ) : (
+              <div
+                className="relative"
+                style={{ width: ANIM_MARK_W, height: ANIM_MARK_H }}
+              >
+                {/* Ghost grid */}
+                {showGhosts &&
+                  ALL_TILES.map(([c, r]) => (
+                    <div
+                      key={`ghost-${c}-${r}`}
+                      className="absolute"
+                      style={{
+                        width: TILE,
+                        height: TILE,
+                        left: c * ANIM_STEP,
+                        top: r * ANIM_STEP,
+                        borderRadius: ANIM_R,
+                        border: `1.5px dashed ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,71,171,0.1)"}`,
+                      }}
+                    />
+                  ))}
+
+                {/* Animated tiles */}
+                {current.sequence.map((step, i) => {
+                  const initial = getInitialState(step, i, variant);
+                  return (
+                    <motion.div
+                      key={`tile-${step.c}-${step.r}`}
+                      className="absolute"
+                      style={{
+                        width: TILE,
+                        height: TILE,
+                        left: step.c * ANIM_STEP,
+                        top: step.r * ANIM_STEP,
+                        borderRadius: ANIM_R,
+                        backgroundColor: color,
+                      }}
+                      initial={initial}
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        x: 0,
+                        y: 0,
+                        rotate: 0,
+                      }}
+                      transition={getTransition(i, stagger, variant)}
+                    />
+                  );
+                })}
+              </div>
+            )}
 
             {/* Wordmark */}
             {showWordmark && (

@@ -33,7 +33,11 @@ describe("app/api/users/route", () => {
   });
 
   it("returns organization users for authenticated requests", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
     mocks.getOrganizationUsers.mockResolvedValue([
       {
         id: "user_1",
@@ -58,9 +62,27 @@ describe("app/api/users/route", () => {
     });
   });
 
+  it("returns 403 when guest attempts to read org user directory", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.getOrganizationUsers).not.toHaveBeenCalled();
+  });
+
   it("returns 500 when user lookup fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
     mocks.getOrganizationUsers.mockRejectedValue(new Error("database unavailable"));
 
     const response = await GET();

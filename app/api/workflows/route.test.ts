@@ -58,7 +58,11 @@ describe("app/api/workflows/route", () => {
   });
 
   it("GET returns mapped executions", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
     mocks.select.mockReturnValue(
       workflowsListQuery([
         {
@@ -97,6 +101,28 @@ describe("app/api/workflows/route", () => {
         },
       ],
     });
+  });
+
+  it("POST returns 403 for guest users", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflows", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("POST returns 400 when contactId is missing", async () => {

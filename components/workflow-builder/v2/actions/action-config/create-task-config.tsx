@@ -154,7 +154,7 @@ export function CreateTaskConfig({
           <Select
             value={action.config.priority}
             onValueChange={(value) =>
-              handleChange("priority", value as "low" | "medium" | "high")
+              handleChange("priority", value as "low" | "medium" | "high" | "urgent")
             }
           >
             <SelectTrigger id={`${action.id}-priority`}>

@@ -32,6 +32,7 @@ function notesListQuery(result: unknown[]) {
 function simpleSelectQuery(result: unknown[]) {
   return {
     from: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
     where: vi.fn().mockResolvedValue(result),
   };
 }

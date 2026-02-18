@@ -111,6 +111,25 @@ describe("app/api/tasks/route", () => {
     expect(mocks.select).not.toHaveBeenCalled();
   });
 
+  it("returns 403 when guest attempts to create tasks", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "guest",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title: "Review docs" }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("returns only tasks mutable by the current user by default", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     const query = createTaskListQuery([

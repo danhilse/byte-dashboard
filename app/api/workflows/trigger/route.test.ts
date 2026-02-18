@@ -75,6 +75,29 @@ describe("app/api/workflows/trigger/route", () => {
     expect(await res.json()).toEqual({ error: "contactId is required" });
   });
 
+  it("returns 403 when guest attempts to trigger workflows", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.getTemporalClient).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when workflowDefinitionId is missing", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
 

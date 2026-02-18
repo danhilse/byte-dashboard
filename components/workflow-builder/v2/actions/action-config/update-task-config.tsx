@@ -139,8 +139,11 @@ export function UpdateTaskConfig({ action, variables, statuses, onChange }: Upda
         <div className="space-y-3">
           {action.config.fields.map((field, index) => {
             const fieldConfig = field.field
-              ? taskFieldConfig[field.field]
+              ? taskFieldConfig[field.field as keyof typeof taskFieldConfig]
               : undefined
+
+            // Runtime rejects setting task status to "done" (generic-workflow.ts:613)
+            const excludeValues = field.field === "status" ? ["done"] : undefined
 
             return (
               <div key={index} className="space-y-2 rounded-lg border p-3">
@@ -194,6 +197,7 @@ export function UpdateTaskConfig({ action, variables, statuses, onChange }: Upda
                         statuses={statuses}
                         className="h-9 text-sm"
                         placeholder={`Enter ${fieldConfig.label.toLowerCase()}...`}
+                        excludeValues={excludeValues}
                       />
                     ) : (
                       <FieldValueInput

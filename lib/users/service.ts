@@ -14,6 +14,14 @@ export interface OrganizationUserRecord {
   roles: string[];
 }
 
+export interface OrganizationMembershipRecord {
+  orgId: string;
+  userId: string;
+  clerkRole: string | null;
+  role: string;
+  roles: string[];
+}
+
 async function getOrganizationUsersFromDb(
   orgId: string
 ): Promise<OrganizationUserRecord[]> {
@@ -29,6 +37,30 @@ async function getOrganizationUsersFromDb(
     .from(organizationMemberships)
     .innerJoin(users, eq(users.id, organizationMemberships.userId))
     .where(eq(organizationMemberships.orgId, orgId));
+}
+
+async function getOrganizationMembershipFromDb(
+  orgId: string,
+  userId: string
+): Promise<OrganizationMembershipRecord | null> {
+  const [membership] = await db
+    .select({
+      orgId: organizationMemberships.orgId,
+      userId: organizationMemberships.userId,
+      clerkRole: organizationMemberships.clerkRole,
+      role: organizationMemberships.role,
+      roles: organizationMemberships.roles,
+    })
+    .from(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.orgId, orgId),
+        eq(organizationMemberships.userId, userId)
+      )
+    )
+    .limit(1);
+
+  return membership ?? null;
 }
 
 export function normalizeMembershipRole(role: string | null | undefined): string {
@@ -117,18 +149,34 @@ export async function removeOrganizationMembership(orgId: string, userId: string
 }
 
 export async function isUserInOrganization(orgId: string, userId: string): Promise<boolean> {
-  const [membership] = await db
-    .select({ userId: organizationMemberships.userId })
-    .from(organizationMemberships)
-    .where(
-      and(
-        eq(organizationMemberships.orgId, orgId),
-        eq(organizationMemberships.userId, userId)
-      )
-    )
-    .limit(1);
+  return Boolean(await getOrganizationMembershipFromDb(orgId, userId));
+}
 
-  return Boolean(membership);
+export async function getOrganizationMembership(
+  orgId: string,
+  userId: string,
+  options?: { syncFromClerkOnMissing?: boolean }
+): Promise<OrganizationMembershipRecord | null> {
+  const syncFromClerkOnMissing = options?.syncFromClerkOnMissing ?? false;
+  const localMembership = await getOrganizationMembershipFromDb(orgId, userId);
+
+  if (localMembership || !syncFromClerkOnMissing) {
+    return localMembership;
+  }
+
+  try {
+    const syncedCount = await syncOrganizationUsersFromClerk(orgId);
+    if (syncedCount > 0) {
+      return getOrganizationMembershipFromDb(orgId, userId);
+    }
+  } catch (error) {
+    console.error(
+      `Failed to sync membership from Clerk for org ${orgId} and user ${userId}:`,
+      error
+    );
+  }
+
+  return null;
 }
 
 export async function syncOrganizationUsersFromClerk(orgId: string): Promise<number> {

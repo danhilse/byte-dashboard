@@ -3,27 +3,26 @@
 // ============================================================================
 
 import type { FieldInputType } from "./field-input-types"
-import { getFieldsForEntity } from "@/lib/field-registry"
+import { getFieldsForEntity, TASK_FIELD_KEYS, type TaskFieldKey } from "@/lib/field-registry"
+
+export type TaskField = TaskFieldKey
+
+export const allTaskFields = TASK_FIELD_KEYS
 
 const taskFieldDefs = getFieldsForEntity("task")
 
-export type TaskField = (typeof taskFieldDefs)[number]["key"]
-
-export const allTaskFields: readonly string[] = taskFieldDefs.map((f) => f.key)
-
-export const taskFieldConfig: Record<string, { label: string; description?: string; inputType: FieldInputType }> =
-  Object.fromEntries(
-    taskFieldDefs.map((f) => [
-      f.key,
-      {
-        label: f.label,
-        description: f.description,
-        inputType: f.inputType,
-      },
-    ])
-  )
+export const taskFieldConfig = Object.fromEntries(
+  taskFieldDefs.map((f) => [
+    f.key,
+    {
+      label: f.label,
+      description: f.description,
+      inputType: f.inputType,
+    },
+  ])
+) as Record<TaskField, { label: string; description?: string; inputType: FieldInputType }>
 
 export const taskFieldOptions = taskFieldDefs.map((f) => ({
-  value: f.key,
+  value: f.key as TaskField,
   label: f.label,
 }))

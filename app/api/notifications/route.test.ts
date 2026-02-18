@@ -39,7 +39,11 @@ describe("app/api/notifications/route", () => {
   });
 
   it("returns user notifications for authenticated GET requests", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
     mocks.getNotificationsForUser.mockResolvedValue({
       notifications: [{ id: "notif_1", title: "Hello", isRead: false }],
       unreadCount: 1,
@@ -59,8 +63,26 @@ describe("app/api/notifications/route", () => {
     });
   });
 
+  it("returns 403 for guest PATCH write requests", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+
+    const res = await PATCH();
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+    expect(mocks.markAllNotificationsRead).not.toHaveBeenCalled();
+  });
+
   it("marks all notifications as read for authenticated PATCH requests", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
     mocks.markAllNotificationsRead.mockResolvedValue(3);
 
     const res = await PATCH();

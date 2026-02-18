@@ -69,7 +69,11 @@ describe("app/api/activity/route", () => {
   });
 
   it("returns mapped activities with default limit", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
     const query = createActivityQuery([
       {
         id: "act_1",

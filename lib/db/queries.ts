@@ -11,6 +11,7 @@ import {
   workflowExecutions,
   tasks,
   activityLog,
+  organizationMemberships,
   users,
   workflowDefinitions,
 } from "@/lib/db/schema";
@@ -227,7 +228,14 @@ export async function getRecentActivity(orgId: string, limit: number = 10) {
       userLastName: users.lastName,
     })
     .from(activityLog)
-    .leftJoin(users, eq(activityLog.userId, users.id))
+    .leftJoin(
+      organizationMemberships,
+      and(
+        eq(organizationMemberships.orgId, activityLog.orgId),
+        eq(organizationMemberships.userId, activityLog.userId)
+      )
+    )
+    .leftJoin(users, eq(organizationMemberships.userId, users.id))
     .where(eq(activityLog.orgId, orgId))
     .orderBy(desc(activityLog.createdAt))
     .limit(limit);

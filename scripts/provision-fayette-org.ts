@@ -13,6 +13,7 @@ const OWNER_MEMBERSHIP_ROLE = "org:admin";
 interface ProvisionOptions {
   orgName: string;
   orgSlug: string;
+  orgId: string | null;
   ownerEmail: string | null;
   ownerUserId: string | null;
   dryRun: boolean;
@@ -50,13 +51,15 @@ function printUsage(): void {
       "Options:",
       "  --org-name <name>         Organization name",
       "  --org-slug <slug>         Organization slug",
-      "  --owner-email <email>     Owner user email (Steve Ward)",
+      "  --org-id <id>             Existing organization ID (skip slug lookup/create)",
+      "  --owner-email <email>     Owner user email",
       "  --owner-user-id <id>      Owner Clerk user ID",
       "  --dry-run                 Print planned changes without writing to Clerk/DB",
       "  --skip-db-sync            Skip syncing local DB user/membership records",
       "",
       "Env defaults:",
-      "  FAYETTE_ORG_NAME, FAYETTE_ORG_SLUG, FAYETTE_OWNER_EMAIL, FAYETTE_OWNER_USER_ID",
+      "  AUTH_PROVISION_ORG_NAME, AUTH_PROVISION_ORG_SLUG, AUTH_PROVISION_ORG_ID, AUTH_PROVISION_OWNER_EMAIL, AUTH_PROVISION_OWNER_USER_ID",
+      "  (legacy supported: FAYETTE_ORG_NAME, FAYETTE_ORG_SLUG, FAYETTE_OWNER_EMAIL, FAYETTE_OWNER_USER_ID)",
     ].join("\n")
   );
 }
@@ -80,16 +83,35 @@ function hasFlag(flag: string): boolean {
 }
 
 function parseOptions(): ProvisionOptions {
-  const orgName = readArg("--org-name") ?? process.env.FAYETTE_ORG_NAME ?? DEFAULT_ORG_NAME;
-  const orgSlug = readArg("--org-slug") ?? process.env.FAYETTE_ORG_SLUG ?? DEFAULT_ORG_SLUG;
-  const ownerEmail = readArg("--owner-email") ?? process.env.FAYETTE_OWNER_EMAIL ?? null;
-  const ownerUserId = readArg("--owner-user-id") ?? process.env.FAYETTE_OWNER_USER_ID ?? null;
+  const orgName =
+    readArg("--org-name") ??
+    process.env.AUTH_PROVISION_ORG_NAME ??
+    process.env.FAYETTE_ORG_NAME ??
+    DEFAULT_ORG_NAME;
+  const orgSlug =
+    readArg("--org-slug") ??
+    process.env.AUTH_PROVISION_ORG_SLUG ??
+    process.env.FAYETTE_ORG_SLUG ??
+    DEFAULT_ORG_SLUG;
+  const orgId =
+    readArg("--org-id") ?? process.env.AUTH_PROVISION_ORG_ID ?? null;
+  const ownerEmail =
+    readArg("--owner-email") ??
+    process.env.AUTH_PROVISION_OWNER_EMAIL ??
+    process.env.FAYETTE_OWNER_EMAIL ??
+    null;
+  const ownerUserId =
+    readArg("--owner-user-id") ??
+    process.env.AUTH_PROVISION_OWNER_USER_ID ??
+    process.env.FAYETTE_OWNER_USER_ID ??
+    null;
   const dryRun = hasFlag("--dry-run");
   const skipDbSync = hasFlag("--skip-db-sync");
 
   return {
     orgName,
     orgSlug,
+    orgId,
     ownerEmail,
     ownerUserId,
     dryRun,
@@ -168,6 +190,21 @@ async function findOrganizationBySlug(
   );
 }
 
+async function findOrganizationById(
+  client: Awaited<ReturnType<typeof clerkClient>>,
+  orgId: string
+): Promise<ClerkOrganization | null> {
+  try {
+    const organization = await client.organizations.getOrganization({
+      organizationId: orgId,
+    });
+
+    return organization as ClerkOrganization;
+  } catch {
+    return null;
+  }
+}
+
 async function ensureOwnerMembership(
   client: Awaited<ReturnType<typeof clerkClient>>,
   organizationId: string,
@@ -233,6 +270,7 @@ async function run(): Promise<void> {
   console.log("Provision options:");
   console.log(`  orgName: ${options.orgName}`);
   console.log(`  orgSlug: ${options.orgSlug}`);
+  console.log(`  orgId: ${options.orgId ?? "(not provided)"}`);
   console.log(`  ownerEmail: ${options.ownerEmail ?? "(not provided)"}`);
   console.log(`  ownerUserId: ${options.ownerUserId ?? "(resolved by email)"}`);
   console.log(`  dryRun: ${options.dryRun}`);
@@ -243,7 +281,16 @@ async function run(): Promise<void> {
     `Resolved owner: ${ownerUser.id} (${getPreferredEmail(ownerUser) || "no-email"})`
   );
 
-  let organization = await findOrganizationBySlug(client, options.orgSlug);
+  let organization = options.orgId
+    ? await findOrganizationById(client, options.orgId)
+    : await findOrganizationBySlug(client, options.orgSlug);
+
+  if (options.orgId && !organization) {
+    throw new Error(
+      `No Clerk organization found for --org-id ${options.orgId}.`
+    );
+  }
+
   if (!organization) {
     if (options.dryRun) {
       console.log(
@@ -266,7 +313,7 @@ async function run(): Promise<void> {
     console.warn(
       [
         `WARNING: org owner is currently ${organization.createdBy}, not ${ownerUser.id}.`,
-        "Clerk owner transfer still needs to be verified in dashboard if owner must be Steve.",
+        "If ownership should change, complete owner transfer in Clerk dashboard.",
       ].join(" ")
     );
   }

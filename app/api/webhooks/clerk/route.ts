@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { organizationMemberships } from "@/lib/db/schema";
 import {
   removeOrganizationMembership,
+  syncOrganizationUsersFromClerk,
   upsertClerkUserProfile,
   upsertOrganizationMembership,
 } from "@/lib/users/service";
@@ -38,9 +39,8 @@ export async function POST(req: Request) {
     });
   }
 
-  // Get the body
-  const payload = await req.json();
-  const body = JSON.stringify(payload);
+  // Use the raw request body for signature verification.
+  const body = await req.text();
 
   // Create a new Svix instance with your secret
   const wh = new Webhook(WEBHOOK_SECRET);
@@ -64,29 +64,29 @@ export async function POST(req: Request) {
   // Handle the webhook
   const eventType = evt.type;
 
-  if (eventType === "user.created" || eventType === "user.updated") {
-    const data = evt.data as {
-      id?: string;
-      email_addresses?: Array<{ email_address?: string }>;
-      first_name?: string | null;
-      last_name?: string | null;
-      organization_memberships?: Array<{
-        organization?: { id?: string };
-        role?: string | null;
-      }>;
-    };
-    const userId = toOptionalString(data.id);
-    const email = data.email_addresses?.[0]?.email_address ?? "";
-    const memberships = Array.isArray(data.organization_memberships)
-      ? data.organization_memberships
-      : [];
+  try {
+    if (eventType === "user.created" || eventType === "user.updated") {
+      const data = evt.data as {
+        id?: string;
+        email_addresses?: Array<{ email_address?: string }>;
+        first_name?: string | null;
+        last_name?: string | null;
+        organization_memberships?: Array<{
+          organization?: { id?: string };
+          role?: string | null;
+        }>;
+      };
+      const userId = toOptionalString(data.id);
+      const email = data.email_addresses?.[0]?.email_address ?? "";
+      const memberships = Array.isArray(data.organization_memberships)
+        ? data.organization_memberships
+        : [];
 
-    if (userId) {
-      for (const membership of memberships) {
-        const orgId = toOptionalString(membership.organization?.id);
-        if (!orgId) continue;
+      if (userId) {
+        for (const membership of memberships) {
+          const orgId = toOptionalString(membership.organization?.id);
+          if (!orgId) continue;
 
-        try {
           await upsertClerkUserProfile({
             userId,
             legacyOrgId: orgId,
@@ -100,32 +100,28 @@ export async function POST(req: Request) {
             userId,
             clerkRole: membership.role ?? null,
           });
-        } catch (error) {
-          console.error(`Error syncing user ${userId} to org ${orgId}:`, error);
         }
       }
     }
-  }
 
-  if (
-    eventType === "organizationMembership.created" ||
-    eventType === "organizationMembership.updated"
-  ) {
-    const data = evt.data as {
-      organization?: { id?: string };
-      public_user_data?: {
-        user_id?: string;
-        identifier?: string | null;
-        first_name?: string | null;
-        last_name?: string | null;
+    if (
+      eventType === "organizationMembership.created" ||
+      eventType === "organizationMembership.updated"
+    ) {
+      const data = evt.data as {
+        organization?: { id?: string };
+        public_user_data?: {
+          user_id?: string;
+          identifier?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+        };
+        role?: string | null;
       };
-      role?: string | null;
-    };
 
-    const orgId = toOptionalString(data.organization?.id);
-    const userId = toOptionalString(data.public_user_data?.user_id);
-    if (orgId && userId) {
-      try {
+      const orgId = toOptionalString(data.organization?.id);
+      const userId = toOptionalString(data.public_user_data?.user_id);
+      if (orgId && userId) {
         await upsertClerkUserProfile({
           userId,
           legacyOrgId: orgId,
@@ -139,60 +135,58 @@ export async function POST(req: Request) {
           userId,
           clerkRole: data.role ?? null,
         });
-      } catch (error) {
-        console.error("Error syncing organization membership:", error);
       }
     }
-  }
 
-  if (eventType === "organizationMembership.deleted") {
-    const data = evt.data as {
-      organization?: { id?: string };
-      public_user_data?: { user_id?: string };
-      user_id?: string;
-    };
-    const orgId = toOptionalString(data.organization?.id);
-    const userId =
-      toOptionalString(data.public_user_data?.user_id) ??
-      toOptionalString(data.user_id);
+    if (eventType === "organizationMembership.deleted") {
+      const data = evt.data as {
+        organization?: { id?: string };
+        public_user_data?: { user_id?: string };
+        user_id?: string;
+      };
+      const orgId = toOptionalString(data.organization?.id);
+      const userId =
+        toOptionalString(data.public_user_data?.user_id) ??
+        toOptionalString(data.user_id);
 
-    if (orgId && userId) {
-      try {
+      if (orgId && userId) {
         await removeOrganizationMembership(orgId, userId);
-      } catch (error) {
-        console.error("Error removing organization membership:", error);
       }
     }
-  }
 
-  if (eventType === "organization.deleted") {
-    const data = evt.data as { id?: string };
-    const orgId = toOptionalString(data.id);
+    if (eventType === "organization.created" || eventType === "organization.updated") {
+      const data = evt.data as { id?: string };
+      const orgId = toOptionalString(data.id);
 
-    if (orgId) {
-      try {
+      if (orgId) {
+        await syncOrganizationUsersFromClerk(orgId);
+      }
+    }
+
+    if (eventType === "organization.deleted") {
+      const data = evt.data as { id?: string };
+      const orgId = toOptionalString(data.id);
+
+      if (orgId) {
         await db
           .delete(organizationMemberships)
           .where(eq(organizationMemberships.orgId, orgId));
-      } catch (error) {
-        console.error(`Error deleting organization memberships for ${orgId}:`, error);
       }
     }
-  }
 
-  if (eventType === "user.deleted") {
-    const data = evt.data as { id?: string };
-    const userId = toOptionalString(data.id);
+    if (eventType === "user.deleted") {
+      const data = evt.data as { id?: string };
+      const userId = toOptionalString(data.id);
 
-    if (userId) {
-      try {
+      if (userId) {
         await db
           .delete(organizationMemberships)
           .where(eq(organizationMemberships.userId, userId));
-      } catch (error) {
-        console.error(`Error deleting memberships for user ${userId}:`, error);
       }
     }
+  } catch (error) {
+    console.error(`Error processing Clerk webhook event "${eventType}":`, error);
+    return new Response("Error: Webhook processing failed", { status: 500 });
   }
 
   return new Response("Webhook processed successfully", { status: 200 });

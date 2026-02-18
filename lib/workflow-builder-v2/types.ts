@@ -46,7 +46,7 @@ export type WorkflowAction =
         links?: string[]
         taskType: "standard" | "approval"
         assignTo: { type: "role"; role: string } | { type: "user"; userId: string }
-        priority: "low" | "medium" | "high"
+        priority: "low" | "medium" | "high" | "urgent"
         dueDays?: number
       }
     }

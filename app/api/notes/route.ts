@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
-import { contacts, notes, tasks, users, workflowExecutions } from "@/lib/db/schema";
+import {
+  contacts,
+  notes,
+  organizationMemberships,
+  tasks,
+  users,
+  workflowExecutions,
+} from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 
@@ -55,7 +62,14 @@ export async function GET(req: Request) {
         userLastName: users.lastName,
       })
       .from(notes)
-      .leftJoin(users, eq(notes.userId, users.id))
+      .leftJoin(
+        organizationMemberships,
+        and(
+          eq(organizationMemberships.orgId, notes.orgId),
+          eq(organizationMemberships.userId, notes.userId)
+        )
+      )
+      .leftJoin(users, eq(organizationMemberships.userId, users.id))
       .where(
         and(
           eq(notes.orgId, orgId),
@@ -228,8 +242,14 @@ export async function POST(req: Request) {
     // Get the user's name for the response
     const [user] = await db
       .select({ firstName: users.firstName, lastName: users.lastName })
-      .from(users)
-      .where(eq(users.id, userId));
+      .from(organizationMemberships)
+      .innerJoin(users, eq(users.id, organizationMemberships.userId))
+      .where(
+        and(
+          eq(organizationMemberships.orgId, orgId),
+          eq(organizationMemberships.userId, userId)
+        )
+      );
 
     const userName = user
       ? [user.firstName, user.lastName].filter(Boolean).join(" ") || "Unknown"

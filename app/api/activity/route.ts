@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
-import { activityLog, users } from "@/lib/db/schema";
+import { activityLog, organizationMemberships, users } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 
 /**
@@ -68,7 +68,14 @@ export async function GET(req: Request) {
         userLastName: users.lastName,
       })
       .from(activityLog)
-      .leftJoin(users, eq(activityLog.userId, users.id))
+      .leftJoin(
+        organizationMemberships,
+        and(
+          eq(organizationMemberships.orgId, activityLog.orgId),
+          eq(organizationMemberships.userId, activityLog.userId)
+        )
+      )
+      .leftJoin(users, eq(organizationMemberships.userId, users.id))
       .where(and(...conditions))
       .orderBy(desc(activityLog.createdAt))
       .limit(limit);

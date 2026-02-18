@@ -61,9 +61,9 @@ Default: `org_2rEpAiJOqtVLaDbD1W5HbOa4aQH` (Dan Hilse test account)
 - `fix-schema.ts` - Schema migration utilities
 - `seed-test-contacts.sql` - Seed SQL for test contacts
 
-## Auth Provisioning (Fayette Org)
+## Auth Provisioning (Clerk Org)
 
-Creates or reuses the Fayette organization in Clerk, ensures Steve is a member with admin role, and syncs local DB user/membership rows.
+Creates or reuses a Clerk organization, ensures the target owner user has admin membership, and syncs local DB user/membership rows.
 
 ### Usage
 
@@ -81,10 +81,11 @@ npm run auth:provision:fayette
 
 Optional flags:
 
-- `--owner-email <email>` (or env `FAYETTE_OWNER_EMAIL`)
-- `--owner-user-id <id>` (or env `FAYETTE_OWNER_USER_ID`)
-- `--org-name <name>` (default `Fayette County Sheriff's Office`)
-- `--org-slug <slug>` (default `fayette-county-sheriff-office`)
+- `--owner-email <email>` (env: `AUTH_PROVISION_OWNER_EMAIL`, legacy `FAYETTE_OWNER_EMAIL`)
+- `--owner-user-id <id>` (env: `AUTH_PROVISION_OWNER_USER_ID`, legacy `FAYETTE_OWNER_USER_ID`)
+- `--org-name <name>` (env: `AUTH_PROVISION_ORG_NAME`, legacy `FAYETTE_ORG_NAME`)
+- `--org-slug <slug>` (env: `AUTH_PROVISION_ORG_SLUG`, legacy `FAYETTE_ORG_SLUG`)
+- `--org-id <id>` to target an existing Clerk org directly (no slug lookup/create)
 - `--skip-db-sync` to update Clerk only
 
 Script file: `scripts/provision-fayette-org.ts`
@@ -99,11 +100,11 @@ For this environment, use Dan's existing org/user for auth testing:
 Dry run:
 
 ```bash
-npm run auth:provision:fayette:dry-run -- --org-name "Dan's Organization" --org-slug dan-s-organization-1770513867 --owner-user-id user_39MlXgMvThKGTPaokpN2c2OaQDB --skip-db-sync
+npm run auth:provision:dan:dry-run
 ```
 
 Apply:
 
 ```bash
-npm run auth:provision:fayette -- --org-name "Dan's Organization" --org-slug dan-s-organization-1770513867 --owner-user-id user_39MlXgMvThKGTPaokpN2c2OaQDB --skip-db-sync
+npm run auth:provision:dan
 ```

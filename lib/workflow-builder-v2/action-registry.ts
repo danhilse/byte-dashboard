@@ -111,6 +111,7 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
     icon: Edit,
     description: "Update a task created earlier in this workflow",
     category: "tasks",
+    disabled: true, // Not yet supported by runtime compiler (definition-runtime-adapter.ts)
     defaultConfig: {
       type: "update_task",
       id: "",
@@ -126,6 +127,7 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
     icon: UserPlus,
     description: "Create a new related contact (e.g., reference)",
     category: "data",
+    disabled: true, // Not yet supported by runtime compiler (definition-runtime-adapter.ts)
     defaultConfig: {
       type: "create_contact",
       id: "",

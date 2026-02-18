@@ -24,6 +24,7 @@ interface RequireApiAuthOptions {
   requireAdmin?: boolean;
   requireOrg?: boolean;
   requiredPermission?: AuthPermission;
+  requireDbMembership?: boolean;
 }
 
 export async function requireApiAuth(
@@ -32,8 +33,9 @@ export async function requireApiAuth(
   const requireAdmin = options?.requireAdmin ?? false;
   const requireOrg = options?.requireOrg ?? true;
   const requiredPermission = options?.requiredPermission;
+  const requireDbMembership =
+    options?.requireDbMembership ?? process.env.NODE_ENV !== "test";
   const { userId, orgId, orgRole } = await auth();
-  const normalizedOrgRole = normalizeOrgRole(orgRole);
 
   if (!userId) {
     return {
@@ -52,7 +54,28 @@ export async function requireApiAuth(
     };
   }
 
-  if (requireAdmin && !isOrgAdmin(orgRole)) {
+  let effectiveOrgRole = normalizeOrgRole(orgRole);
+
+  if (requireOrg && orgId && requireDbMembership) {
+    const { getOrganizationMembership } = await import("@/lib/users/service");
+    const membership = await getOrganizationMembership(orgId, userId, {
+      syncFromClerkOnMissing: true,
+    });
+
+    if (!membership) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { error: "Organization membership required" },
+          { status: 403 }
+        ),
+      };
+    }
+
+    effectiveOrgRole = normalizeOrgRole(membership.role);
+  }
+
+  if (requireAdmin && !isOrgAdmin(effectiveOrgRole)) {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
@@ -61,7 +84,7 @@ export async function requireApiAuth(
 
   if (
     requiredPermission &&
-    !roleHasPermission(normalizedOrgRole, requiredPermission)
+    !roleHasPermission(effectiveOrgRole, requiredPermission)
   ) {
     return {
       ok: false,
@@ -74,8 +97,8 @@ export async function requireApiAuth(
     context: {
       userId,
       orgId: orgId ?? "",
-      orgRole: normalizedOrgRole,
-      baseOrgRole: resolveBaseOrgRole(normalizedOrgRole),
+      orgRole: effectiveOrgRole,
+      baseOrgRole: resolveBaseOrgRole(effectiveOrgRole),
     },
   };
 }
