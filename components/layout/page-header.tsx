@@ -54,6 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { PRIMARY_ROUTE_DEFINITIONS } from "@/components/layout/navigation-routes"
 import type { Contact, Task, WorkflowExecution, Notification as AppNotification } from "@/types"
 
 interface BreadcrumbItemType {
@@ -101,48 +102,22 @@ interface NotificationsState {
   unreadCount: number
 }
 
-const QUICK_LINKS = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    description: "Overview and metrics",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    keywords: "overview home stats",
-  },
-  {
-    id: "my-work",
-    label: "My Work",
-    description: "Assigned tasks and approvals",
-    href: "/my-work",
-    icon: Briefcase,
-    keywords: "tasks approvals work",
-  },
-  {
-    id: "workflows",
-    label: "Workflows",
-    description: "Workflow executions",
-    href: "/workflows",
-    icon: Workflow,
-    keywords: "executions pipeline process",
-  },
-  {
-    id: "people",
-    label: "People",
-    description: "Contacts and profiles",
-    href: "/people",
-    icon: Users,
-    keywords: "contacts crm",
-  },
-  {
-    id: "support",
-    label: "Support",
-    description: "Help center",
-    href: "/support",
-    icon: HelpCircle,
-    keywords: "help docs support",
-  },
-] as const
+const quickLinkIcons = {
+  dashboard: LayoutDashboard,
+  "my-work": Briefcase,
+  workflows: Workflow,
+  people: Users,
+  support: HelpCircle,
+} as const
+
+const QUICK_LINKS = PRIMARY_ROUTE_DEFINITIONS.map((route) => ({
+  id: route.id,
+  label: route.label,
+  description: route.description ?? route.label,
+  href: route.href,
+  icon: quickLinkIcons[route.id as keyof typeof quickLinkIcons] ?? LayoutDashboard,
+  keywords: route.keywords ?? "",
+}))
 
 const MAX_RESULTS_PER_GROUP = 6
 const EMPTY_SEARCH_STATE: SearchState = {

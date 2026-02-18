@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { fallbackWorkflowStatusConfig } from "@/lib/status-config"
+import type { CreateWorkflowExecutionInput } from "@/lib/workflows/create-workflow-execution"
 import type { DefinitionStatus } from "@/types"
 
 interface ContactOption {
@@ -36,11 +37,7 @@ interface DefinitionOption {
 }
 
 interface WorkflowCreateDialogProps {
-  onCreateWorkflow?: (data: {
-    contactId: string
-    workflowDefinitionId?: string
-    status?: string
-  }) => void
+  onCreateWorkflow?: (data: CreateWorkflowExecutionInput) => void
   trigger?: React.ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void

@@ -18,6 +18,7 @@ import {
 import { DataTable } from "@/components/data-table/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createTaskColumns, taskStatusOptions } from "@/components/data-table/columns/task-columns"
+import { ViewToggle, type ViewOption } from "@/components/common/view-toggle"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TaskStatusBadge } from "@/components/common/status-badge"
@@ -58,6 +59,12 @@ interface OrganizationUserOption {
   firstName: string | null
   lastName: string | null
 }
+
+const viewOptions: ViewOption[] = [
+  { id: "table", label: "Table", icon: List },
+  { id: "kanban", label: "Kanban", icon: LayoutGrid },
+  { id: "grid", label: "Grid", icon: Grid3X3 },
+]
 
 export function MyWorkContent() {
   const { toast } = useToast()
@@ -306,7 +313,12 @@ export function MyWorkContent() {
     }
   }
 
-  const handleDeleteTask = async (taskId: string) => {
+  const openApprovalTask = useCallback((taskId: string) => {
+    setSelectedApprovalTaskId(taskId)
+    setApprovalDetailOpen(true)
+  }, [])
+
+  const handleDeleteTask = useCallback(async (taskId: string) => {
     try {
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: "DELETE",
@@ -330,9 +342,9 @@ export function MyWorkContent() {
         variant: "destructive",
       })
     }
-  }
+  }, [toast])
 
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+  const handleStatusChange = useCallback(async (taskId: string, newStatus: TaskStatus) => {
     const previous = tasks.find((t) => t.id === taskId)
     if (!previous) return
 
@@ -386,18 +398,17 @@ export function MyWorkContent() {
         variant: "destructive",
       })
     }
-  }
+  }, [selectedTask?.id, tasks, toast, withAssigneeName])
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = useCallback((task: Task) => {
     if (task.taskType === "approval") {
-      setSelectedApprovalTaskId(task.id)
-      setApprovalDetailOpen(true)
+      openApprovalTask(task.id)
       return
     }
 
     setSelectedTask(task)
     setDetailOpen(true)
-  }
+  }, [openApprovalTask])
 
   const handleClaimTask = async (taskId: string) => {
     try {
@@ -561,7 +572,7 @@ export function MyWorkContent() {
     })
   }, [withAssigneeName])
 
-  const myWorkColumns: ColumnDef<Task>[] = (() => {
+  const myWorkColumns: ColumnDef<Task>[] = useMemo(() => {
     const columns = createTaskColumns({
       onOpenTask: handleTaskClick,
       onDeleteTask: (task) => {
@@ -571,8 +582,7 @@ export function MyWorkContent() {
         void handleStatusChange(task.id, status)
       },
       onReviewApprovalTask: (task) => {
-        setSelectedApprovalTaskId(task.id)
-        setApprovalDetailOpen(true)
+        openApprovalTask(task.id)
       },
     })
 
@@ -619,7 +629,7 @@ export function MyWorkContent() {
       }
       return column
     })
-  })()
+  }, [handleDeleteTask, handleStatusChange, handleTaskClick, openApprovalTask])
 
 
   return (
@@ -664,32 +674,7 @@ export function MyWorkContent() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-1 rounded-lg border p-1">
-            <Button
-              variant={view === "table" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("table")}
-            >
-              <List className="mr-2 size-4" />
-              Table
-            </Button>
-            <Button
-              variant={view === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("kanban")}
-            >
-              <LayoutGrid className="mr-2 size-4" />
-              Kanban
-            </Button>
-            <Button
-              variant={view === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("grid")}
-            >
-              <Grid3X3 className="mr-2 size-4" />
-              Grid
-            </Button>
-          </div>
+          <ViewToggle views={viewOptions} value={view} onChange={setView as (value: string) => void} />
         </div>
         {view === "kanban" && (
           <div className="flex items-center gap-2">

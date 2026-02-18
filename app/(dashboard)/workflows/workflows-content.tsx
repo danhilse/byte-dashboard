@@ -4,7 +4,6 @@ import dynamic from "next/dynamic"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { LayoutGrid, List, Grid3X3 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -18,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { ViewToggle, type ViewOption } from "@/components/common/view-toggle"
 import { createWorkflowColumns } from "@/components/data-table/columns/workflow-columns"
 import { WorkflowCreateDialog } from "@/components/workflows/workflow-create-dialog"
 import { WorkflowDetailDialog } from "@/components/workflows/workflow-detail-dialog"
@@ -26,6 +26,10 @@ import {
   workflowExecutionStateOptions,
   resolveWorkflowStatusDisplay,
 } from "@/lib/status-config"
+import {
+  createWorkflowExecution,
+  type CreateWorkflowExecutionInput,
+} from "@/lib/workflows/create-workflow-execution"
 import { useToast } from "@/hooks/use-toast"
 import { usePersistedView } from "@/hooks/use-persisted-view"
 import type { WorkflowExecution, DefinitionStatus } from "@/types"
@@ -51,6 +55,12 @@ const WorkflowsKanbanBoard = dynamic(
 )
 
 type ViewType = "table" | "kanban" | "grid"
+
+const viewOptions: ViewOption[] = [
+  { id: "table", label: "Table", icon: List },
+  { id: "kanban", label: "Kanban", icon: LayoutGrid },
+  { id: "grid", label: "Grid", icon: Grid3X3 },
+]
 
 export function WorkflowsContent() {
   const { toast } = useToast()
@@ -136,40 +146,9 @@ export function WorkflowsContent() {
     fetchData()
   }, [])
 
-  const handleCreateWorkflow = async (data: {
-    contactId: string
-    workflowDefinitionId?: string
-    status?: string
-  }) => {
+  const handleCreateWorkflow = async (data: CreateWorkflowExecutionInput) => {
     try {
-      const startsImmediately = Boolean(data.workflowDefinitionId)
-      const endpoint = startsImmediately ? "/api/workflows/trigger" : "/api/workflows"
-      const payload = startsImmediately
-        ? {
-            contactId: data.contactId,
-            workflowDefinitionId: data.workflowDefinitionId,
-            initialStatus: data.status,
-          }
-        : data
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      if (!response.ok) {
-        throw new Error(
-          startsImmediately
-            ? "Failed to start workflow"
-            : "Failed to create workflow"
-        )
-      }
-
-      const { workflow } = await response.json()
-      if (!workflow) {
-        throw new Error("Workflow response was missing payload")
-      }
+      const { workflow, startsImmediately } = await createWorkflowExecution(data)
       setWorkflows((prev) => [workflow, ...prev])
 
       toast({
@@ -457,32 +436,7 @@ export function WorkflowsContent() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
-          <Button
-            variant={view === "table" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setView("table")}
-          >
-            <List className="mr-2 size-4" />
-            Table
-          </Button>
-          <Button
-            variant={view === "kanban" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setView("kanban")}
-          >
-            <LayoutGrid className="mr-2 size-4" />
-            Kanban
-          </Button>
-          <Button
-            variant={view === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setView("grid")}
-          >
-            <Grid3X3 className="mr-2 size-4" />
-            Grid
-          </Button>
-        </div>
+        <ViewToggle views={viewOptions} value={view} onChange={setView as (value: string) => void} />
       </div>
 
       <div className="min-w-0 flex-1">

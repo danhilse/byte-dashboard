@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/button"
 import { useOrgRole } from "@/hooks/use-org-role"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import {
+  createWorkflowExecution,
+  type CreateWorkflowExecutionInput,
+} from "@/lib/workflows/create-workflow-execution"
 import type { Contact, Task } from "@/types"
 
 interface QuickAddOption {
@@ -118,31 +122,9 @@ export function QuickAddFab() {
   )
 
   const handleCreateWorkflow = useCallback(
-    async (data: { contactId: string; workflowDefinitionId?: string; status?: string }) => {
+    async (data: CreateWorkflowExecutionInput) => {
       try {
-        const startsImmediately = Boolean(data.workflowDefinitionId)
-        const endpoint = startsImmediately ? "/api/workflows/trigger" : "/api/workflows"
-        const payload = startsImmediately
-          ? {
-              contactId: data.contactId,
-              workflowDefinitionId: data.workflowDefinitionId,
-              initialStatus: data.status,
-            }
-          : data
-
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        })
-
-        if (!response.ok) {
-          const payloadError = await response.json().catch(() => null)
-          throw new Error(
-            payloadError?.error ||
-              (startsImmediately ? "Failed to start workflow" : "Failed to create workflow")
-          )
-        }
+        const { startsImmediately } = await createWorkflowExecution(data)
 
         toast({
           title: startsImmediately ? "Workflow started" : "Success",

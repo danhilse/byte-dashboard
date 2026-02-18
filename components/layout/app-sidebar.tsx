@@ -16,6 +16,10 @@ import {
 } from "lucide-react"
 import { useUser, useClerk } from "@clerk/nextjs"
 import { useIsAdmin } from "@/hooks/use-org-role"
+import {
+  PRIMARY_ROUTE_DEFINITIONS,
+  ADMIN_ROUTE_DEFINITIONS,
+} from "@/components/layout/navigation-routes"
 
 import {
   Sidebar,
@@ -39,62 +43,20 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
+const primaryNavIcons = {
+  dashboard: LayoutDashboard,
+  "my-work": Briefcase,
+  workflows: FileText,
+  people: Users,
+  support: HelpCircle,
+} as const
 
-const primaryNavItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "My Work",
-    href: "/my-work",
-    icon: Briefcase,
-  },
-  {
-    title: "Workflows",
-    href: "/workflows",
-    icon: FileText,
-  },
-  // {
-  //   title: "Calendar",
-  //   href: "/calendar",
-  //   icon: Calendar,
-  // },
-  {
-    title: "People",
-    href: "/people",
-    icon: Users,
-  },
-  {
-    title: "Support",
-    href: "/support",
-    icon: HelpCircle,
-  },
-]
-
-const adminNavItems = [
-  {
-    title: "Workflow Builder",
-    href: "/admin/workflow-builder",
-    icon: GitBranch,
-  },
-  {
-    title: "Assets",
-    href: "/admin/assets",
-    icon: FileText,
-  },
-  {
-    title: "Form Builder",
-    href: "/admin/forms",
-    icon: FileEdit,
-  },
-  {
-    title: "Settings",
-    href: "/admin/settings",
-    icon: Settings,
-  },
-]
+const adminNavIcons = {
+  "workflow-builder": GitBranch,
+  assets: FileText,
+  forms: FileEdit,
+  settings: Settings,
+} as const
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -142,20 +104,25 @@ export function AppSidebar() {
           <SidebarGroupLabel>Primary</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {primaryNavItems.map((item) => (
+              {PRIMARY_ROUTE_DEFINITIONS.map((item) => {
+                const Icon = primaryNavIcons[item.id as keyof typeof primaryNavIcons]
+                if (!Icon) return null
+
+                return (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
                     isActive={isActiveRoute(item.href)}
-                    tooltip={item.title}
+                    tooltip={item.label}
                   >
                     <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                      <Icon />
+                      <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -165,20 +132,25 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminNavItems.map((item) => (
+                {ADMIN_ROUTE_DEFINITIONS.map((item) => {
+                  const Icon = adminNavIcons[item.id as keyof typeof adminNavIcons]
+                  if (!Icon) return null
+
+                  return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       asChild
                       isActive={isActiveRoute(item.href)}
-                      tooltip={item.title}
+                      tooltip={item.label}
                     >
                       <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.title}</span>
+                        <Icon />
+                        <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                ))}
+                  )
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
