@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   canClaimTask: vi.fn(),
   canMutateTask: vi.fn(),
   normalizeRoleName: vi.fn(),
+  isUserInOrganization: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -38,6 +39,10 @@ vi.mock("@/lib/tasks/access", () => ({
   canClaimTask: mocks.canClaimTask,
   canMutateTask: mocks.canMutateTask,
   normalizeRoleName: mocks.normalizeRoleName,
+}));
+
+vi.mock("@/lib/users/service", () => ({
+  isUserInOrganization: mocks.isUserInOrganization,
 }));
 
 import { GET, POST } from "@/app/api/tasks/route";
@@ -79,6 +84,7 @@ describe("app/api/tasks/route", () => {
     mocks.normalizeRoleName.mockImplementation((role: string | null | undefined) =>
       role ? role.trim().toLowerCase() : null
     );
+    mocks.isUserInOrganization.mockResolvedValue(true);
   });
 
   it("returns 401 for unauthenticated GET requests", async () => {

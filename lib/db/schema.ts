@@ -27,6 +27,7 @@ import {
   date,
   integer,
   index,
+  primaryKey,
   uniqueIndex,
   check,
 } from "drizzle-orm/pg-core";
@@ -40,12 +41,12 @@ export const users = pgTable(
   "users",
   {
     id: text("id").primaryKey(), // Clerk user ID
-    orgId: text("org_id").notNull(), // Clerk org ID
+    orgId: text("org_id").notNull(), // LEGACY: kept for backward compatibility
     email: text("email").notNull(),
     firstName: text("first_name"),
     lastName: text("last_name"),
-    role: text("role").default("user").notNull(), // DEPRECATED: use roles array
-    roles: text("roles").array().default(sql`'{}'`).notNull(), // NEW: Array of roles
+    role: text("role").default("user").notNull(), // LEGACY: use organizationMemberships.role
+    roles: text("roles").array().default(sql`'{}'`).notNull(), // LEGACY: use organizationMemberships.roles
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -56,6 +57,31 @@ export const users = pgTable(
   (table) => ({
     orgIdx: index("idx_users_org").on(table.orgId),
     rolesIdx: index("idx_users_roles").using("gin", table.roles),
+  })
+);
+
+export const organizationMemberships = pgTable(
+  "organization_memberships",
+  {
+    orgId: text("org_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    clerkRole: text("clerk_role"),
+    role: text("role").default("member").notNull(),
+    roles: text("roles").array().default(sql`'{}'`).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.orgId, table.userId] }),
+    orgIdx: index("idx_organization_memberships_org").on(table.orgId),
+    userIdx: index("idx_organization_memberships_user").on(table.userId),
+    rolesIdx: index("idx_organization_memberships_roles").using("gin", table.roles),
   })
 );
 

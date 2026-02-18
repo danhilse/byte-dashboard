@@ -1,9 +1,19 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+
+import { db } from "@/lib/db";
+import { organizationMemberships } from "@/lib/db/schema";
+import {
+  removeOrganizationMembership,
+  upsertClerkUserProfile,
+  upsertOrganizationMembership,
+} from "@/lib/users/service";
+
+function toOptionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
 
 export async function POST(req: Request) {
   // Get the Clerk webhook secret from environment
@@ -55,99 +65,133 @@ export async function POST(req: Request) {
   const eventType = evt.type;
 
   if (eventType === "user.created" || eventType === "user.updated") {
-    const { id, email_addresses, first_name, last_name } = evt.data;
+    const data = evt.data as {
+      id?: string;
+      email_addresses?: Array<{ email_address?: string }>;
+      first_name?: string | null;
+      last_name?: string | null;
+      organization_memberships?: Array<{
+        organization?: { id?: string };
+        role?: string | null;
+      }>;
+    };
+    const userId = toOptionalString(data.id);
+    const email = data.email_addresses?.[0]?.email_address ?? "";
+    const memberships = Array.isArray(data.organization_memberships)
+      ? data.organization_memberships
+      : [];
 
-    // Get the user's organization memberships
-    const orgMemberships = evt.data.organization_memberships || [];
+    if (userId) {
+      for (const membership of memberships) {
+        const orgId = toOptionalString(membership.organization?.id);
+        if (!orgId) continue;
 
-    // Sync user for each organization they belong to
-    for (const membership of orgMemberships) {
-      const orgId = membership.organization.id;
-      const role = membership.role;
-
-      try {
-        // Upsert user to database
-        await db
-          .insert(users)
-          .values({
-            id,
-            orgId,
-            email: email_addresses[0]?.email_address || "",
-            firstName: first_name || null,
-            lastName: last_name || null,
-            role: role === "org:admin" ? "admin" : "user",
-            updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: users.id,
-            set: {
-              email: email_addresses[0]?.email_address || "",
-              firstName: first_name || null,
-              lastName: last_name || null,
-              role: role === "org:admin" ? "admin" : "user",
-              updatedAt: new Date(),
-            },
+        try {
+          await upsertClerkUserProfile({
+            userId,
+            legacyOrgId: orgId,
+            email,
+            firstName: data.first_name ?? null,
+            lastName: data.last_name ?? null,
+            role: membership.role ?? null,
           });
-
-        console.log(
-          `User ${id} synced to organization ${orgId} with role ${role}`
-        );
-      } catch (error) {
-        console.error(`Error syncing user ${id} to org ${orgId}:`, error);
+          await upsertOrganizationMembership({
+            orgId,
+            userId,
+            clerkRole: membership.role ?? null,
+          });
+        } catch (error) {
+          console.error(`Error syncing user ${userId} to org ${orgId}:`, error);
+        }
       }
     }
   }
 
-  if (eventType === "organizationMembership.created") {
-    const { organization, public_user_data, role } = evt.data;
+  if (
+    eventType === "organizationMembership.created" ||
+    eventType === "organizationMembership.updated"
+  ) {
+    const data = evt.data as {
+      organization?: { id?: string };
+      public_user_data?: {
+        user_id?: string;
+        identifier?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+      };
+      role?: string | null;
+    };
 
-    try {
-      // Sync user to this new organization
-      await db
-        .insert(users)
-        .values({
-          id: public_user_data.user_id,
-          orgId: organization.id,
-          email: public_user_data.identifier || "",
-          firstName: public_user_data.first_name || null,
-          lastName: public_user_data.last_name || null,
-          role: role === "org:admin" ? "admin" : "user",
-        })
-        .onConflictDoUpdate({
-          target: users.id,
-          set: {
-            orgId: organization.id,
-            role: role === "org:admin" ? "admin" : "user",
-            updatedAt: new Date(),
-          },
+    const orgId = toOptionalString(data.organization?.id);
+    const userId = toOptionalString(data.public_user_data?.user_id);
+    if (orgId && userId) {
+      try {
+        await upsertClerkUserProfile({
+          userId,
+          legacyOrgId: orgId,
+          email: data.public_user_data?.identifier ?? "",
+          firstName: data.public_user_data?.first_name ?? null,
+          lastName: data.public_user_data?.last_name ?? null,
+          role: data.role ?? null,
         });
-
-      console.log(
-        `User ${public_user_data.user_id} added to organization ${organization.id}`
-      );
-    } catch (error) {
-      console.error("Error syncing organization membership:", error);
+        await upsertOrganizationMembership({
+          orgId,
+          userId,
+          clerkRole: data.role ?? null,
+        });
+      } catch (error) {
+        console.error("Error syncing organization membership:", error);
+      }
     }
   }
 
-  if (eventType === "organizationMembership.updated") {
-    const { organization, public_user_data, role } = evt.data;
+  if (eventType === "organizationMembership.deleted") {
+    const data = evt.data as {
+      organization?: { id?: string };
+      public_user_data?: { user_id?: string };
+      user_id?: string;
+    };
+    const orgId = toOptionalString(data.organization?.id);
+    const userId =
+      toOptionalString(data.public_user_data?.user_id) ??
+      toOptionalString(data.user_id);
 
-    try {
-      // Update user role in organization
-      await db
-        .update(users)
-        .set({
-          role: role === "org:admin" ? "admin" : "user",
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, public_user_data.user_id));
+    if (orgId && userId) {
+      try {
+        await removeOrganizationMembership(orgId, userId);
+      } catch (error) {
+        console.error("Error removing organization membership:", error);
+      }
+    }
+  }
 
-      console.log(
-        `User ${public_user_data.user_id} role updated in organization ${organization.id}`
-      );
-    } catch (error) {
-      console.error("Error updating user role:", error);
+  if (eventType === "organization.deleted") {
+    const data = evt.data as { id?: string };
+    const orgId = toOptionalString(data.id);
+
+    if (orgId) {
+      try {
+        await db
+          .delete(organizationMemberships)
+          .where(eq(organizationMemberships.orgId, orgId));
+      } catch (error) {
+        console.error(`Error deleting organization memberships for ${orgId}:`, error);
+      }
+    }
+  }
+
+  if (eventType === "user.deleted") {
+    const data = evt.data as { id?: string };
+    const userId = toOptionalString(data.id);
+
+    if (userId) {
+      try {
+        await db
+          .delete(organizationMemberships)
+          .where(eq(organizationMemberships.userId, userId));
+      } catch (error) {
+        console.error(`Error deleting memberships for user ${userId}:`, error);
+      }
     }
   }
 

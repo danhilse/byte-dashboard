@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { organizationMemberships } from "@/lib/db/schema";
 
 type NullableString = string | null | undefined;
 
@@ -38,11 +38,16 @@ export async function buildTaskAccessContext({
 
   const [userRecord] = await db
     .select({
-      role: users.role,
-      roles: users.roles,
+      role: organizationMemberships.role,
+      roles: organizationMemberships.roles,
     })
-    .from(users)
-    .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
+    .from(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.userId, userId),
+        eq(organizationMemberships.orgId, orgId)
+      )
+    )
     .limit(1);
 
   const roles = new Set<string>();

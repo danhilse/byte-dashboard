@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   buildTaskAccessContext: vi.fn(),
   canClaimTask: vi.fn(),
   canMutateTask: vi.fn(),
+  isUserInOrganization: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -30,6 +31,10 @@ vi.mock("@/lib/tasks/access", () => ({
   buildTaskAccessContext: mocks.buildTaskAccessContext,
   canClaimTask: mocks.canClaimTask,
   canMutateTask: mocks.canMutateTask,
+}));
+
+vi.mock("@/lib/users/service", () => ({
+  isUserInOrganization: mocks.isUserInOrganization,
 }));
 
 import { DELETE, GET, PATCH } from "@/app/api/tasks/[id]/route";
@@ -68,6 +73,7 @@ describe("app/api/tasks/[id]/route", () => {
     mocks.logActivity.mockResolvedValue(undefined);
     mocks.createTaskAssignedNotification.mockResolvedValue(undefined);
     mocks.buildTaskAccessContext.mockResolvedValue({ userId: "user_1" });
+    mocks.isUserInOrganization.mockResolvedValue(true);
   });
 
   it("GET returns 403 when user cannot mutate or claim task", async () => {

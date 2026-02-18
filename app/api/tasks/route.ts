@@ -12,6 +12,7 @@ import {
 import { logActivity } from "@/lib/db/log-activity";
 import { createTaskAssignedNotification } from "@/lib/notifications/service";
 import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
+import { isUserInOrganization } from "@/lib/users/service";
 
 /**
  * GET /api/tasks
@@ -157,6 +158,7 @@ export async function POST(req: Request) {
       position,
       metadata,
     } = body;
+    const resolvedAssignedTo = assignedTo || userId;
 
     if (!title) {
       return NextResponse.json(
@@ -195,6 +197,16 @@ export async function POST(req: Request) {
       }
     }
 
+    if (resolvedAssignedTo) {
+      const isAssigneeInOrg = await isUserInOrganization(orgId, resolvedAssignedTo);
+      if (!isAssigneeInOrg) {
+        return NextResponse.json(
+          { error: "assignedTo must belong to the authenticated organization" },
+          { status: 400 }
+        );
+      }
+    }
+
     const [task] = await db
       .insert(tasks)
       .values({
@@ -204,7 +216,7 @@ export async function POST(req: Request) {
         status: status || "todo",
         priority: priority || "medium",
         taskType: taskType || "standard",
-        assignedTo: assignedTo || userId,
+        assignedTo: resolvedAssignedTo,
         assignedRole: assignedRole || null,
         contactId: contactId || null,
         dueDate: dueDate || null,

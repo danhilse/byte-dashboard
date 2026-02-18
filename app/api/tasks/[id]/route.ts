@@ -11,6 +11,7 @@ import {
 import { logActivity } from "@/lib/db/log-activity";
 import { createTaskAssignedNotification } from "@/lib/notifications/service";
 import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
+import { isUserInOrganization } from "@/lib/users/service";
 
 /**
  * GET /api/tasks/:id
@@ -161,6 +162,16 @@ export async function PATCH(
         return NextResponse.json(
           { error: "Contact not found" },
           { status: 404 }
+        );
+      }
+    }
+
+    if (assignedTo) {
+      const isAssigneeInOrg = await isUserInOrganization(orgId, assignedTo);
+      if (!isAssigneeInOrg) {
+        return NextResponse.json(
+          { error: "assignedTo must belong to the authenticated organization" },
+          { status: 400 }
         );
       }
     }
