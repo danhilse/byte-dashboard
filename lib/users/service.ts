@@ -1,6 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { and, eq } from "drizzle-orm";
 
+import { isBaseOrgRole } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { organizationMemberships, users } from "@/lib/db/schema";
 import { normalizeRoleName } from "@/lib/tasks/access";
@@ -67,6 +68,18 @@ export function normalizeMembershipRole(role: string | null | undefined): string
   return normalizeRoleName(role) ?? "member";
 }
 
+function mergeMembershipRoles(
+  normalizedRole: string,
+  existingRoles: string[]
+): string[] {
+  const preservedCustomRoles = existingRoles
+    .map((role) => normalizeRoleName(role))
+    .filter((role): role is string => Boolean(role))
+    .filter((role) => !isBaseOrgRole(role));
+
+  return [...new Set([normalizedRole, ...preservedCustomRoles])];
+}
+
 interface UpsertClerkUserProfileInput {
   userId: string;
   legacyOrgId: string;
@@ -113,6 +126,14 @@ export async function upsertOrganizationMembership(
   input: UpsertOrganizationMembershipInput
 ) {
   const normalizedRole = normalizeMembershipRole(input.clerkRole);
+  const existingMembership = await getOrganizationMembershipFromDb(
+    input.orgId,
+    input.userId
+  );
+  const roles = mergeMembershipRoles(
+    normalizedRole,
+    existingMembership?.roles ?? []
+  );
 
   await db
     .insert(organizationMemberships)
@@ -121,7 +142,7 @@ export async function upsertOrganizationMembership(
       userId: input.userId,
       clerkRole: input.clerkRole ?? null,
       role: normalizedRole,
-      roles: [normalizedRole],
+      roles,
     })
     .onConflictDoUpdate({
       target: [
@@ -131,7 +152,7 @@ export async function upsertOrganizationMembership(
       set: {
         clerkRole: input.clerkRole ?? null,
         role: normalizedRole,
-        roles: [normalizedRole],
+        roles,
         updatedAt: new Date(),
       },
     });

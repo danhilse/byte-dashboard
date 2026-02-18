@@ -204,6 +204,46 @@ describe("app/api/tasks/[id]/route", () => {
     );
   });
 
+  it("PATCH returns 400 when priority is null (NOT NULL violation)", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ priority: null }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "priority" })])
+    );
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("PATCH returns 400 for invalid priority enum", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ priority: "critical" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "priority" })])
+    );
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it("DELETE returns 403 when user cannot mutate task", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     mocks.select.mockReturnValue(selectQuery([{ id: "task_1", assignedTo: "user_2" }]));

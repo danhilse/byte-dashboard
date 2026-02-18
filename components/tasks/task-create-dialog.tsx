@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
 import { normalizeTaskLinks, normalizeTaskMetadata } from "@/lib/tasks/presentation"
+import { validateTaskPayload, type ValidationError } from "@/lib/validation/rules"
 import type { Task, TaskStatus, TaskPriority } from "@/types"
 
 interface TaskCreateDialogProps {
@@ -40,7 +41,11 @@ export function TaskCreateDialog({
   const [assignedTo, setAssignedTo] = useState("")
   const [dueDate, setDueDate] = useState("")
   const [linksText, setLinksText] = useState("")
+  const [errors, setErrors] = useState<ValidationError[]>([])
   const dialogOpen = open ?? internalOpen
+
+  const fieldError = (field: string) =>
+    errors.find((e) => e.field === field)?.message
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (open === undefined) {
@@ -57,6 +62,7 @@ export function TaskCreateDialog({
     setAssignedTo("")
     setDueDate("")
     setLinksText("")
+    setErrors([])
   }
 
   const handleSubmit = () => {
@@ -73,6 +79,16 @@ export function TaskCreateDialog({
       assignedTo: assignedTo || undefined,
       dueDate: dueDate || undefined,
     }
+
+    const validationErrors = validateTaskPayload(
+      newTask as unknown as Record<string, unknown>,
+      "create"
+    )
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+    setErrors([])
 
     onCreateTask?.(newTask)
     resetForm()
@@ -107,6 +123,9 @@ export function TaskCreateDialog({
           placeholder="Enter task title"
           required
         />
+        {fieldError("title") && (
+          <p className="text-xs text-destructive">{fieldError("title")}</p>
+        )}
       </div>
 
       <div className="grid gap-2">

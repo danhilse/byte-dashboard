@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   logActivity: vi.fn(),
   triggerWorkflowDefinitionsForContactCreated: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
+  redactContactsForRead: vi.fn(),
+  redactContactForRead: vi.fn(),
+  findForbiddenContactWriteFields: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -28,6 +32,12 @@ vi.mock("@/lib/workflow-triggers", () => ({
   triggerWorkflowDefinitionsForContactCreated:
     mocks.triggerWorkflowDefinitionsForContactCreated,
 }));
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
+  redactContactsForRead: mocks.redactContactsForRead,
+  redactContactForRead: mocks.redactContactForRead,
+  findForbiddenContactWriteFields: mocks.findForbiddenContactWriteFields,
+}));
 
 import { GET, POST } from "@/app/api/contacts/route";
 
@@ -47,6 +57,25 @@ function createInsertQuery(result: unknown[]) {
 }
 
 describe("app/api/contacts/route", () => {
+  const allFields = new Set([
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+    "company",
+    "role",
+    "status",
+    "avatarUrl",
+    "lastContactedAt",
+    "addressLine1",
+    "addressLine2",
+    "city",
+    "state",
+    "zip",
+    "tags",
+    "metadata",
+  ]);
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
@@ -54,6 +83,13 @@ describe("app/api/contacts/route", () => {
       started: [],
       failed: [],
     });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: allFields,
+      writableFields: allFields,
+    });
+    mocks.redactContactsForRead.mockImplementation((contacts) => contacts);
+    mocks.redactContactForRead.mockImplementation((contact) => contact);
+    mocks.findForbiddenContactWriteFields.mockReturnValue([]);
   });
 
   it("returns 401 for unauthenticated GET requests", async () => {
@@ -83,6 +119,11 @@ describe("app/api/contacts/route", () => {
     expect(await res.json()).toEqual({
       contacts: [{ id: "contact_1", firstName: "Ada", lastName: "Lovelace" }],
     });
+    expect(mocks.resolveContactFieldAccess).toHaveBeenCalledWith({
+      orgId: "org_1",
+      orgRoles: ["guest"],
+    });
+    expect(mocks.redactContactsForRead).toHaveBeenCalledTimes(1);
   });
 
   it("returns 403 when guest attempts to create contacts", async () => {
@@ -103,6 +144,30 @@ describe("app/api/contacts/route", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it("returns 403 when payload includes forbidden fields", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.findForbiddenContactWriteFields.mockReturnValue(["email"]);
+
+    const req = new Request("http://localhost/api/contacts", {
+      method: "POST",
+      body: JSON.stringify({ firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "Forbidden",
+      details: "You do not have permission to update one or more contact fields",
+      fields: ["email"],
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when required POST fields are missing", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
@@ -117,9 +182,52 @@ describe("app/api/contacts/route", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({
-      error: "firstName and lastName are required",
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "lastName" })])
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid status enum on POST", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
     });
+    const req = new Request("http://localhost/api/contacts", {
+      method: "POST",
+      body: JSON.stringify({ firstName: "Ada", lastName: "Lovelace", status: "garbage" }),
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "status" })])
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid JSON body on POST", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    const req = new Request("http://localhost/api/contacts", {
+      method: "POST",
+      body: "not json",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON" });
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 

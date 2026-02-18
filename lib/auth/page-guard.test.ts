@@ -4,12 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
+  redirect: vi.fn(),
   getOrganizationMembership: vi.fn(),
   getOrganizationRolePermissionMap: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
   auth: mocks.auth,
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: mocks.redirect,
 }));
 
 vi.mock("@/lib/users/service", () => ({
@@ -20,41 +25,34 @@ vi.mock("@/lib/auth/role-definitions", () => ({
   getOrganizationRolePermissionMap: mocks.getOrganizationRolePermissionMap,
 }));
 
-import { requireApiAuth } from "./api-guard";
+import { requirePageAuth } from "./page-guard";
 
-describe("requireApiAuth", () => {
+describe("requirePageAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.redirect.mockImplementation((path: string) => {
+      throw new Error(`REDIRECT:${path}`);
+    });
     mocks.getOrganizationRolePermissionMap.mockResolvedValue(new Map());
   });
 
-  it("returns 401 when user is not authenticated", async () => {
+  it("redirects to sign-in when user is not authenticated", async () => {
     mocks.auth.mockResolvedValue({ userId: null, orgId: null, orgRole: null });
 
-    const result = await requireApiAuth();
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.response.status).toBe(401);
-    }
+    await expect(requirePageAuth()).rejects.toThrow("REDIRECT:/sign-in");
   });
 
-  it("returns 403 when org context is missing", async () => {
+  it("redirects to no-org path when org context is missing", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
       orgId: null,
       orgRole: "org:admin",
     });
 
-    const result = await requireApiAuth();
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.response.status).toBe(403);
-    }
+    await expect(requirePageAuth()).rejects.toThrow("REDIRECT:/");
   });
 
-  it("returns 403 when db membership is missing for the active org", async () => {
+  it("redirects to forbidden path when db membership is missing", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
       orgId: "org_1",
@@ -62,43 +60,12 @@ describe("requireApiAuth", () => {
     });
     mocks.getOrganizationMembership.mockResolvedValue(null);
 
-    const result = await requireApiAuth({ requireDbMembership: true });
-
-    expect(mocks.getOrganizationMembership).toHaveBeenCalledWith("org_1", "user_1", {
-      syncFromClerkOnMissing: true,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.response.status).toBe(403);
-    }
+    await expect(
+      requirePageAuth({ requireDbMembership: true })
+    ).rejects.toThrow("REDIRECT:/dashboard");
   });
 
-  it("uses db membership role for permission checks", async () => {
-    mocks.auth.mockResolvedValue({
-      userId: "user_1",
-      orgId: "org_1",
-      orgRole: "org:admin",
-    });
-    mocks.getOrganizationMembership.mockResolvedValue({
-      orgId: "org_1",
-      userId: "user_1",
-      role: "guest",
-      roles: ["guest"],
-      clerkRole: "org:guest",
-    });
-
-    const result = await requireApiAuth({
-      requireDbMembership: true,
-      requiredPermission: "admin.access",
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.response.status).toBe(403);
-    }
-  });
-
-  it("allows when db membership role grants required permission", async () => {
+  it("uses db membership role when evaluating permissions", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
       orgId: "org_1",
@@ -112,19 +79,16 @@ describe("requireApiAuth", () => {
       clerkRole: "org:admin",
     });
 
-    const result = await requireApiAuth({
+    const result = await requirePageAuth({
       requireDbMembership: true,
       requiredPermission: "workflow-definitions.write",
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.orgRole).toBe("admin");
-      expect(result.context.orgRoles).toEqual(["admin"]);
-    }
+    expect(result.orgRole).toBe("admin");
+    expect(result.orgRoles).toEqual(["admin"]);
   });
 
-  it("denies unknown custom roles when no custom mapping exists", async () => {
+  it("redirects unknown custom roles when no custom mapping grants access", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
       orgId: "org_1",
@@ -139,18 +103,15 @@ describe("requireApiAuth", () => {
     });
     mocks.getOrganizationRolePermissionMap.mockResolvedValue(new Map());
 
-    const result = await requireApiAuth({
-      requireDbMembership: true,
-      requiredPermission: "tasks.read",
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.response.status).toBe(403);
-    }
+    await expect(
+      requirePageAuth({
+        requireDbMembership: true,
+        requiredPermission: "tasks.read",
+      })
+    ).rejects.toThrow("REDIRECT:/dashboard");
   });
 
-  it("allows custom roles when org mapping grants the permission", async () => {
+  it("allows custom role when org-specific mapping grants permission", async () => {
     mocks.auth.mockResolvedValue({
       userId: "user_1",
       orgId: "org_1",
@@ -167,15 +128,12 @@ describe("requireApiAuth", () => {
       new Map([["reviewer", new Set(["tasks.read"])]])
     );
 
-    const result = await requireApiAuth({
+    const result = await requirePageAuth({
       requireDbMembership: true,
       requiredPermission: "tasks.read",
     });
 
     expect(mocks.getOrganizationRolePermissionMap).toHaveBeenCalledWith("org_1");
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.context.orgRoles).toEqual(["reviewer"]);
-    }
+    expect(result.orgRoles).toEqual(["reviewer"]);
   });
 });

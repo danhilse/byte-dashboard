@@ -62,7 +62,7 @@ describe("app/api/workflows/trigger/route", () => {
   });
 
   it("returns 400 when contactId is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await POST(
       new Request("http://localhost", {
@@ -99,7 +99,7 @@ describe("app/api/workflows/trigger/route", () => {
   });
 
   it("returns 400 when workflowDefinitionId is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await POST(
       new Request("http://localhost", {
@@ -115,7 +115,7 @@ describe("app/api/workflows/trigger/route", () => {
   });
 
   it("returns 404 when workflow definition is not found", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectQuery([
@@ -139,7 +139,7 @@ describe("app/api/workflows/trigger/route", () => {
   });
 
   it("starts generic workflow and updates execution with temporal ids", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectQuery([
@@ -235,7 +235,7 @@ describe("app/api/workflows/trigger/route", () => {
   });
 
   it("uses trigger-config initial status when request initialStatus is not provided", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectQuery([

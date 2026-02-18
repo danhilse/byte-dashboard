@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation"
 import { format } from "date-fns"
 import { Mail, Phone, Building, Briefcase, Calendar, MapPin } from "lucide-react"
-import { auth } from "@clerk/nextjs/server"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
@@ -17,6 +16,11 @@ import { contacts, workflowExecutions } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { contactStatusConfig } from "@/lib/status-config"
 import { getInitials } from "@/lib/utils"
+import { requirePageAuth } from "@/lib/auth/page-guard"
+import {
+  redactContactForRead,
+  resolveContactFieldAccess,
+} from "@/lib/auth/field-visibility"
 import type { ContactStatus } from "@/types"
 
 interface ContactDetailPageProps {
@@ -24,22 +28,22 @@ interface ContactDetailPageProps {
 }
 
 export default async function ContactDetailPage({ params }: ContactDetailPageProps) {
-  const { userId, orgId } = await auth()
+  const { orgId, orgRoles } = await requirePageAuth({
+    requiredPermission: "contacts.read",
+  })
   const { id } = await params
-
-  if (!userId || !orgId) {
-    notFound()
-  }
+  const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles })
 
   // Fetch contact from database
-  const [contact] = await db
+  const [contactRecord] = await db
     .select()
     .from(contacts)
     .where(and(eq(contacts.id, id), eq(contacts.orgId, orgId)))
 
-  if (!contact) {
+  if (!contactRecord) {
     notFound()
   }
+  const contact = redactContactForRead(contactRecord, fieldAccess.readableFields)
 
   // Fetch related workflowExecutions
   const relatedWorkflows = await db
@@ -47,7 +51,8 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
     .from(workflowExecutions)
     .where(and(eq(workflowExecutions.contactId, id), eq(workflowExecutions.orgId, orgId)))
 
-  const fullName = `${contact.firstName} ${contact.lastName}`
+  const fullName =
+    `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() || "Unknown Contact"
   const statusConfig = contactStatusConfig[contact.status as ContactStatus] || contactStatusConfig.active
 
   // Format address

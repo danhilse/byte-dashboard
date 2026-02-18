@@ -85,6 +85,65 @@ export const organizationMemberships = pgTable(
   })
 );
 
+export const organizationRoleDefinitions = pgTable(
+  "organization_role_definitions",
+  {
+    orgId: text("org_id").notNull(),
+    roleKey: text("role_key").notNull(),
+    displayName: text("display_name").notNull(),
+    permissions: text("permissions").array().default(sql`'{}'`).notNull(),
+    isSystem: boolean("is_system").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.orgId, table.roleKey] }),
+    orgIdx: index("idx_org_role_definitions_org").on(table.orgId),
+    permissionsIdx: index("idx_org_role_definitions_permissions").using(
+      "gin",
+      table.permissions
+    ),
+  })
+);
+
+export const organizationFieldVisibilityPolicies = pgTable(
+  "organization_field_visibility_policies",
+  {
+    orgId: text("org_id").notNull(),
+    entityType: text("entity_type").notNull(),
+    fieldKey: text("field_key").notNull(),
+    roleKey: text("role_key").notNull(),
+    canRead: boolean("can_read").default(false).notNull(),
+    canWrite: boolean("can_write").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.orgId, table.entityType, table.fieldKey, table.roleKey],
+    }),
+    orgIdx: index("idx_org_field_visibility_org").on(table.orgId),
+    roleIdx: index("idx_org_field_visibility_role").on(table.orgId, table.roleKey),
+    entityFieldIdx: index("idx_org_field_visibility_entity_field").on(
+      table.orgId,
+      table.entityType,
+      table.fieldKey
+    ),
+    canWriteRequiresRead: check(
+      "org_field_visibility_can_write_requires_read",
+      sql`NOT ${table.canWrite} OR ${table.canRead}`
+    ),
+  })
+);
+
 // ===========================
 // Contacts
 // ===========================

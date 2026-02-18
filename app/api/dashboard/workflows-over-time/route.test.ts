@@ -32,7 +32,7 @@ describe("app/api/dashboard/workflows-over-time/route", () => {
   });
 
   it("returns 400 when days is not numeric", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await GET(
       new Request("http://localhost/api/dashboard/workflows-over-time?days=abc")
@@ -44,7 +44,7 @@ describe("app/api/dashboard/workflows-over-time/route", () => {
   });
 
   it("loads 30 days by default", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.getWorkflowsOverTime.mockResolvedValue([{ date: "2026-01-01", count: 3 }]);
 
     const res = await GET(new Request("http://localhost/api/dashboard/workflows-over-time"));
@@ -57,7 +57,7 @@ describe("app/api/dashboard/workflows-over-time/route", () => {
   });
 
   it("clamps days query param to 90 max", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.getWorkflowsOverTime.mockResolvedValue([{ date: "2026-01-01", count: 1 }]);
 
     await GET(

@@ -59,7 +59,7 @@ describe("app/api/notes/route", () => {
   });
 
   it("GET returns 400 for invalid entityType", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await GET(
       new Request("http://localhost/api/notes?entityType=bad&entityId=1")
@@ -72,7 +72,7 @@ describe("app/api/notes/route", () => {
   });
 
   it("GET maps notes response shape", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select.mockReturnValue(
       notesListQuery([
         {
@@ -111,7 +111,7 @@ describe("app/api/notes/route", () => {
   });
 
   it("POST returns 400 when entityId is not UUID", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await POST(
       new Request("http://localhost/api/notes", {
@@ -129,7 +129,7 @@ describe("app/api/notes/route", () => {
   });
 
   it("POST creates a note and returns enriched user name", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(simpleSelectQuery([{ id: "wf_1" }]))
       .mockReturnValueOnce(simpleSelectQuery([{ firstName: "Ada", lastName: "Lovelace" }]));

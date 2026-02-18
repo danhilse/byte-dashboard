@@ -64,6 +64,7 @@ Default: `org_2rEpAiJOqtVLaDbD1W5HbOa4aQH` (Dan Hilse test account)
 ## Auth Provisioning (Clerk Org)
 
 Creates or reuses a Clerk organization, ensures the target owner user has admin membership, and syncs local DB user/membership rows.
+The script fails by default if the org is owned by a different user than the requested owner.
 
 ### Usage
 
@@ -86,6 +87,7 @@ Optional flags:
 - `--org-name <name>` (env: `AUTH_PROVISION_ORG_NAME`, legacy `FAYETTE_ORG_NAME`)
 - `--org-slug <slug>` (env: `AUTH_PROVISION_ORG_SLUG`, legacy `FAYETTE_ORG_SLUG`)
 - `--org-id <id>` to target an existing Clerk org directly (no slug lookup/create)
+- `--allow-owner-mismatch` to continue even when org ownership differs from the target owner
 - `--skip-db-sync` to update Clerk only
 
 Script file: `scripts/provision-fayette-org.ts`

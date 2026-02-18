@@ -45,7 +45,7 @@ describe("app/api/activity/route", () => {
   });
 
   it("returns 400 when limit is not a positive integer", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await GET(new Request("http://localhost/api/activity?limit=abc"));
 
@@ -55,7 +55,7 @@ describe("app/api/activity/route", () => {
   });
 
   it("returns 400 when entityType is invalid", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await GET(
       new Request("http://localhost/api/activity?entityType=invalid&entityId=e1")
@@ -131,7 +131,7 @@ describe("app/api/activity/route", () => {
   });
 
   it("clamps limit to 100 for entity-specific feeds", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     const query = createActivityQuery([]);
     mocks.select.mockReturnValue(query);
 
@@ -147,7 +147,7 @@ describe("app/api/activity/route", () => {
 
   it("returns 500 when query execution fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select.mockImplementation(() => {
       throw new Error("database unavailable");
     });

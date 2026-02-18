@@ -13,6 +13,8 @@ import { logActivity } from "@/lib/db/log-activity";
 import { createTaskAssignedNotification } from "@/lib/notifications/service";
 import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 import { isUserInOrganization } from "@/lib/users/service";
+import { validateTaskPayload } from "@/lib/validation/rules";
+import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
 
 /**
  * GET /api/tasks
@@ -151,7 +153,13 @@ export async function POST(req: Request) {
 
     const { userId, orgId } = authResult.context;
 
-    const body = await req.json();
+    const result = await parseJsonBody(req);
+    if ("error" in result) return result.error;
+    const body = result.body;
+
+    const validationErrors = validateTaskPayload(body, "create");
+    if (validationErrors.length > 0) return validationErrorResponse(validationErrors);
+
     const {
       title,
       description,
@@ -166,21 +174,14 @@ export async function POST(req: Request) {
       position,
       metadata,
     } = body;
-    const resolvedAssignedTo = assignedTo || userId;
-
-    if (!title) {
-      return NextResponse.json(
-        { error: "title is required" },
-        { status: 400 }
-      );
-    }
+    const resolvedAssignedTo = (assignedTo as string) || userId;
 
     // Validate contactId belongs to org if provided
     if (contactId) {
       const [contact] = await db
         .select({ id: contacts.id })
         .from(contacts)
-        .where(and(eq(contacts.id, contactId), eq(contacts.orgId, orgId)));
+        .where(and(eq(contacts.id, contactId as string), eq(contacts.orgId, orgId)));
 
       if (!contact) {
         return NextResponse.json(
@@ -195,7 +196,7 @@ export async function POST(req: Request) {
       const [workflow] = await db
         .select({ id: workflowExecutions.id })
         .from(workflowExecutions)
-        .where(and(eq(workflowExecutions.id, workflowExecutionId), eq(workflowExecutions.orgId, orgId)));
+        .where(and(eq(workflowExecutions.id, workflowExecutionId as string), eq(workflowExecutions.orgId, orgId)));
 
       if (!workflow) {
         return NextResponse.json(
@@ -219,18 +220,18 @@ export async function POST(req: Request) {
       .insert(tasks)
       .values({
         orgId,
-        title,
-        description: description || null,
-        status: status || "todo",
-        priority: priority || "medium",
-        taskType: taskType || "standard",
+        title: title as string,
+        description: (description as string) || null,
+        status: (status as string) || "todo",
+        priority: (priority as string) || "medium",
+        taskType: (taskType as string) || "standard",
         assignedTo: resolvedAssignedTo,
-        assignedRole: assignedRole || null,
-        contactId: contactId || null,
-        dueDate: dueDate || null,
-        position: position ?? 0,
-        metadata: normalizeTaskMetadata(metadata),
-        ...(workflowExecutionId ? { workflowExecutionId } : {}),
+        assignedRole: (assignedRole as string) || null,
+        contactId: (contactId as string) || null,
+        dueDate: (dueDate as string) || null,
+        position: (position as number) ?? 0,
+        metadata: normalizeTaskMetadata(metadata as Record<string, unknown> | undefined),
+        ...(workflowExecutionId ? { workflowExecutionId: workflowExecutionId as string } : {}),
       })
       .returning({
         id: tasks.id,
@@ -259,7 +260,7 @@ export async function POST(req: Request) {
       entityType: "task",
       entityId: task.id,
       action: "created",
-      details: { title },
+      details: { title: title as string },
     });
 
     if (task.assignedTo) {

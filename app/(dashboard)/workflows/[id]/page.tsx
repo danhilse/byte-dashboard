@@ -2,7 +2,6 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
 import { User, Calendar, Zap, Globe, Workflow as WorkflowIcon } from "lucide-react"
-import { auth } from "@clerk/nextjs/server"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { DetailHeader } from "@/components/detail/detail-header"
@@ -18,6 +17,11 @@ import { eq, and } from "drizzle-orm"
 import { resolveWorkflowStatusDisplay } from "@/lib/status-config"
 import { WorkflowExecutionStateBadge } from "@/components/common/status-badge"
 import { PhaseProgressStepper } from "@/components/workflows/phase-progress-stepper"
+import { requirePageAuth } from "@/lib/auth/page-guard"
+import {
+  redactContactForRead,
+  resolveContactFieldAccess,
+} from "@/lib/auth/field-visibility"
 import type { WorkflowPhase, WorkflowStep, DefinitionStatus, WorkflowExecutionState } from "@/types"
 
 interface WorkflowDetailPageProps {
@@ -25,12 +29,11 @@ interface WorkflowDetailPageProps {
 }
 
 export default async function WorkflowDetailPage({ params }: WorkflowDetailPageProps) {
-  const { userId, orgId } = await auth()
+  const { orgId, orgRoles } = await requirePageAuth({
+    requiredPermission: "workflows.read",
+  })
   const { id } = await params
-
-  if (!userId || !orgId) {
-    notFound()
-  }
+  const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles })
 
   // Fetch workflow with joins
   const [result] = await db
@@ -43,10 +46,16 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
       definitionStatuses: workflowDefinitions.statuses,
     })
     .from(workflowExecutions)
-    .leftJoin(contacts, eq(workflowExecutions.contactId, contacts.id))
+    .leftJoin(
+      contacts,
+      and(eq(workflowExecutions.contactId, contacts.id), eq(contacts.orgId, orgId))
+    )
     .leftJoin(
       workflowDefinitions,
-      eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
+      and(
+        eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id),
+        eq(workflowDefinitions.orgId, orgId)
+      )
     )
     .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)))
 
@@ -54,7 +63,10 @@ export default async function WorkflowDetailPage({ params }: WorkflowDetailPageP
     notFound()
   }
 
-  const { workflow, contact, definitionName, definitionPhases, definitionSteps, definitionStatuses } = result
+  const { workflow, definitionName, definitionPhases, definitionSteps, definitionStatuses } = result
+  const contact = result.contact
+    ? redactContactForRead(result.contact, fieldAccess.readableFields)
+    : null
   const parsedPhases = (definitionPhases as WorkflowPhase[] | null) ?? []
   const parsedSteps = (definitionSteps as WorkflowStep[] | null) ?? []
   const parsedStatuses = (definitionStatuses as DefinitionStatus[] | null) ?? undefined

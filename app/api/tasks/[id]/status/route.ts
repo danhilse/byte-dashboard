@@ -10,6 +10,8 @@ import {
 } from "@/lib/workflows/signal-types";
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { logActivity } from "@/lib/db/log-activity";
+import { getFieldDefinition } from "@/lib/field-registry";
+import { parseJsonBody } from "@/lib/validation/api-helpers";
 
 /**
  * PATCH /api/tasks/[id]/status
@@ -46,10 +48,12 @@ export async function PATCH(
 
     const { userId, orgId, orgRole } = authResult.context;
 
-    const body = await req.json();
-    const { status } = body;
+    const result = await parseJsonBody(req);
+    if ("error" in result) return result.error;
+    const { status } = result.body;
 
-    if (!status || !["backlog", "todo", "in_progress", "done"].includes(status)) {
+    const taskStatusEnum = getFieldDefinition("task", "status")?.enumValues ?? [];
+    if (!status || typeof status !== "string" || !taskStatusEnum.includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 

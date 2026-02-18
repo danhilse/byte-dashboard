@@ -48,6 +48,7 @@ import {
 import { TaskStatusBadge, TaskPriorityBadge } from "@/components/common/status-badge"
 import { taskStatusConfig, taskPriorityConfig } from "@/lib/status-config"
 import { getTaskLinks, toTaskLinkHref } from "@/lib/tasks/presentation"
+import { validateTaskPayload, type ValidationError } from "@/lib/validation/rules"
 import { useDetailDialogEdit } from "@/hooks/use-detail-dialog-edit"
 import type { Task, TaskStatus, TaskPriority } from "@/types"
 
@@ -75,6 +76,7 @@ export function TaskDetailDialog({
   const [approvalComment, setApprovalComment] = useState("")
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
 
   const {
     isEditing,
@@ -82,7 +84,7 @@ export function TaskDetailDialog({
     displayItem: displayTask,
     handleEdit,
     handleSave,
-    handleCancel,
+    handleCancel: rawCancel,
     handleDelete,
     updateField,
     handleQuickStatusUpdate,
@@ -92,6 +94,32 @@ export function TaskDetailDialog({
     onDelete: onDeleteTask,
     onClose: () => onOpenChange(false),
   })
+
+  const fieldError = (field: string) =>
+    validationErrors.find((e) => e.field === field)?.message
+
+  const handleSaveWithValidation = () => {
+    if (!editedTask) return
+    const errors = validateTaskPayload(
+      {
+        title: editedTask.title,
+        description: editedTask.description,
+        priority: editedTask.priority,
+      },
+      "update"
+    )
+    if (errors.length > 0) {
+      setValidationErrors(errors)
+      return
+    }
+    setValidationErrors([])
+    handleSave()
+  }
+
+  const handleCancel = () => {
+    setValidationErrors([])
+    rawCancel()
+  }
 
   const handleApprove = async () => {
     if (!task || !onApprove) return
@@ -134,11 +162,16 @@ export function TaskDetailDialog({
           <div className="flex items-start justify-between gap-4 pr-10">
             <div className="flex-1">
               {isEditing ? (
-                <Input
-                  value={editedTask?.title ?? ""}
-                  onChange={(e) => updateField("title", e.target.value)}
-                  className="text-lg font-semibold"
-                />
+                <div>
+                  <Input
+                    value={editedTask?.title ?? ""}
+                    onChange={(e) => updateField("title", e.target.value)}
+                    className="text-lg font-semibold"
+                  />
+                  {fieldError("title") && (
+                    <p className="text-xs text-destructive mt-1">{fieldError("title")}</p>
+                  )}
+                </div>
               ) : (
                 <DialogTitle className="text-lg">{displayTask.title}</DialogTitle>
               )}
@@ -390,7 +423,7 @@ export function TaskDetailDialog({
                 <Button variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>Save Changes</Button>
+                <Button onClick={handleSaveWithValidation}>Save Changes</Button>
               </>
             ) : (
               !isApprovalPending && (

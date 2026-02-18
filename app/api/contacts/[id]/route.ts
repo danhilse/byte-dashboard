@@ -5,6 +5,32 @@ import { contacts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import { triggerWorkflowDefinitionsForContactUpdated } from "@/lib/workflow-triggers";
+import {
+  findForbiddenContactWriteFields,
+  redactContactForRead,
+  resolveContactFieldAccess,
+} from "@/lib/auth/field-visibility";
+import { validateContactPayload } from "@/lib/validation/rules";
+import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
+
+interface ContactMutationPayload {
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  role?: string | null;
+  status?: string | null;
+  avatarUrl?: string | null;
+  lastContactedAt?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  tags?: string[] | null;
+  metadata?: Record<string, unknown> | null;
+}
 
 const TRACKED_CONTACT_FIELDS = [
   "firstName",
@@ -81,7 +107,8 @@ export async function GET(
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { orgId } = authResult.context;
+    const { orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const [contact] = await db
       .select()
@@ -92,7 +119,9 @@ export async function GET(
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ contact });
+    return NextResponse.json({
+      contact: redactContactForRead(contact, fieldAccess.readableFields),
+    });
   } catch (error) {
     console.error("Error fetching contact:", error);
     return NextResponse.json(
@@ -123,7 +152,8 @@ export async function PATCH(
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, orgId } = authResult.context;
+    const { userId, orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const [existingContact] = await db
       .select()
@@ -134,7 +164,29 @@ export async function PATCH(
       return NextResponse.json({ error: "Contact not found" }, { status: 404 });
     }
 
-    const body = await req.json();
+    const result = await parseJsonBody(req);
+    if ("error" in result) return result.error;
+    const body = result.body as ContactMutationPayload;
+
+    const forbiddenFields = findForbiddenContactWriteFields(
+      body as Record<string, unknown>,
+      fieldAccess.writableFields
+    );
+
+    if (forbiddenFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Forbidden",
+          details: "You do not have permission to update one or more contact fields",
+          fields: forbiddenFields,
+        },
+        { status: 403 }
+      );
+    }
+
+    const validationErrors = validateContactPayload(body as unknown as Record<string, unknown>, "update");
+    if (validationErrors.length > 0) return validationErrorResponse(validationErrors);
+
     const {
       firstName,
       lastName,
@@ -167,7 +219,11 @@ export async function PATCH(
     if (role !== undefined) updateData.role = role;
     if (status !== undefined) updateData.status = status;
     if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
-    if (lastContactedAt !== undefined) updateData.lastContactedAt = lastContactedAt;
+    if (lastContactedAt !== undefined) {
+      updateData.lastContactedAt = lastContactedAt
+        ? new Date(String(lastContactedAt))
+        : null;
+    }
     if (addressLine1 !== undefined) updateData.addressLine1 = addressLine1;
     if (addressLine2 !== undefined) updateData.addressLine2 = addressLine2;
     if (city !== undefined) updateData.city = city;
@@ -213,7 +269,9 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ contact });
+    return NextResponse.json({
+      contact: redactContactForRead(contact, fieldAccess.readableFields),
+    });
   } catch (error) {
     console.error("Error updating contact:", error);
     return NextResponse.json(

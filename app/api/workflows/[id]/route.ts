@@ -11,6 +11,10 @@ import {
   isAllowedWorkflowStatus,
 } from "@/lib/workflow-status";
 import type { DefinitionStatus, WorkflowExecutionState } from "@/types";
+import {
+  redactContactForRead,
+  resolveContactFieldAccess,
+} from "@/lib/auth/field-visibility";
 
 const ALLOWED_WORKFLOW_EXECUTION_STATES: ReadonlySet<WorkflowExecutionState> =
   new Set(["running", "completed", "error", "timeout", "cancelled"]);
@@ -34,7 +38,8 @@ export async function GET(
       return authResult.response;
     }
 
-    const { orgId } = authResult.context;
+    const { orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const [result] = await db
       .select({
@@ -44,10 +49,19 @@ export async function GET(
         definitionStatuses: workflowDefinitions.statuses,
       })
       .from(workflowExecutions)
-      .leftJoin(contacts, eq(workflowExecutions.contactId, contacts.id))
+      .leftJoin(
+        contacts,
+        and(
+          eq(workflowExecutions.contactId, contacts.id),
+          eq(contacts.orgId, orgId)
+        )
+      )
       .leftJoin(
         workflowDefinitions,
-        eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
+        and(
+          eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id),
+          eq(workflowDefinitions.orgId, orgId)
+        )
       )
       .where(and(eq(workflowExecutions.id, id), eq(workflowExecutions.orgId, orgId)));
 
@@ -58,8 +72,11 @@ export async function GET(
       );
     }
 
-    const contactName = result.contact
-      ? `${result.contact.firstName ?? ""} ${result.contact.lastName ?? ""}`.trim()
+    const redactedContact = result.contact
+      ? redactContactForRead(result.contact, fieldAccess.readableFields)
+      : null;
+    const contactName = redactedContact
+      ? `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim()
       : undefined;
     const workflowExecutionState =
       result.workflow.workflowExecutionState ??
@@ -68,9 +85,9 @@ export async function GET(
     return NextResponse.json({
       ...result.workflow,
       workflowExecutionState,
-      contact: result.contact,
+      contact: redactedContact,
       contactName,
-      contactAvatarUrl: result.contact?.avatarUrl ?? undefined,
+      contactAvatarUrl: redactedContact?.avatarUrl ?? undefined,
       definitionName: result.definitionName ?? undefined,
       definitionStatuses:
         (result.definitionStatuses as DefinitionStatus[] | null) ?? undefined,

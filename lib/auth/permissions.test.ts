@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { listPermissionsForRole, roleHasPermission } from "./permissions";
+import {
+  listPermissionsForRole,
+  roleHasPermission,
+  rolesHavePermission,
+} from "./permissions";
 
 describe("auth permissions", () => {
   it("grants full access to admin-equivalent roles", () => {
@@ -28,11 +32,30 @@ describe("auth permissions", () => {
     expect(roleHasPermission("guest", "workflows.trigger")).toBe(false);
   });
 
-  it("falls back unknown/custom roles to member-equivalent permissions", () => {
-    expect(roleHasPermission("reviewer", "tasks.read")).toBe(true);
-    expect(roleHasPermission("reviewer", "workflow-definitions.write")).toBe(
+  it("does not grant implicit permissions for unknown roles", () => {
+    expect(roleHasPermission("reviewer", "tasks.read")).toBe(false);
+    expect(roleHasPermission("custom-role", "workflow-definitions.write")).toBe(
       false
     );
-    expect(listPermissionsForRole("custom-role").length).toBeGreaterThan(0);
+    expect(listPermissionsForRole("custom-role")).toEqual([]);
+  });
+
+  it("resolves custom-role permissions from org-specific mappings", () => {
+    const customRolePermissions = new Map([
+      ["reviewer", new Set(["tasks.read", "tasks.claim"] as const)],
+      ["qa", new Set(["contacts.read"] as const)],
+    ]);
+
+    expect(
+      roleHasPermission("reviewer", "tasks.read", { customRolePermissions })
+    ).toBe(true);
+    expect(
+      roleHasPermission("reviewer", "tasks.write", { customRolePermissions })
+    ).toBe(false);
+    expect(
+      rolesHavePermission(["qa", "member"], "contacts.write", {
+        customRolePermissions,
+      })
+    ).toBe(true);
   });
 });

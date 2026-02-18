@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
   logActivity: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
+  redactContactForRead: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -17,6 +19,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
+  redactContactForRead: mocks.redactContactForRead,
+}));
 
 import { GET, POST } from "@/app/api/workflows/route";
 
@@ -46,6 +52,11 @@ describe("app/api/workflows/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName", "lastName", "avatarUrl", "email"]),
+      writableFields: new Set(),
+    });
+    mocks.redactContactForRead.mockImplementation((contact) => contact);
   });
 
   it("GET returns 401 when unauthenticated", async () => {
@@ -101,6 +112,11 @@ describe("app/api/workflows/route", () => {
         },
       ],
     });
+    expect(mocks.resolveContactFieldAccess).toHaveBeenCalledWith({
+      orgId: "org_1",
+      orgRoles: ["guest"],
+    });
+    expect(mocks.redactContactForRead).toHaveBeenCalledTimes(1);
   });
 
   it("POST returns 403 for guest users", async () => {
@@ -126,7 +142,7 @@ describe("app/api/workflows/route", () => {
   });
 
   it("POST returns 400 when contactId is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await POST(
       new Request("http://localhost/api/workflows", {
@@ -140,7 +156,7 @@ describe("app/api/workflows/route", () => {
   });
 
   it("POST creates workflow and logs activity", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectQuery([

@@ -213,7 +213,7 @@ describe("app/api/tasks/route", () => {
   });
 
   it("returns 400 when title is missing on POST", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
 
     const res = await POST(
       new Request("http://localhost/api/tasks", {
@@ -223,12 +223,54 @@ describe("app/api/tasks/route", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "title is required" });
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "title" })])
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid priority enum on POST", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+
+    const res = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title: "Test", priority: "critical" }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "priority" })])
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for invalid taskType enum on POST", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+
+    const res = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title: "Test", taskType: "review" }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Validation failed");
+    expect(json.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "taskType" })])
+    );
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the provided contact is not in org", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select.mockReturnValueOnce(createSimpleSelectQuery([]));
 
     const res = await POST(
@@ -243,7 +285,7 @@ describe("app/api/tasks/route", () => {
   });
 
   it("auto-assigns task to creator when no assignedTo is provided", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     const insertQuery = createInsertQuery([
       { id: "task_1", title: "My task", assignedTo: "user_1" },
     ]);
@@ -262,7 +304,7 @@ describe("app/api/tasks/route", () => {
   });
 
   it("creates a task and logs activity", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(createSimpleSelectQuery([{ id: "contact_1" }]))
       .mockReturnValueOnce(createSimpleSelectQuery([{ id: "workflow_1" }]));
@@ -321,7 +363,7 @@ describe("app/api/tasks/route", () => {
   });
 
   it("normalizes task links in metadata on POST", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     const insertQuery = createInsertQuery([
       { id: "task_1", title: "Task with links", metadata: { links: ["https://a.example"] } },
     ]);

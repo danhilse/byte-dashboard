@@ -66,7 +66,7 @@ export async function GET(
 ) {
   try {
     const authResult = await requireApiAuth({
-      requiredPermission: "workflow-definitions.read",
+      requiredPermission: "workflow-definitions.read_full",
     });
     const { id } = await params;
 

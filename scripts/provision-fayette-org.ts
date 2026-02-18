@@ -18,6 +18,7 @@ interface ProvisionOptions {
   ownerUserId: string | null;
   dryRun: boolean;
   skipDbSync: boolean;
+  allowOwnerMismatch: boolean;
 }
 
 interface ClerkEmailAddress {
@@ -54,6 +55,7 @@ function printUsage(): void {
       "  --org-id <id>             Existing organization ID (skip slug lookup/create)",
       "  --owner-email <email>     Owner user email",
       "  --owner-user-id <id>      Owner Clerk user ID",
+      "  --allow-owner-mismatch    Continue even if organization owner differs from target owner",
       "  --dry-run                 Print planned changes without writing to Clerk/DB",
       "  --skip-db-sync            Skip syncing local DB user/membership records",
       "",
@@ -107,6 +109,7 @@ function parseOptions(): ProvisionOptions {
     null;
   const dryRun = hasFlag("--dry-run");
   const skipDbSync = hasFlag("--skip-db-sync");
+  const allowOwnerMismatch = hasFlag("--allow-owner-mismatch");
 
   return {
     orgName,
@@ -116,6 +119,7 @@ function parseOptions(): ProvisionOptions {
     ownerUserId,
     dryRun,
     skipDbSync,
+    allowOwnerMismatch,
   };
 }
 
@@ -275,6 +279,7 @@ async function run(): Promise<void> {
   console.log(`  ownerUserId: ${options.ownerUserId ?? "(resolved by email)"}`);
   console.log(`  dryRun: ${options.dryRun}`);
   console.log(`  skipDbSync: ${options.skipDbSync}`);
+  console.log(`  allowOwnerMismatch: ${options.allowOwnerMismatch}`);
 
   const ownerUser = await resolveOwnerUser(client, options);
   console.log(
@@ -310,12 +315,17 @@ async function run(): Promise<void> {
   }
 
   if (organization.createdBy && organization.createdBy !== ownerUser.id) {
-    console.warn(
-      [
-        `WARNING: org owner is currently ${organization.createdBy}, not ${ownerUser.id}.`,
-        "If ownership should change, complete owner transfer in Clerk dashboard.",
-      ].join(" ")
-    );
+    const ownerMismatchMessage = [
+      `Org owner is currently ${organization.createdBy}, not ${ownerUser.id}.`,
+      "Ownership transfer cannot be performed via Clerk Backend API.",
+      "Complete owner transfer in Clerk Dashboard before rerunning, or pass --allow-owner-mismatch to proceed intentionally.",
+    ].join(" ");
+
+    if (!options.allowOwnerMismatch) {
+      throw new Error(ownerMismatchMessage);
+    }
+
+    console.warn(`WARNING: ${ownerMismatchMessage}`);
   }
 
   const membership = await ensureOwnerMembership(

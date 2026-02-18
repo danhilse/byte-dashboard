@@ -48,7 +48,7 @@ describe("app/api/notes/[id]/route", () => {
   });
 
   it("returns 403 when note exists but belongs to another user", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.delete.mockReturnValue(deleteQuery([]));
     mocks.select.mockReturnValue(selectQuery([{ id: "note_1" }]));
 
@@ -63,7 +63,7 @@ describe("app/api/notes/[id]/route", () => {
   });
 
   it("returns success when note is deleted", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.delete.mockReturnValue(deleteQuery([{ id: "note_1" }]));
 
     const res = await DELETE(new Request("http://localhost"), {

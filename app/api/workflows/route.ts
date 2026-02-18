@@ -9,6 +9,10 @@ import {
   isAllowedWorkflowStatus,
 } from "@/lib/workflow-status";
 import type { DefinitionStatus } from "@/types";
+import {
+  redactContactForRead,
+  resolveContactFieldAccess,
+} from "@/lib/auth/field-visibility";
 
 /**
  * GET /api/workflows
@@ -26,7 +30,8 @@ export async function GET() {
       return authResult.response;
     }
 
-    const { orgId } = authResult.context;
+    const { orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const rows = await db
       .select({
@@ -48,14 +53,20 @@ export async function GET() {
       )
       .leftJoin(
         workflowDefinitions,
-        eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id)
+        and(
+          eq(workflowExecutions.workflowDefinitionId, workflowDefinitions.id),
+          eq(workflowDefinitions.orgId, orgId)
+        )
       )
       .where(eq(workflowExecutions.orgId, orgId))
       .orderBy(desc(workflowExecutions.startedAt));
 
     const executions = rows.map(({ workflow, contact, definitionName, definitionStatuses }) => {
-      const contactName = contact
-        ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()
+      const redactedContact = contact
+        ? redactContactForRead(contact, fieldAccess.readableFields)
+        : null;
+      const contactName = redactedContact
+        ? `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim()
         : undefined;
       const workflowExecutionState =
         workflow.workflowExecutionState ??
@@ -64,9 +75,9 @@ export async function GET() {
       return {
         ...workflow,
         workflowExecutionState,
-        contact,
+        contact: redactedContact,
         contactName,
-        contactAvatarUrl: contact?.avatarUrl ?? undefined,
+        contactAvatarUrl: redactedContact?.avatarUrl ?? undefined,
         definitionName: definitionName ?? undefined,
         definitionStatuses:
           (definitionStatuses as DefinitionStatus[] | null) ?? undefined,

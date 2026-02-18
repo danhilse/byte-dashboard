@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTemporalClient } from "@/lib/temporal/client";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import type {
   HelloWorkflowInput,
   HelloWorkflowResult,
@@ -14,6 +15,15 @@ import type {
  */
 export async function POST(req: Request) {
   try {
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflows.trigger",
+    });
+
+    if (!authResult.ok) {
+      return authResult.response;
+    }
+
+    const { orgId, userId } = authResult.context;
     const body = (await req.json()) as HelloWorkflowInput;
 
     if (!body.name) {
@@ -30,7 +40,7 @@ export async function POST(req: Request) {
     const handle = await client.workflow.start("helloWorldWorkflow", {
       taskQueue: "byte-dashboard",
       args: [body],
-      workflowId: `hello-${body.name}-${Date.now()}`,
+      workflowId: `hello-${orgId}-${userId}-${Date.now()}`,
     });
 
     console.log(`Started workflow ${handle.workflowId}`);
@@ -62,6 +72,15 @@ export async function POST(req: Request) {
  */
 export async function GET(req: Request) {
   try {
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflows.trigger",
+    });
+
+    if (!authResult.ok) {
+      return authResult.response;
+    }
+
+    const { orgId } = authResult.context;
     const { searchParams } = new URL(req.url);
     const temporalWorkflowId = searchParams.get("temporalWorkflowId");
 
@@ -70,6 +89,11 @@ export async function GET(req: Request) {
         { error: "temporalWorkflowId is required" },
         { status: 400 }
       );
+    }
+
+    const scopedPrefix = `hello-${orgId}-`;
+    if (!temporalWorkflowId.startsWith(scopedPrefix)) {
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
     }
 
     const client = await getTemporalClient();

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   delete: vi.fn(),
   getTemporalClient: vi.fn(),
   logActivity: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
+  redactContactForRead: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -24,6 +26,10 @@ vi.mock("@/lib/temporal/client", () => ({
   getTemporalClient: mocks.getTemporalClient,
 }));
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
+  redactContactForRead: mocks.redactContactForRead,
+}));
 
 import { DELETE, GET, PATCH } from "@/app/api/workflows/[id]/route";
 
@@ -59,10 +65,76 @@ describe("app/api/workflows/[id]/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName", "lastName", "avatarUrl", "email"]),
+      writableFields: new Set(),
+    });
+    mocks.redactContactForRead.mockImplementation((contact) => contact);
+  });
+
+  it("GET returns workflow details with redacted contact data", async () => {
+    const redactedContact = {
+      id: "contact_1",
+      firstName: "Ada",
+      lastName: "Lovelace",
+      email: null,
+      avatarUrl: "https://img",
+    };
+
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+    mocks.select.mockReturnValue(
+      workflowGetQuery([
+        {
+          workflow: {
+            id: "wf_1",
+            status: "running",
+            completedAt: null,
+          },
+          contact: {
+            id: "contact_1",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada@example.com",
+            avatarUrl: "https://img",
+          },
+          definitionName: "Applicant Review",
+          definitionStatuses: [],
+        },
+      ])
+    );
+    mocks.redactContactForRead.mockReturnValue(redactedContact);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "wf_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      id: "wf_1",
+      status: "running",
+      completedAt: null,
+      workflowExecutionState: "running",
+      contact: redactedContact,
+      contactName: "Ada Lovelace",
+      contactAvatarUrl: "https://img",
+      definitionName: "Applicant Review",
+      definitionStatuses: [],
+    });
+    expect(mocks.resolveContactFieldAccess).toHaveBeenCalledWith({
+      orgId: "org_1",
+      orgRoles: ["member"],
+    });
+    expect(mocks.redactContactForRead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "contact_1",
+        email: "ada@example.com",
+      }),
+      expect.any(Set)
+    );
   });
 
   it("GET returns 404 when workflow is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select.mockReturnValue(workflowGetQuery([]));
 
     const res = await GET(new Request("http://localhost"), {
@@ -74,7 +146,7 @@ describe("app/api/workflows/[id]/route", () => {
   });
 
   it("PATCH returns 409 for status changes on temporal-managed workflows", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select.mockReturnValue(
       selectNoLimitQuery([{ id: "wf_1", temporalWorkflowId: "temporal-1" }])
     );
@@ -97,7 +169,7 @@ describe("app/api/workflows/[id]/route", () => {
   });
 
   it("DELETE returns 409 when workflow has related tasks", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(selectNoLimitQuery([{ id: "wf_1", temporalWorkflowId: null }]))
       .mockReturnValueOnce(selectQuery([{ id: "task_1" }]));
@@ -116,7 +188,7 @@ describe("app/api/workflows/[id]/route", () => {
   });
 
   it("DELETE removes workflow and logs activity", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(selectNoLimitQuery([{ id: "wf_1", temporalWorkflowId: null }]))
       .mockReturnValueOnce(selectQuery([]));
@@ -150,7 +222,7 @@ describe("app/api/workflows/[id]/route", () => {
     const terminate = vi.fn().mockResolvedValue(undefined);
     const getHandle = vi.fn().mockReturnValue({ terminate });
 
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectNoLimitQuery([
@@ -187,7 +259,7 @@ describe("app/api/workflows/[id]/route", () => {
         new WorkflowNotFoundError("missing", "temporal-1", "run-1")
       );
 
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectNoLimitQuery([
@@ -223,7 +295,7 @@ describe("app/api/workflows/[id]/route", () => {
       .fn()
       .mockRejectedValue(new Error("temporal unavailable"));
 
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(
         selectNoLimitQuery([

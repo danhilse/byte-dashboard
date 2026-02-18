@@ -18,8 +18,8 @@ export const CONTACT_FIELD_KEYS = [
 export type ContactFieldKey = (typeof CONTACT_FIELD_KEYS)[number]
 
 export const TASK_FIELD_KEYS = [
-  "title", "description", "status", "priority", "assignedTo", "assignedRole",
-  "dueDate", "outcome", "completedAt",
+  "title", "description", "status", "priority", "taskType",
+  "assignedTo", "assignedRole", "dueDate", "outcome", "completedAt",
 ] as const
 export type TaskFieldKey = (typeof TASK_FIELD_KEYS)[number]
 
@@ -236,6 +236,16 @@ const TASK_FIELDS: readonly EntityFieldDefinition[] = [
     entity: "task",
     isRuntimeWritable: true,
     enumValues: ["low", "medium", "high", "urgent"] as const,
+  },
+  {
+    key: "taskType",
+    label: "Task Type",
+    description: "Standard or approval task",
+    dataType: "text",
+    inputType: "text",
+    entity: "task",
+    isRuntimeWritable: false,
+    enumValues: ["standard", "approval"] as const,
   },
   {
     key: "assignedTo",

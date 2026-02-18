@@ -67,27 +67,93 @@ const ROLE_PERMISSION_MAP: Record<BaseOrgRole, ReadonlySet<AuthPermission>> = {
   guest: new Set(GUEST_PERMISSIONS),
 };
 
-export function resolveBaseOrgRole(role: NullableString): BaseOrgRole {
+export type CustomRolePermissionMap = Map<string, ReadonlySet<AuthPermission>>;
+
+interface PermissionResolutionOptions {
+  customRolePermissions?: CustomRolePermissionMap;
+}
+
+function normalizeRoleList(
+  roles: Iterable<NullableString>
+): string[] {
+  const normalized = new Set<string>();
+
+  for (const role of roles) {
+    const parsed = normalizeOrgRole(role);
+    if (parsed) {
+      normalized.add(parsed);
+    }
+  }
+
+  return [...normalized];
+}
+
+export function isBaseOrgRole(role: NullableString): role is BaseOrgRole {
+  const normalized = normalizeOrgRole(role);
+  return (
+    normalized === "owner" ||
+    normalized === "admin" ||
+    normalized === "member" ||
+    normalized === "user" ||
+    normalized === "guest"
+  );
+}
+
+export function resolveBaseOrgRole(role: NullableString): BaseOrgRole | null {
   const normalized = normalizeOrgRole(role);
 
   if (normalized === "owner") return "owner";
   if (normalized === "admin") return "admin";
+  if (normalized === "member") return "member";
   if (normalized === "guest") return "guest";
   if (normalized === "user") return "user";
 
-  // Unknown/custom roles get member-equivalent defaults until custom RBAC lands.
-  return "member";
+  return null;
+}
+
+export function listPermissionsForRoles(
+  roles: Iterable<NullableString>,
+  options?: PermissionResolutionOptions
+): AuthPermission[] {
+  const customRolePermissions = options?.customRolePermissions ?? new Map();
+  const resolvedPermissions = new Set<AuthPermission>();
+
+  for (const role of normalizeRoleList(roles)) {
+    const baseRole = resolveBaseOrgRole(role);
+    if (baseRole) {
+      for (const permission of ROLE_PERMISSION_MAP[baseRole]) {
+        resolvedPermissions.add(permission);
+      }
+      continue;
+    }
+
+    for (const permission of customRolePermissions.get(role) ?? []) {
+      resolvedPermissions.add(permission);
+    }
+  }
+
+  return [...resolvedPermissions];
+}
+
+export function rolesHavePermission(
+  roles: Iterable<NullableString>,
+  permission: AuthPermission,
+  options?: PermissionResolutionOptions
+): boolean {
+  return listPermissionsForRoles(roles, options).includes(permission);
 }
 
 export function roleHasPermission(
   role: NullableString,
-  permission: AuthPermission
+  permission: AuthPermission,
+  options?: PermissionResolutionOptions
 ): boolean {
-  const baseRole = resolveBaseOrgRole(role);
-  return ROLE_PERMISSION_MAP[baseRole].has(permission);
+  return rolesHavePermission([role], permission, options);
 }
 
-export function listPermissionsForRole(role: NullableString): AuthPermission[] {
-  const baseRole = resolveBaseOrgRole(role);
-  return [...ROLE_PERMISSION_MAP[baseRole]];
+export function listPermissionsForRole(
+  role: NullableString,
+  options?: PermissionResolutionOptions
+): AuthPermission[] {
+  return listPermissionsForRoles([role], options);
 }

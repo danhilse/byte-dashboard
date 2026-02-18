@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { contactStatusConfig } from "@/lib/status-config"
+import { validateContactPayload, type ValidationError } from "@/lib/validation/rules"
 import type { Contact, ContactStatus } from "@/types"
 
 interface ContactFormDialogProps {
@@ -74,6 +75,10 @@ export function ContactFormDialog({
   const [zip, setZip] = useState(
     mode === "edit" && contact ? (contact.zip ?? "") : ""
   )
+  const [errors, setErrors] = useState<ValidationError[]>([])
+
+  const fieldError = (field: string) =>
+    errors.find((e) => e.field === field)?.message
 
   const resetForm = () => {
     setFirstName("")
@@ -89,6 +94,7 @@ export function ContactFormDialog({
     setCity("")
     setState("")
     setZip("")
+    setErrors([])
   }
 
   const hydrateFromContact = (source: Contact) => {
@@ -143,6 +149,16 @@ export function ContactFormDialog({
       lastContactedAt: new Date().toISOString(),
     }
 
+    const validationErrors = validateContactPayload(
+      contactData as Record<string, unknown>,
+      mode === "edit" ? "update" : "create"
+    )
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+    setErrors([])
+
     if (mode === "edit" && contact) {
       onSubmit({
         ...contact,
@@ -196,6 +212,9 @@ export function ContactFormDialog({
             placeholder="John"
             required
           />
+          {fieldError("firstName") && (
+            <p className="text-xs text-destructive">{fieldError("firstName")}</p>
+          )}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="lastName">
@@ -208,6 +227,9 @@ export function ContactFormDialog({
             placeholder="Doe"
             required
           />
+          {fieldError("lastName") && (
+            <p className="text-xs text-destructive">{fieldError("lastName")}</p>
+          )}
         </div>
       </div>
 
@@ -224,6 +246,9 @@ export function ContactFormDialog({
             placeholder="john@example.com"
             required
           />
+          {fieldError("email") && (
+            <p className="text-xs text-destructive">{fieldError("email")}</p>
+          )}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="phone">Phone</Label>
@@ -273,6 +298,9 @@ export function ContactFormDialog({
               ))}
             </SelectContent>
           </Select>
+          {fieldError("status") && (
+            <p className="text-xs text-destructive">{fieldError("status")}</p>
+          )}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="tags">Tags</Label>

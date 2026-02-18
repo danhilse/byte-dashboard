@@ -12,6 +12,8 @@ import { logActivity } from "@/lib/db/log-activity";
 import { createTaskAssignedNotification } from "@/lib/notifications/service";
 import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 import { isUserInOrganization } from "@/lib/users/service";
+import { validateTaskPayload } from "@/lib/validation/rules";
+import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
 
 /**
  * GET /api/tasks/:id
@@ -112,7 +114,9 @@ export async function PATCH(
     }
     const { userId, orgId, orgRole } = authResult.context;
 
-    const body = await req.json();
+    const result = await parseJsonBody(req);
+    if ("error" in result) return result.error;
+    const body = result.body;
 
     // Reject status updates — must use /api/tasks/[id]/status
     if (body.status !== undefined) {
@@ -124,6 +128,9 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const validationErrors = validateTaskPayload(body, "update");
+    if (validationErrors.length > 0) return validationErrorResponse(validationErrors);
 
     const {
       title,
@@ -162,7 +169,7 @@ export async function PATCH(
       const [contact] = await db
         .select({ id: contacts.id })
         .from(contacts)
-        .where(and(eq(contacts.id, contactId), eq(contacts.orgId, orgId)));
+        .where(and(eq(contacts.id, contactId as string), eq(contacts.orgId, orgId)));
 
       if (!contact) {
         return NextResponse.json(
@@ -173,7 +180,7 @@ export async function PATCH(
     }
 
     if (assignedTo) {
-      const isAssigneeInOrg = await isUserInOrganization(orgId, assignedTo);
+      const isAssigneeInOrg = await isUserInOrganization(orgId, assignedTo as string);
       if (!isAssigneeInOrg) {
         return NextResponse.json(
           { error: "assignedTo must belong to the authenticated organization" },
@@ -194,7 +201,7 @@ export async function PATCH(
     if (contactId !== undefined) updateData.contactId = contactId || null;
     if (dueDate !== undefined) updateData.dueDate = dueDate || null;
     if (position !== undefined) updateData.position = position;
-    if (metadata !== undefined) updateData.metadata = normalizeTaskMetadata(metadata);
+    if (metadata !== undefined) updateData.metadata = normalizeTaskMetadata(metadata as Record<string, unknown> | undefined);
 
     const [task] = await db
       .update(tasks)

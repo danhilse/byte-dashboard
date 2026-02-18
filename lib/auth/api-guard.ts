@@ -1,19 +1,21 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { isOrgAdmin, normalizeOrgRole } from "@/lib/auth/roles";
+import { normalizeOrgRole } from "@/lib/auth/roles";
 import {
-  type AuthPermission,
   type BaseOrgRole,
+  type AuthPermission,
+  isBaseOrgRole,
+  rolesHavePermission,
   resolveBaseOrgRole,
-  roleHasPermission,
 } from "@/lib/auth/permissions";
 
 export interface ApiAuthContext {
   userId: string;
   orgId: string;
   orgRole: string | null;
-  baseOrgRole: BaseOrgRole;
+  orgRoles: string[];
+  baseOrgRole: BaseOrgRole | null;
 }
 
 type RequireApiAuthResult =
@@ -55,6 +57,7 @@ export async function requireApiAuth(
   }
 
   let effectiveOrgRole = normalizeOrgRole(orgRole);
+  let effectiveOrgRoles = effectiveOrgRole ? [effectiveOrgRole] : [];
 
   if (requireOrg && orgId && requireDbMembership) {
     const { getOrganizationMembership } = await import("@/lib/users/service");
@@ -73,9 +76,40 @@ export async function requireApiAuth(
     }
 
     effectiveOrgRole = normalizeOrgRole(membership.role);
+    const membershipRoles = membership.roles
+      .map((role) => normalizeOrgRole(role))
+      .filter((role): role is string => Boolean(role));
+
+    if (effectiveOrgRole) {
+      membershipRoles.push(effectiveOrgRole);
+    }
+
+    effectiveOrgRoles = [...new Set(membershipRoles)];
   }
 
-  if (requireAdmin && !isOrgAdmin(effectiveOrgRole)) {
+  let customRolePermissions:
+    | Map<string, ReadonlySet<AuthPermission>>
+    | undefined;
+
+  if ((requireAdmin || requiredPermission) && requireOrg && orgId) {
+    const hasCustomRoles = effectiveOrgRoles.some(
+      (role) => !isBaseOrgRole(role)
+    );
+
+    if (hasCustomRoles) {
+      const { getOrganizationRolePermissionMap } = await import(
+        "@/lib/auth/role-definitions"
+      );
+      customRolePermissions = await getOrganizationRolePermissionMap(orgId);
+    }
+  }
+
+  if (
+    requireAdmin &&
+    !rolesHavePermission(effectiveOrgRoles, "admin.access", {
+      customRolePermissions,
+    })
+  ) {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
@@ -84,7 +118,9 @@ export async function requireApiAuth(
 
   if (
     requiredPermission &&
-    !roleHasPermission(effectiveOrgRole, requiredPermission)
+    !rolesHavePermission(effectiveOrgRoles, requiredPermission, {
+      customRolePermissions,
+    })
   ) {
     return {
       ok: false,
@@ -98,6 +134,7 @@ export async function requireApiAuth(
       userId,
       orgId: orgId ?? "",
       orgRole: effectiveOrgRole,
+      orgRoles: effectiveOrgRoles,
       baseOrgRole: resolveBaseOrgRole(effectiveOrgRole),
     },
   };

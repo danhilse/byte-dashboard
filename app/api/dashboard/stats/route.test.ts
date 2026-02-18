@@ -40,7 +40,7 @@ describe("app/api/dashboard/stats/route", () => {
   });
 
   it("returns dashboard payload for authenticated users", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.getDashboardStats.mockResolvedValue({ totalContacts: 42 });
     mocks.getWorkflowCountsByStatus.mockResolvedValue({ running: 3, completed: 9 });
     mocks.getRecentWorkflows.mockResolvedValue([{ id: "wf_1" }]);
@@ -64,7 +64,7 @@ describe("app/api/dashboard/stats/route", () => {
 
   it("returns 500 when data loading fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.getDashboardStats.mockRejectedValue(new Error("query failed"));
     mocks.getWorkflowCountsByStatus.mockResolvedValue({});
     mocks.getRecentWorkflows.mockResolvedValue([]);

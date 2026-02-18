@@ -120,6 +120,21 @@ describe("app/api/workflow-definitions/[id]/route", () => {
     });
   });
 
+  it("GET returns 403 for non-admin users", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("GET returns 404 when definition not found", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([]));
