@@ -66,7 +66,8 @@ export async function GET() {
         ? redactContactForRead(contact, fieldAccess.readableFields)
         : null;
       const contactName = redactedContact
-        ? `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim()
+        ? `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim() ||
+          undefined
         : undefined;
       const workflowExecutionState =
         workflow.workflowExecutionState ??
@@ -112,7 +113,8 @@ export async function POST(req: Request) {
       return authResult.response;
     }
 
-    const { userId, orgId } = authResult.context;
+    const { userId, orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const body = await req.json();
     const {
@@ -206,8 +208,13 @@ export async function POST(req: Request) {
       })
       .returning();
 
+    const redactedContact = redactContactForRead(
+      contact,
+      fieldAccess.readableFields
+    );
     const contactName =
-      `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim();
+      `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim() ||
+      undefined;
 
     await logActivity({
       orgId,
@@ -225,7 +232,7 @@ export async function POST(req: Request) {
           workflow.workflowExecutionState ??
           (workflow.completedAt ? "completed" : "running"),
         contactName,
-        contactAvatarUrl: contact.avatarUrl ?? undefined,
+        contactAvatarUrl: redactedContact.avatarUrl ?? undefined,
         definitionName,
         definitionStatuses,
       },

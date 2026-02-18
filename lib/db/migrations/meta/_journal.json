@@ -50,6 +50,13 @@
       "when": 1771460000000,
       "tag": "0006_crm_field_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771570000000,
+      "tag": "0007_remove_legacy_user_columns",
+      "breakpoints": true
     }
   ]
 }

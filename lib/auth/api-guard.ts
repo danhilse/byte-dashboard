@@ -16,6 +16,7 @@ export interface ApiAuthContext {
   orgRole: string | null;
   orgRoles: string[];
   baseOrgRole: BaseOrgRole | null;
+  hasAdminAccess: boolean;
 }
 
 type RequireApiAuthResult =
@@ -91,7 +92,7 @@ export async function requireApiAuth(
     | Map<string, ReadonlySet<AuthPermission>>
     | undefined;
 
-  if ((requireAdmin || requiredPermission) && requireOrg && orgId) {
+  if (requireOrg && orgId) {
     const hasCustomRoles = effectiveOrgRoles.some(
       (role) => !isBaseOrgRole(role)
     );
@@ -104,11 +105,15 @@ export async function requireApiAuth(
     }
   }
 
+  const hasAdminAccess = rolesHavePermission(
+    effectiveOrgRoles,
+    "admin.access",
+    { customRolePermissions }
+  );
+
   if (
     requireAdmin &&
-    !rolesHavePermission(effectiveOrgRoles, "admin.access", {
-      customRolePermissions,
-    })
+    !hasAdminAccess
   ) {
     return {
       ok: false,
@@ -136,6 +141,7 @@ export async function requireApiAuth(
       orgRole: effectiveOrgRole,
       orgRoles: effectiveOrgRoles,
       baseOrgRole: resolveBaseOrgRole(effectiveOrgRole),
+      hasAdminAccess,
     },
   };
 }

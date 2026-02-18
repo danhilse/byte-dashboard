@@ -31,9 +31,14 @@ export async function PATCH(
       return authResult.response;
     }
 
-    const { userId, orgId, orgRole } = authResult.context;
+    const { userId, orgId, orgRole, hasAdminAccess } = authResult.context;
 
-    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const access = await buildTaskAccessContext({
+      userId,
+      orgId,
+      orgRole,
+      hasAdminAccess,
+    });
 
     const [task] = await db
       .select({

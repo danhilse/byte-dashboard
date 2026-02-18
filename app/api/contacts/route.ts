@@ -162,7 +162,6 @@ export async function POST(req: Request) {
       entityType: "contact",
       entityId: contact.id,
       action: "created",
-      details: { firstName, lastName, email },
     });
 
     try {

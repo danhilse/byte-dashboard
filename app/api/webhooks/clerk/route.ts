@@ -89,11 +89,9 @@ export async function POST(req: Request) {
 
           await upsertClerkUserProfile({
             userId,
-            legacyOrgId: orgId,
             email,
             firstName: data.first_name ?? null,
             lastName: data.last_name ?? null,
-            role: membership.role ?? null,
           });
           await upsertOrganizationMembership({
             orgId,
@@ -124,11 +122,9 @@ export async function POST(req: Request) {
       if (orgId && userId) {
         await upsertClerkUserProfile({
           userId,
-          legacyOrgId: orgId,
           email: data.public_user_data?.identifier ?? "",
           firstName: data.public_user_data?.first_name ?? null,
           lastName: data.public_user_data?.last_name ?? null,
-          role: data.role ?? null,
         });
         await upsertOrganizationMembership({
           orgId,

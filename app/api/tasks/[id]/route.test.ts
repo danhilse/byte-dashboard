@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   canClaimTask: vi.fn(),
   canMutateTask: vi.fn(),
   isUserInOrganization: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -35,6 +36,10 @@ vi.mock("@/lib/tasks/access", () => ({
 
 vi.mock("@/lib/users/service", () => ({
   isUserInOrganization: mocks.isUserInOrganization,
+}));
+
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
 }));
 
 import { DELETE, GET, PATCH } from "@/app/api/tasks/[id]/route";
@@ -74,6 +79,10 @@ describe("app/api/tasks/[id]/route", () => {
     mocks.createTaskAssignedNotification.mockResolvedValue(undefined);
     mocks.buildTaskAccessContext.mockResolvedValue({ userId: "user_1" });
     mocks.isUserInOrganization.mockResolvedValue(true);
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName", "lastName"]),
+      writableFields: new Set(),
+    });
   });
 
   it("GET allows guest role when task-level access permits it", async () => {
@@ -133,6 +142,35 @@ describe("app/api/tasks/[id]/route", () => {
     expect(await res.json()).toEqual({
       error: "You do not have permission to access this task",
     });
+  });
+
+  it("GET redacts contact name when contact name fields are hidden", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set<string>(),
+      writableFields: new Set(),
+    });
+    mocks.select.mockReturnValue(
+      taskDetailsQuery([
+        {
+          id: "task_1",
+          assignedTo: "user_1",
+          assignedRole: "reviewer",
+          contactFirstName: "Ada",
+          contactLastName: "Lovelace",
+        },
+      ])
+    );
+    mocks.canMutateTask.mockReturnValue(true);
+
+    const res = await GET(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "task_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.task.id).toBe("task_1");
+    expect(payload.task).not.toHaveProperty("contactName");
   });
 
   it("PATCH returns 400 when status is included in payload", async () => {

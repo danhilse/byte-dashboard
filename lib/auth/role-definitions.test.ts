@@ -98,6 +98,31 @@ describe("role definitions", () => {
     expect(roleMap.get("analyst")).toEqual(new Set(["contacts.read"]));
   });
 
+  it("normalizes role keys when building org role permission map", async () => {
+    mocks.select.mockReturnValue(
+      selectQuery([
+        {
+          orgId: "org_1",
+          roleKey: "ORG:Reviewer",
+          displayName: "Reviewer",
+          permissions: ["tasks.read"],
+          isSystem: false,
+        },
+        {
+          orgId: "org_1",
+          roleKey: " reviewer ",
+          displayName: "Reviewer Duplicate",
+          permissions: ["tasks.claim"],
+          isSystem: false,
+        },
+      ])
+    );
+
+    const roleMap = await getOrganizationRolePermissionMap("org_1");
+
+    expect(roleMap.get("reviewer")).toEqual(new Set(["tasks.read", "tasks.claim"]));
+  });
+
   it("validates required role key and display name for upsert", async () => {
     await expect(
       upsertOrganizationRoleDefinition({

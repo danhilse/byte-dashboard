@@ -43,6 +43,25 @@ describe("field visibility", () => {
     expect(access.writableFields.has("email")).toBe(true);
   });
 
+  it.each([
+    { role: "owner", canReadEmail: true, canWriteEmail: true },
+    { role: "admin", canReadEmail: true, canWriteEmail: true },
+    { role: "member", canReadEmail: true, canWriteEmail: true },
+    { role: "user", canReadEmail: true, canWriteEmail: true },
+    { role: "guest", canReadEmail: false, canWriteEmail: false },
+  ])(
+    "applies default email read/write matrix for $role",
+    async ({ role, canReadEmail, canWriteEmail }) => {
+      const access = await resolveContactFieldAccess({
+        orgId: "org_1",
+        orgRoles: [role],
+      });
+
+      expect(access.readableFields.has("email")).toBe(canReadEmail);
+      expect(access.writableFields.has("email")).toBe(canWriteEmail);
+    }
+  );
+
   it("limits guest default access for sensitive contact fields", async () => {
     const access = await resolveContactFieldAccess({
       orgId: "org_1",
@@ -83,6 +102,30 @@ describe("field visibility", () => {
       orgRoles: ["reviewer"],
     });
 
+    expect(access.readableFields.has("email")).toBe(true);
+    expect(access.writableFields.has("email")).toBe(false);
+  });
+
+  it("unions field visibility across role sets", async () => {
+    mocks.select.mockReturnValue(
+      selectQuery([
+        {
+          orgId: "org_1",
+          entityType: "contact",
+          fieldKey: "email",
+          roleKey: "reviewer",
+          canRead: true,
+          canWrite: false,
+        },
+      ])
+    );
+
+    const access = await resolveContactFieldAccess({
+      orgId: "org_1",
+      orgRoles: ["guest", "reviewer"],
+    });
+
+    expect(access.readableFields.has("firstName")).toBe(true);
     expect(access.readableFields.has("email")).toBe(true);
     expect(access.writableFields.has("email")).toBe(false);
   });

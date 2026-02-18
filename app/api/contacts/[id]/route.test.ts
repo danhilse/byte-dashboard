@@ -374,4 +374,45 @@ describe("app/api/contacts/[id]/route", () => {
       expect(await res.json()).toEqual({ error: "Contact not found" });
     }
   );
+
+  it("DELETE returns redacted contact payload on success", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName"]),
+      writableFields: new Set(),
+    });
+    mocks.delete.mockReturnValue(
+      deleteQuery([
+        {
+          id: "contact_1",
+          firstName: "Ada",
+          email: "ada@example.com",
+        },
+      ])
+    );
+    mocks.redactContactForRead.mockReturnValue({
+      id: "contact_1",
+      firstName: "Ada",
+      email: null,
+    });
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "contact_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      contact: {
+        id: "contact_1",
+        firstName: "Ada",
+        email: null,
+      },
+    });
+    expect(mocks.redactContactForRead).toHaveBeenCalledTimes(1);
+  });
 });

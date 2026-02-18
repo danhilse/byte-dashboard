@@ -41,12 +41,9 @@ export const users = pgTable(
   "users",
   {
     id: text("id").primaryKey(), // Clerk user ID
-    orgId: text("org_id").notNull(), // LEGACY: kept for backward compatibility
     email: text("email").notNull(),
     firstName: text("first_name"),
     lastName: text("last_name"),
-    role: text("role").default("user").notNull(), // LEGACY: use organizationMemberships.role
-    roles: text("roles").array().default(sql`'{}'`).notNull(), // LEGACY: use organizationMemberships.roles
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -54,10 +51,7 @@ export const users = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    orgIdx: index("idx_users_org").on(table.orgId),
-    rolesIdx: index("idx_users_roles").using("gin", table.roles),
-  })
+  () => ({})
 );
 
 export const organizationMemberships = pgTable(

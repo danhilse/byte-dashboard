@@ -121,6 +121,7 @@ describe("requireApiAuth", () => {
     if (result.ok) {
       expect(result.context.orgRole).toBe("admin");
       expect(result.context.orgRoles).toEqual(["admin"]);
+      expect(result.context.hasAdminAccess).toBe(true);
     }
   });
 
@@ -176,6 +177,37 @@ describe("requireApiAuth", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.context.orgRoles).toEqual(["reviewer"]);
+      expect(result.context.hasAdminAccess).toBe(false);
+    }
+  });
+
+  it("resolves permissions from membership role sets", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:guest",
+    });
+    mocks.getOrganizationMembership.mockResolvedValue({
+      orgId: "org_1",
+      userId: "user_1",
+      role: "guest",
+      roles: ["guest", "reviewer"],
+      clerkRole: null,
+    });
+    mocks.getOrganizationRolePermissionMap.mockResolvedValue(
+      new Map([["reviewer", new Set(["users.read"])]])
+    );
+
+    const result = await requireApiAuth({
+      requireDbMembership: true,
+      requiredPermission: "users.read",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.context.orgRole).toBe("guest");
+      expect(result.context.orgRoles).toEqual(["guest", "reviewer"]);
+      expect(result.context.hasAdminAccess).toBe(false);
     }
   });
 });

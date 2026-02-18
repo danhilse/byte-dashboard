@@ -42,46 +42,39 @@ describe("lib/users/service upsertClerkUserProfile", () => {
     vi.clearAllMocks();
   });
 
-  it("uses normalized role values only for legacy insert compatibility", async () => {
+  it("upserts user profile data without legacy org/role columns", async () => {
     const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined);
     const values = vi.fn().mockReturnValue({ onConflictDoUpdate });
     mocks.insert.mockReturnValue({ values });
 
     await upsertClerkUserProfile({
       userId: "user_1",
-      legacyOrgId: "org_1",
       email: "owner@example.com",
       firstName: "Owner",
       lastName: "User",
-      role: "org:ADMIN",
     });
 
     expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ id: "users.id" }));
     expect(values).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "user_1",
-        orgId: "org_1",
         email: "owner@example.com",
         firstName: "Owner",
         lastName: "User",
-        role: "admin",
-        roles: ["admin"],
       })
     );
   });
 
-  it("does not update legacy org/role columns on profile updates", async () => {
+  it("updates only profile fields on conflict", async () => {
     const onConflictDoUpdate = vi.fn().mockResolvedValue(undefined);
     const values = vi.fn().mockReturnValue({ onConflictDoUpdate });
     mocks.insert.mockReturnValue({ values });
 
     await upsertClerkUserProfile({
       userId: "user_1",
-      legacyOrgId: "org_2",
       email: "updated@example.com",
       firstName: "Updated",
       lastName: "Name",
-      role: "org:member",
     });
 
     expect(onConflictDoUpdate).toHaveBeenCalledTimes(1);
@@ -96,8 +89,5 @@ describe("lib/users/service upsertClerkUserProfile", () => {
         }),
       })
     );
-    expect(args.set).not.toHaveProperty("orgId");
-    expect(args.set).not.toHaveProperty("role");
-    expect(args.set).not.toHaveProperty("roles");
   });
 });

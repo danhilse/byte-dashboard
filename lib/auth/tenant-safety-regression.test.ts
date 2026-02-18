@@ -1,11 +1,45 @@
 /** @vitest-environment node */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 function readWorkspaceFile(path: string): string {
   return readFileSync(join(process.cwd(), path), "utf8");
+}
+
+function listSourceFiles(path: string): string[] {
+  const absolutePath = join(process.cwd(), path);
+  const entries = readdirSync(absolutePath, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const relativePath = join(path, entry.name);
+
+    if (entry.isDirectory()) {
+      if (relativePath === "lib/db/migrations") {
+        continue;
+      }
+      files.push(...listSourceFiles(relativePath));
+      continue;
+    }
+
+    if (!/\.(ts|tsx)$/.test(entry.name)) {
+      continue;
+    }
+
+    if (/\.test\.(ts|tsx)$/.test(entry.name)) {
+      continue;
+    }
+
+    if (relativePath === "lib/db/schema.ts") {
+      continue;
+    }
+
+    files.push(relativePath);
+  }
+
+  return files;
 }
 
 describe("tenant safety regressions", () => {
@@ -56,16 +90,64 @@ describe("tenant safety regressions", () => {
     );
   });
 
-  it("does not treat legacy users org/role fields as update authority", () => {
-    const usersService = readWorkspaceFile("lib/users/service.ts");
-    const match = usersService.match(
-      /insert\(users\)[\s\S]*?onConflictDoUpdate\(\{\s*target:\s*users\.id,\s*set:\s*\{([\s\S]*?)\n\s*\},\s*\}\);/
+  it("removes legacy users org/role columns from schema", () => {
+    const schema = readWorkspaceFile("lib/db/schema.ts");
+    const usersTableMatch = schema.match(
+      /export const users = pgTable\(\s*"users",\s*\{([\s\S]*?)\}\s*,\s*\(\)\s*=>\s*\(\{\}\)\s*\);/
     );
-    expect(match).toBeTruthy();
+    expect(usersTableMatch).toBeTruthy();
 
-    const updateSetBody = match?.[1] ?? "";
-    expect(updateSetBody).not.toMatch(/\borgId:/);
-    expect(updateSetBody).not.toMatch(/\brole:/);
-    expect(updateSetBody).not.toMatch(/\broles:/);
+    const usersTableBody = usersTableMatch?.[1] ?? "";
+    expect(usersTableBody).not.toContain('text("org_id")');
+    expect(usersTableBody).not.toContain('text("role")');
+    expect(usersTableBody).not.toContain('text("roles")');
+  });
+
+  it("does not read legacy users org/role columns in runtime code", () => {
+    const sourceFiles = [...listSourceFiles("app"), ...listSourceFiles("lib")];
+    const forbiddenPatterns = [/users\.orgId\b/, /users\.role\b/, /users\.roles\b/];
+    const offenders: string[] = [];
+
+    for (const sourceFile of sourceFiles) {
+      const contents = readWorkspaceFile(sourceFile);
+      if (forbiddenPatterns.some((pattern) => pattern.test(contents))) {
+        offenders.push(sourceFile);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps activity and notes actor joins membership-scoped", () => {
+    const activityRoute = readWorkspaceFile("app/api/activity/route.ts");
+    expect(activityRoute).toMatch(
+      /leftJoin\(\s*organizationMemberships,\s*and\(\s*eq\(organizationMemberships\.orgId,\s*activityLog\.orgId\),\s*eq\(organizationMemberships\.userId,\s*activityLog\.userId\)\s*\)\s*\)/s
+    );
+    expect(activityRoute).toMatch(
+      /leftJoin\(\s*users,\s*eq\(organizationMemberships\.userId,\s*users\.id\)\s*\)/s
+    );
+
+    const notesRoute = readWorkspaceFile("app/api/notes/route.ts");
+    expect(notesRoute).toMatch(
+      /leftJoin\(\s*organizationMemberships,\s*and\(\s*eq\(organizationMemberships\.orgId,\s*notes\.orgId\),\s*eq\(organizationMemberships\.userId,\s*notes\.userId\)\s*\)\s*\)/s
+    );
+    expect(notesRoute).toMatch(
+      /innerJoin\(\s*users,\s*eq\(users\.id,\s*organizationMemberships\.userId\)\s*\)/s
+    );
+  });
+
+  it("keeps workflow lookups org-scoped in execution routes", () => {
+    const workflowTriggerRoute = readWorkspaceFile("app/api/workflows/trigger/route.ts");
+    expect(workflowTriggerRoute).toMatch(
+      /where\(\s*and\(\s*eq\(contacts\.id,\s*contactId\),\s*eq\(contacts\.orgId,\s*orgId\)\s*\)\s*\)/s
+    );
+    expect(workflowTriggerRoute).toMatch(
+      /where\(\s*and\(\s*eq\(workflowDefinitions\.id,\s*workflowDefinitionId\),\s*eq\(workflowDefinitions\.orgId,\s*orgId\)\s*\)\s*\)/s
+    );
+
+    const workflowByIdRoute = readWorkspaceFile("app/api/workflows/[id]/route.ts");
+    expect(workflowByIdRoute).toMatch(
+      /where\(\s*and\(\s*eq\(workflowExecutions\.id,\s*id\),\s*eq\(workflowExecutions\.orgId,\s*orgId\)\s*\)\s*\)/s
+    );
   });
 });

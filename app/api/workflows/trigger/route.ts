@@ -9,6 +9,10 @@ import type { GenericWorkflowInput } from "@/lib/workflows/generic-workflow";
 import type { DefinitionStatus } from "@/types";
 import { getTemporalTaskQueue } from "@/lib/temporal/task-queue";
 import {
+  redactContactForRead,
+  resolveContactFieldAccess,
+} from "@/lib/auth/field-visibility";
+import {
   fromDefinitionToAuthoring,
   type DefinitionRecordLike,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
@@ -37,7 +41,8 @@ export async function POST(req: Request) {
       return authResult.response;
     }
 
-    const { userId, orgId } = authResult.context;
+    const { userId, orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const body = await req.json();
     const { contactId, workflowDefinitionId, initialStatus } = body;
@@ -137,7 +142,13 @@ export async function POST(req: Request) {
       })
       .returning();
 
-    const contactName = `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim();
+    const redactedContact = redactContactForRead(
+      contact,
+      fieldAccess.readableFields
+    );
+    const contactName =
+      `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim() ||
+      undefined;
 
     await logActivity({
       orgId,
@@ -200,7 +211,7 @@ export async function POST(req: Request) {
           temporalWorkflowId: handle.workflowId,
           temporalRunId: handle.firstExecutionRunId,
           contactName,
-          contactAvatarUrl: contact.avatarUrl ?? undefined,
+          contactAvatarUrl: redactedContact.avatarUrl ?? undefined,
           definitionName,
           definitionStatuses,
         },

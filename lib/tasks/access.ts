@@ -15,12 +15,14 @@ export interface TaskAccessContext {
   orgId: string;
   orgRole: string | null;
   roles: Set<string>;
+  hasAdminAccess: boolean;
 }
 
 interface BuildTaskAccessContextParams {
   userId: string;
   orgId: string;
   orgRole?: string | null;
+  hasAdminAccess?: boolean;
 }
 
 export function normalizeRoleName(role: NullableString): string | null {
@@ -33,6 +35,7 @@ export async function buildTaskAccessContext({
   userId,
   orgId,
   orgRole,
+  hasAdminAccess = false,
 }: BuildTaskAccessContextParams): Promise<TaskAccessContext> {
   const normalizedOrgRole = normalizeRoleName(orgRole);
 
@@ -67,7 +70,7 @@ export async function buildTaskAccessContext({
   // Pragmatic defaults for common flows:
   // - org admins can service role-assigned work
   // - org members can service reviewer work
-  if (normalizedOrgRole === "admin") {
+  if (hasAdminAccess || normalizedOrgRole === "admin") {
     roles.add("manager");
     roles.add("reviewer");
     roles.add("member");
@@ -88,6 +91,7 @@ export async function buildTaskAccessContext({
     orgId,
     orgRole: normalizedOrgRole,
     roles,
+    hasAdminAccess,
   };
 }
 
@@ -98,7 +102,7 @@ export function canAccessAssignedRole(
   const normalizedAssignedRole = normalizeRoleName(assignedRole);
   if (!normalizedAssignedRole) return false;
 
-  if (context.orgRole === "admin") {
+  if (context.hasAdminAccess) {
     return true;
   }
 
@@ -109,7 +113,7 @@ export function canMutateTask(
   context: TaskAccessContext,
   task: TaskAccessTarget
 ): boolean {
-  if (context.orgRole === "admin") return true;
+  if (context.hasAdminAccess) return true;
   return task.assignedTo === context.userId;
 }
 

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   canMutateTask: vi.fn(),
   normalizeRoleName: vi.fn(),
   isUserInOrganization: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -43,6 +44,10 @@ vi.mock("@/lib/tasks/access", () => ({
 
 vi.mock("@/lib/users/service", () => ({
   isUserInOrganization: mocks.isUserInOrganization,
+}));
+
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
 }));
 
 import { GET, POST } from "@/app/api/tasks/route";
@@ -85,6 +90,10 @@ describe("app/api/tasks/route", () => {
       role ? role.trim().toLowerCase() : null
     );
     mocks.isUserInOrganization.mockResolvedValue(true);
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName", "lastName"]),
+      writableFields: new Set(),
+    });
   });
 
   it("returns 401 for unauthenticated GET requests", async () => {
@@ -232,6 +241,41 @@ describe("app/api/tasks/route", () => {
       ],
     });
     expect(mocks.canMutateTask).not.toHaveBeenCalled();
+  });
+
+  it("redacts contact names when contact fields are not readable", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set<string>(),
+      writableFields: new Set(),
+    });
+    const query = createTaskListQuery([
+      {
+        id: "task_1",
+        status: "todo",
+        assignedTo: "user_1",
+        assignedRole: "member",
+        contactFirstName: "Ada",
+        contactLastName: "Lovelace",
+      },
+    ]);
+    mocks.select.mockReturnValue(query);
+    mocks.canMutateTask.mockReturnValue(true);
+
+    const res = await GET(new Request("http://localhost/api/tasks"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      tasks: [
+        {
+          id: "task_1",
+          status: "todo",
+          assignedTo: "user_1",
+          assignedRole: "member",
+          contactName: undefined,
+        },
+      ],
+    });
   });
 
   it("returns 400 when title is missing on POST", async () => {

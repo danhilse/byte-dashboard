@@ -7,6 +7,7 @@ import {
   getMyTasks,
   getRecentActivity,
 } from "@/lib/db/queries";
+import { resolveContactFieldAccess } from "@/lib/auth/field-visibility";
 
 /**
  * GET /api/dashboard/stats
@@ -25,13 +26,19 @@ export async function GET() {
       return authResult.response;
     }
 
-    const { userId, orgId } = authResult.context;
+    const { userId, orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
+    const canReadContactFirstName = fieldAccess.readableFields.has("firstName");
+    const canReadContactLastName = fieldAccess.readableFields.has("lastName");
 
     const [stats, workflowsByStatus, recentWorkflows, myTasks, recentActivity] =
       await Promise.all([
         getDashboardStats(orgId),
         getWorkflowCountsByStatus(orgId),
-        getRecentWorkflows(orgId, 5),
+        getRecentWorkflows(orgId, 5, {
+          canReadContactFirstName,
+          canReadContactLastName,
+        }),
         getMyTasks(orgId, userId, 5),
         getRecentActivity(orgId, 10),
       ]);

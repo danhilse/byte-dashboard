@@ -194,6 +194,7 @@ function DashboardSkeleton() {
 async function DashboardContent() {
   const { userId, orgId } = await requirePageAuth({
     requiredPermission: "dashboard.read",
+    forbiddenRedirect: "/",
   })
 
   const [stats, workflowsByStatus, myTasks, recentWorkflows, recentActivity] = await Promise.all([

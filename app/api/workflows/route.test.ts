@@ -300,4 +300,67 @@ describe("app/api/workflows/route", () => {
       })
     );
   });
+
+  it("POST redacts contact summary fields when field visibility hides them", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["email"]),
+      writableFields: new Set(),
+    });
+    mocks.redactContactForRead.mockReturnValue({
+      id: "contact_1",
+      firstName: null,
+      lastName: null,
+      avatarUrl: null,
+      email: "ada@example.com",
+    });
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "contact_1",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            avatarUrl: "https://img",
+            email: "ada@example.com",
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "def_1",
+            name: "Applicant Review",
+            version: 3,
+          },
+        ])
+      );
+
+    const q = insertQuery([
+      {
+        id: "wf_1",
+        contactId: "contact_1",
+        workflowDefinitionId: "def_1",
+        definitionVersion: 3,
+        status: "",
+      },
+    ]);
+    mocks.insert.mockReturnValue({ values: q.values });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflows", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.workflow.id).toBe("wf_1");
+    expect(payload.workflow).not.toHaveProperty("contactName");
+    expect(payload.workflow).not.toHaveProperty("contactAvatarUrl");
+  });
 });

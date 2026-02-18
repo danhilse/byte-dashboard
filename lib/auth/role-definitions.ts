@@ -52,23 +52,43 @@ export async function listOrganizationRoleDefinitions(
     .from(organizationRoleDefinitions)
     .where(eq(organizationRoleDefinitions.orgId, orgId));
 
-  return rows.map((row) => ({
-    orgId: row.orgId,
-    roleKey: row.roleKey,
-    displayName: row.displayName,
-    permissions: sanitizePermissions(row.permissions),
-    isSystem: row.isSystem,
-  }));
+  return rows.flatMap((row) => {
+    const roleKey = normalizeRoleKey(row.roleKey);
+    if (!roleKey) {
+      return [];
+    }
+
+    return [
+      {
+        orgId: row.orgId,
+        roleKey,
+        displayName: row.displayName,
+        permissions: sanitizePermissions(row.permissions),
+        isSystem: row.isSystem,
+      },
+    ];
+  });
 }
 
 export async function getOrganizationRolePermissionMap(
   orgId: string
 ): Promise<Map<string, ReadonlySet<AuthPermission>>> {
   const definitions = await listOrganizationRoleDefinitions(orgId);
+  const merged = new Map<string, Set<AuthPermission>>();
+
+  for (const definition of definitions) {
+    const current =
+      merged.get(definition.roleKey) ?? new Set<AuthPermission>();
+    for (const permission of definition.permissions) {
+      current.add(permission);
+    }
+    merged.set(definition.roleKey, current);
+  }
+
   return new Map(
-    definitions.map((definition) => [
-      definition.roleKey,
-      new Set<AuthPermission>(definition.permissions),
+    [...merged.entries()].map(([roleKey, permissions]) => [
+      roleKey,
+      permissions as ReadonlySet<AuthPermission>,
     ])
   );
 }

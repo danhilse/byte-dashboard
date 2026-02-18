@@ -46,7 +46,7 @@ export async function PATCH(
       return authResult.response;
     }
 
-    const { userId, orgId, orgRole } = authResult.context;
+    const { userId, orgId, orgRole, hasAdminAccess } = authResult.context;
 
     const result = await parseJsonBody(req);
     if ("error" in result) return result.error;
@@ -75,7 +75,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const access = await buildTaskAccessContext({
+      userId,
+      orgId,
+      orgRole,
+      hasAdminAccess,
+    });
     if (!canMutateTask(access, task)) {
       return NextResponse.json(
         { error: "You do not have permission to update this task" },

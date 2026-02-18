@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   logActivity: vi.fn(),
   getTemporalClient: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
+  redactContactForRead: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
@@ -23,6 +25,10 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/db/log-activity", () => ({ logActivity: mocks.logActivity }));
 vi.mock("@/lib/temporal/client", () => ({
   getTemporalClient: mocks.getTemporalClient,
+}));
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
+  redactContactForRead: mocks.redactContactForRead,
 }));
 
 import { POST } from "@/app/api/workflows/trigger/route";
@@ -50,6 +56,11 @@ describe("app/api/workflows/trigger/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.logActivity.mockResolvedValue(undefined);
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName", "lastName", "avatarUrl"]),
+      writableFields: new Set(),
+    });
+    mocks.redactContactForRead.mockImplementation((contact) => contact);
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -272,6 +283,88 @@ describe("app/api/workflows/trigger/route", () => {
         action: "created",
       })
     );
+  });
+
+  it("redacts contact summary fields in trigger response when contact fields are hidden", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["email", "phone"]),
+      writableFields: new Set(),
+    });
+    mocks.redactContactForRead.mockReturnValue({
+      id: "contact_1",
+      firstName: null,
+      lastName: null,
+      avatarUrl: null,
+      email: "ada@example.com",
+      phone: "555-1234",
+    });
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "contact_1",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            email: "ada@example.com",
+            phone: "555-1234",
+            avatarUrl: "https://img",
+          },
+        ])
+      )
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "def_1",
+            name: "Generic Review",
+            description: null,
+            version: 2,
+            steps: [],
+            phases: [],
+            variables: {},
+            statuses: [],
+            createdAt: new Date("2026-02-09T00:00:00.000Z"),
+            updatedAt: new Date("2026-02-09T00:00:00.000Z"),
+          },
+        ])
+      );
+    mocks.insert.mockReturnValue({
+      values: insertQuery([
+        {
+          id: "wf_1",
+          contactId: "contact_1",
+          workflowDefinitionId: "def_1",
+          definitionVersion: 2,
+          status: "",
+          source: "manual",
+        },
+      ]).values,
+    });
+    mocks.getTemporalClient.mockResolvedValue({
+      workflow: {
+        start: vi.fn().mockResolvedValue({
+          workflowId: "generic-workflow-wf_1",
+          firstExecutionRunId: "run_1",
+        }),
+      },
+    });
+    mocks.update.mockReturnValue({ set: updateQuery().set });
+
+    const res = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: "contact_1",
+          workflowDefinitionId: "def_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.workflow.id).toBe("wf_1");
+    expect(payload.workflow).not.toHaveProperty("contactName");
+    expect(payload.workflow).not.toHaveProperty("contactAvatarUrl");
   });
 
   it("uses trigger-config initial status when request initialStatus is not provided", async () => {

@@ -8,6 +8,7 @@ import {
   canClaimTask,
   canMutateTask,
 } from "@/lib/tasks/access";
+import { resolveContactFieldAccess } from "@/lib/auth/field-visibility";
 import { logActivity } from "@/lib/db/log-activity";
 import { createTaskAssignedNotification } from "@/lib/notifications/service";
 import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
@@ -33,7 +34,8 @@ export async function GET(
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, orgId, orgRole } = authResult.context;
+    const { userId, orgId, orgRole, orgRoles, hasAdminAccess } =
+      authResult.context;
 
     const rows = await db
       .select({
@@ -70,7 +72,19 @@ export async function GET(
     }
 
     const { contactFirstName, contactLastName, ...task } = rows[0];
-    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const access = await buildTaskAccessContext({
+      userId,
+      orgId,
+      orgRole,
+      hasAdminAccess,
+    });
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
+    const safeFirstName = fieldAccess.readableFields.has("firstName")
+      ? contactFirstName
+      : null;
+    const safeLastName = fieldAccess.readableFields.has("lastName")
+      ? contactLastName
+      : null;
 
     if (!canMutateTask(access, task) && !canClaimTask(access, task)) {
       return NextResponse.json(
@@ -80,8 +94,8 @@ export async function GET(
     }
 
     const contactName =
-      contactFirstName || contactLastName
-        ? `${contactFirstName ?? ""} ${contactLastName ?? ""}`.trim()
+      safeFirstName || safeLastName
+        ? `${safeFirstName ?? ""} ${safeLastName ?? ""}`.trim()
         : undefined;
 
     return NextResponse.json({ task: { ...task, contactName } });
@@ -115,7 +129,7 @@ export async function PATCH(
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, orgId, orgRole } = authResult.context;
+    const { userId, orgId, orgRole, hasAdminAccess } = authResult.context;
 
     const result = await parseJsonBody(req);
     if ("error" in result) return result.error;
@@ -147,7 +161,12 @@ export async function PATCH(
       metadata,
     } = body;
 
-    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const access = await buildTaskAccessContext({
+      userId,
+      orgId,
+      orgRole,
+      hasAdminAccess,
+    });
     const [existingTask] = await db
       .select({
         id: tasks.id,
@@ -288,9 +307,14 @@ export async function DELETE(
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, orgId, orgRole } = authResult.context;
+    const { userId, orgId, orgRole, hasAdminAccess } = authResult.context;
 
-    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const access = await buildTaskAccessContext({
+      userId,
+      orgId,
+      orgRole,
+      hasAdminAccess,
+    });
     const [existingTask] = await db
       .select({
         id: tasks.id,

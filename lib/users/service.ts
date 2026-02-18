@@ -82,26 +82,19 @@ function mergeMembershipRoles(
 
 interface UpsertClerkUserProfileInput {
   userId: string;
-  legacyOrgId: string;
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-  role?: string | null;
 }
 
 export async function upsertClerkUserProfile(input: UpsertClerkUserProfileInput) {
-  const normalizedRole = normalizeMembershipRole(input.role);
-
   await db
     .insert(users)
     .values({
       id: input.userId,
-      orgId: input.legacyOrgId,
       email: input.email,
       firstName: input.firstName ?? null,
       lastName: input.lastName ?? null,
-      role: normalizedRole,
-      roles: [normalizedRole],
     })
     .onConflictDoUpdate({
       target: users.id,
@@ -109,7 +102,6 @@ export async function upsertClerkUserProfile(input: UpsertClerkUserProfileInput)
         email: input.email,
         firstName: input.firstName ?? null,
         lastName: input.lastName ?? null,
-        // Keep legacy org/role columns stable. org-scoped authority lives in organization_memberships.
         updatedAt: new Date(),
       },
     });
@@ -224,11 +216,9 @@ export async function syncOrganizationUsersFromClerk(orgId: string): Promise<num
 
       await upsertClerkUserProfile({
         userId: publicUser.userId,
-        legacyOrgId: orgId,
         email: publicUser.identifier || "",
         firstName: publicUser.firstName || null,
         lastName: publicUser.lastName || null,
-        role: membership.role,
       });
 
       await upsertOrganizationMembership({

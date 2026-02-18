@@ -76,7 +76,8 @@ export async function GET(
       ? redactContactForRead(result.contact, fieldAccess.readableFields)
       : null;
     const contactName = redactedContact
-      ? `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim()
+      ? `${redactedContact.firstName ?? ""} ${redactedContact.lastName ?? ""}`.trim() ||
+        undefined
       : undefined;
     const workflowExecutionState =
       result.workflow.workflowExecutionState ??

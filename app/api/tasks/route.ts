@@ -9,6 +9,7 @@ import {
   canMutateTask,
   normalizeRoleName,
 } from "@/lib/tasks/access";
+import { resolveContactFieldAccess } from "@/lib/auth/field-visibility";
 import { logActivity } from "@/lib/db/log-activity";
 import { createTaskAssignedNotification } from "@/lib/notifications/service";
 import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
@@ -36,9 +37,18 @@ export async function GET(req: Request) {
       return authResult.response;
     }
 
-    const { userId, orgId, orgRole } = authResult.context;
+    const { userId, orgId, orgRole, orgRoles, hasAdminAccess } =
+      authResult.context;
 
-    const access = await buildTaskAccessContext({ userId, orgId, orgRole });
+    const access = await buildTaskAccessContext({
+      userId,
+      orgId,
+      orgRole,
+      hasAdminAccess,
+    });
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
+    const canReadContactFirstName = fieldAccess.readableFields.has("firstName");
+    const canReadContactLastName = fieldAccess.readableFields.has("lastName");
 
     const url = new URL(req.url);
     const statusParam = url.searchParams.get("status");
@@ -86,9 +96,11 @@ export async function GET(req: Request) {
       .orderBy(tasks.position, desc(tasks.createdAt));
 
     let result = rows.map(({ contactFirstName, contactLastName, ...task }) => {
+      const safeFirstName = canReadContactFirstName ? contactFirstName : null;
+      const safeLastName = canReadContactLastName ? contactLastName : null;
       const contactName =
-        contactFirstName || contactLastName
-          ? `${contactFirstName ?? ""} ${contactLastName ?? ""}`.trim()
+        safeFirstName || safeLastName
+          ? `${safeFirstName ?? ""} ${safeLastName ?? ""}`.trim()
           : undefined;
 
       return {

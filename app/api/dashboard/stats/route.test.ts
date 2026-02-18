@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getRecentWorkflows: vi.fn(),
   getMyTasks: vi.fn(),
   getRecentActivity: vi.fn(),
+  resolveContactFieldAccess: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -23,11 +24,19 @@ vi.mock("@/lib/db/queries", () => ({
   getRecentActivity: mocks.getRecentActivity,
 }));
 
+vi.mock("@/lib/auth/field-visibility", () => ({
+  resolveContactFieldAccess: mocks.resolveContactFieldAccess,
+}));
+
 import { GET } from "@/app/api/dashboard/stats/route";
 
 describe("app/api/dashboard/stats/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["firstName", "lastName"]),
+      writableFields: new Set(),
+    });
   });
 
   it("returns 401 for unauthenticated requests", async () => {
@@ -57,7 +66,10 @@ describe("app/api/dashboard/stats/route", () => {
       myTasks: [{ id: "task_1" }],
       recentActivity: [{ id: "act_1" }],
     });
-    expect(mocks.getRecentWorkflows).toHaveBeenCalledWith("org_1", 5);
+    expect(mocks.getRecentWorkflows).toHaveBeenCalledWith("org_1", 5, {
+      canReadContactFirstName: true,
+      canReadContactLastName: true,
+    });
     expect(mocks.getMyTasks).toHaveBeenCalledWith("org_1", "user_1", 5);
     expect(mocks.getRecentActivity).toHaveBeenCalledWith("org_1", 10);
   });
@@ -85,6 +97,31 @@ describe("app/api/dashboard/stats/route", () => {
       recentActivity: [],
     });
     expect(mocks.getMyTasks).toHaveBeenCalledWith("org_1", "user_guest", 5);
+  });
+
+  it("passes contact visibility flags to recent workflow query", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_member",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.resolveContactFieldAccess.mockResolvedValue({
+      readableFields: new Set(["lastName"]),
+      writableFields: new Set(),
+    });
+    mocks.getDashboardStats.mockResolvedValue({ totalContacts: 5 });
+    mocks.getWorkflowCountsByStatus.mockResolvedValue({ running: 1 });
+    mocks.getRecentWorkflows.mockResolvedValue([]);
+    mocks.getMyTasks.mockResolvedValue([]);
+    mocks.getRecentActivity.mockResolvedValue([]);
+
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    expect(mocks.getRecentWorkflows).toHaveBeenCalledWith("org_1", 5, {
+      canReadContactFirstName: false,
+      canReadContactLastName: true,
+    });
   });
 
   it("returns 500 when data loading fails", async () => {

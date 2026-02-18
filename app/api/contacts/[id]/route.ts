@@ -302,7 +302,8 @@ export async function DELETE(
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, orgId } = authResult.context;
+    const { userId, orgId, orgRoles } = authResult.context;
+    const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
 
     const [deletedContact] = await db
       .delete(contacts)
@@ -319,10 +320,12 @@ export async function DELETE(
       entityType: "contact",
       entityId: id,
       action: "deleted",
-      details: { firstName: deletedContact.firstName, lastName: deletedContact.lastName },
     });
 
-    return NextResponse.json({ success: true, contact: deletedContact });
+    return NextResponse.json({
+      success: true,
+      contact: redactContactForRead(deletedContact, fieldAccess.readableFields),
+    });
   } catch (error) {
     console.error("Error deleting contact:", error);
     return NextResponse.json(

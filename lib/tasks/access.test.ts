@@ -13,6 +13,7 @@ function makeContext(overrides: Partial<TaskAccessContext> = {}): TaskAccessCont
     orgId: "org_1",
     orgRole: "member",
     roles: new Set(["member", "reviewer", "user"]),
+    hasAdminAccess: false,
     ...overrides,
   };
 }
@@ -43,6 +44,7 @@ describe("canMutateTask", () => {
       userId: "admin_1",
       orgRole: "admin",
       roles: new Set(["admin", "manager", "reviewer", "member", "user"]),
+      hasAdminAccess: true,
     });
     const task = makeTask({ assignedTo: "user_1" });
     expect(canMutateTask(ctx, task)).toBe(true);
@@ -53,8 +55,20 @@ describe("canMutateTask", () => {
       userId: "admin_1",
       orgRole: "admin",
       roles: new Set(["admin", "manager", "reviewer", "member", "user"]),
+      hasAdminAccess: true,
     });
     const task = makeTask({ assignedTo: null });
+    expect(canMutateTask(ctx, task)).toBe(true);
+  });
+
+  it("allows custom roles with admin permission to mutate any task", () => {
+    const ctx = makeContext({
+      userId: "review_lead_1",
+      orgRole: "review_lead",
+      roles: new Set(["review_lead"]),
+      hasAdminAccess: true,
+    });
+    const task = makeTask({ assignedTo: "user_1" });
     expect(canMutateTask(ctx, task)).toBe(true);
   });
 });

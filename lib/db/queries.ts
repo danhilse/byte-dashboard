@@ -121,7 +121,20 @@ export async function getWorkflowsOverTime(orgId: string, days: number = 30) {
 /**
  * Recent workflows with contact and definition names.
  */
-export async function getRecentWorkflows(orgId: string, limit: number = 5) {
+interface RecentWorkflowContactVisibility {
+  canReadContactFirstName: boolean;
+  canReadContactLastName: boolean;
+}
+
+export async function getRecentWorkflows(
+  orgId: string,
+  limit: number = 5,
+  contactVisibility?: RecentWorkflowContactVisibility
+) {
+  const canReadContactFirstName =
+    contactVisibility?.canReadContactFirstName ?? true;
+  const canReadContactLastName =
+    contactVisibility?.canReadContactLastName ?? true;
   const stateExpr = sql<string>`COALESCE(${workflowExecutions.workflowExecutionState}, CASE
     WHEN ${workflowExecutions.completedAt} IS NOT NULL THEN 'completed'
     ELSE 'running'
@@ -159,9 +172,12 @@ export async function getRecentWorkflows(orgId: string, limit: number = 5) {
     id: row.id,
     status: row.status,
     startedAt: row.startedAt.toISOString(),
-    contactName: [row.contactFirstName, row.contactLastName]
+    contactName: [
+      canReadContactFirstName ? row.contactFirstName : null,
+      canReadContactLastName ? row.contactLastName : null,
+    ]
       .filter(Boolean)
-      .join(" ") || "Unknown",
+      .join(" ") || undefined,
     definitionName: row.definitionName ?? undefined,
   }));
 }
