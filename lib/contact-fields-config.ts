@@ -1,116 +1,30 @@
 // ============================================================================
-// Contact Fields Configuration
+// Contact Fields Configuration — derived from field registry
 // ============================================================================
+// Keys are now DB-aligned: addressLine1, addressLine2, zip (not address, zipCode, country)
 
 import type { FieldInputType } from "./field-input-types"
+import { getFieldsForEntity } from "@/lib/field-registry"
 
-export type ContactField =
-  | "email"
-  | "firstName"
-  | "lastName"
-  | "phone"
-  | "company"
-  | "status"
-  | "title"
-  | "department"
-  | "address"
-  | "city"
-  | "state"
-  | "zipCode"
-  | "country"
-  | "notes"
+const contactFieldDefs = getFieldsForEntity("contact")
 
-export const allContactFields: readonly ContactField[] = [
-  "email",
-  "firstName",
-  "lastName",
-  "phone",
-  "company",
-  "status",
-  "title",
-  "department",
-  "address",
-  "city",
-  "state",
-  "zipCode",
-  "country",
-  "notes",
-]
+export type ContactField = (typeof contactFieldDefs)[number]["key"]
 
-export const contactFieldConfig: Record<ContactField, { label: string; description?: string; inputType: FieldInputType }> = {
-  email: {
-    label: "Email",
-    description: "Contact's email address",
-    inputType: "email",
-  },
-  firstName: {
-    label: "First Name",
-    description: "Contact's first name",
-    inputType: "text",
-  },
-  lastName: {
-    label: "Last Name",
-    description: "Contact's last name",
-    inputType: "text",
-  },
-  phone: {
-    label: "Phone",
-    description: "Contact's phone number",
-    inputType: "tel",
-  },
-  company: {
-    label: "Company",
-    description: "Company name",
-    inputType: "text",
-  },
-  status: {
-    label: "Status",
-    description: "Contact status (active, inactive, lead)",
-    inputType: "contact_status",
-  },
-  title: {
-    label: "Job Title",
-    description: "Contact's job title",
-    inputType: "text",
-  },
-  department: {
-    label: "Department",
-    description: "Department within company",
-    inputType: "text",
-  },
-  address: {
-    label: "Address",
-    description: "Street address",
-    inputType: "text",
-  },
-  city: {
-    label: "City",
-    description: "City name",
-    inputType: "text",
-  },
-  state: {
-    label: "State/Province",
-    description: "State or province",
-    inputType: "text",
-  },
-  zipCode: {
-    label: "ZIP/Postal Code",
-    description: "ZIP or postal code",
-    inputType: "text",
-  },
-  country: {
-    label: "Country",
-    description: "Country name",
-    inputType: "text",
-  },
-  notes: {
-    label: "Notes",
-    description: "Additional notes",
-    inputType: "textarea",
-  },
-}
+export const allContactFields: readonly string[] = contactFieldDefs.map((f) => f.key)
 
-export const contactFieldOptions = allContactFields.map((field) => ({
-  value: field,
-  label: contactFieldConfig[field].label,
+export const contactFieldConfig: Record<string, { label: string; description?: string; inputType: FieldInputType }> =
+  Object.fromEntries(
+    contactFieldDefs.map((f) => [
+      f.key,
+      {
+        label: f.label,
+        description: f.description,
+        inputType: f.inputType,
+      },
+    ])
+  )
+
+export const contactFieldOptions = contactFieldDefs.map((f) => ({
+  value: f.key,
+  label: f.label,
 }))

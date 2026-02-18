@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select"
 import { VariableSelector } from "../../variable-selector"
 import { createCustomVariableId } from "@/lib/workflow-builder-v2/id-utils"
+import { getCustomVariableDataTypeOptions } from "@/lib/field-registry"
 
 interface SetVariableConfigProps {
   action: Extract<WorkflowAction, { type: "set_variable" }>
@@ -159,11 +160,11 @@ export function SetVariableConfig({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="boolean">Boolean</SelectItem>
-                      <SelectItem value="date">Date</SelectItem>
+                      {getCustomVariableDataTypeOptions().map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

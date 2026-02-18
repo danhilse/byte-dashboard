@@ -34,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { createCustomVariableId } from "@/lib/workflow-builder-v2/id-utils"
+import { getCustomVariableDataTypeOptions } from "@/lib/field-registry"
 import type { BuilderCommand } from "@/lib/workflow-builder-v2/builder-command-serializer"
 import type { WorkflowDefinitionV2, WorkflowVariable, WorkflowStatus, VariableDataType } from "../types/workflow-v2"
 import { WorkflowJsonExport } from "./workflow-json-export"
@@ -425,11 +426,11 @@ export function WorkflowConfigDialog({
                       }
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <option value="text">Text</option>
-                      <option value="email">Email</option>
-                      <option value="number">Number</option>
-                      <option value="boolean">Boolean</option>
-                      <option value="date">Date</option>
+                      {getCustomVariableDataTypeOptions().map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

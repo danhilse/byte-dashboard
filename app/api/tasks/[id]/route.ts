@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { tasks, contacts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -23,12 +23,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId, orgRole } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.read",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { userId, orgId, orgRole } = authResult.context;
 
     const rows = await db
       .select({
@@ -99,12 +102,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId, orgRole } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.write",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { userId, orgId, orgRole } = authResult.context;
 
     const body = await req.json();
 
@@ -264,12 +270,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId, orgRole } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.write",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { userId, orgId, orgRole } = authResult.context;
 
     const access = await buildTaskAccessContext({ userId, orgId, orgRole });
     const [existingTask] = await db

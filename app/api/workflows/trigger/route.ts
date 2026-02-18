@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
 import { workflowExecutions, contacts, workflowDefinitions } from "@/lib/db/schema";
@@ -29,11 +29,15 @@ import {
  */
 export async function POST(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflows.trigger",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId } = authResult.context;
 
     const body = await req.json();
     const { contactId, workflowDefinitionId, initialStatus } = body;

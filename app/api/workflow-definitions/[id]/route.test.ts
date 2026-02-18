@@ -107,7 +107,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("GET returns definition when found", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([{ id: "def_1", name: "Definition" }]));
 
     const res = await GET(new Request("http://localhost"), {
@@ -121,7 +121,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("GET returns 404 when definition not found", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([]));
 
     const res = await GET(new Request("http://localhost"), {
@@ -133,7 +133,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("GET returns 500 when query throws", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockImplementation(() => {
       throw new Error("read failed");
     });
@@ -164,8 +164,27 @@ describe("app/api/workflow-definitions/[id]/route", () => {
     expect(await res.json()).toEqual({ error: "Unauthorized" });
   });
 
+  it("PATCH returns 403 for non-admin users", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ name: "Updated" }),
+      }),
+      { params: Promise.resolve({ id: "def_1" }) }
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("PATCH returns 404 when transactional clone finds no active definition", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([]));
 
     const res = await PATCH(
@@ -181,7 +200,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 400 when name is invalid", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await PATCH(
       new Request("http://localhost", {
@@ -198,7 +217,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 400 when description is invalid", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await PATCH(
       new Request("http://localhost", {
@@ -215,7 +234,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 400 when statuses contain duplicate order", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await PATCH(
       new Request("http://localhost", {
@@ -237,7 +256,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 400 when authoring payload fails compile validation", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(
       selectQuery([
         {
@@ -298,7 +317,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 400 when authoring payload is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(
       selectQuery([
         {
@@ -334,7 +353,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 400 when existing statuses are invalid", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(
       selectQuery([
         {
@@ -380,7 +399,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH rejects direct steps writes", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await PATCH(
       new Request("http://localhost", {
@@ -398,7 +417,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH compiles authoring and creates a new immutable version", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(
       selectQuery([
         {
@@ -486,7 +505,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 404 when active row was already deactivated in transaction", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(
       selectQuery([
         {
@@ -557,7 +576,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("PATCH returns 500 when transaction throws", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(
       selectQuery([
         {
@@ -628,8 +647,23 @@ describe("app/api/workflow-definitions/[id]/route", () => {
     expect(await res.json()).toEqual({ error: "Unauthorized" });
   });
 
+  it("DELETE returns 403 for non-admin users", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "def_1" }),
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("DELETE hard-deletes definition and linked records when no executions exist", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select
       .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
       .mockReturnValueOnce(selectQuery([]));
@@ -661,7 +695,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("DELETE terminates temporal executions and deletes tasks/executions/definition", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select
       .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
       .mockReturnValueOnce(
@@ -703,7 +737,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("DELETE continues when a temporal execution is already gone", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select
       .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
       .mockReturnValueOnce(
@@ -748,7 +782,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("DELETE returns 404 when definition does not exist", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValueOnce(selectQuery([]));
 
     const res = await DELETE(new Request("http://localhost"), {
@@ -762,7 +796,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("DELETE returns 502 on temporal termination failure and skips DB transaction", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select
       .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
       .mockReturnValueOnce(
@@ -791,7 +825,7 @@ describe("app/api/workflow-definitions/[id]/route", () => {
   });
 
   it("DELETE returns 500 when transaction throws", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select
       .mockReturnValueOnce(selectQuery([{ id: "def_1", name: "Definition" }]))
       .mockReturnValueOnce(selectQuery([]));

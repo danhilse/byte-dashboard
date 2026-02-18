@@ -57,7 +57,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("GET returns definitions for full=true", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([{ id: "def_1", name: "Review Flow" }]));
 
     const res = await GET(
@@ -70,8 +70,23 @@ describe("app/api/workflow-definitions/route", () => {
     });
   });
 
+  it("GET full=true returns 403 for non-admin users", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/workflow-definitions?full=true")
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("GET returns lightweight definitions by default", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select
       .mockReturnValueOnce(
         selectQuery([
@@ -115,7 +130,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("GET returns 500 when query throws", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockImplementation(() => {
       throw new Error("db exploded");
     });
@@ -132,7 +147,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST returns 400 when name is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await POST(
       new Request("http://localhost/api/workflow-definitions", {
@@ -159,8 +174,26 @@ describe("app/api/workflow-definitions/route", () => {
     expect(await res.json()).toEqual({ error: "Unauthorized" });
   });
 
+  it("POST returns 403 for non-admin users", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/workflow-definitions", {
+        method: "POST",
+        body: JSON.stringify({ name: "Review Flow" }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  });
+
   it("POST returns 400 when description is not a string", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await POST(
       new Request("http://localhost/api/workflow-definitions", {
@@ -176,7 +209,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST creates workflow definition with defaults", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     const q = insertQuery([{ id: "def_1", name: "Review Flow", version: 1 }]);
     mocks.insert.mockReturnValue({ values: q.values });
 
@@ -209,7 +242,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST rejects direct steps writes", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await POST(
       new Request("http://localhost/api/workflow-definitions", {
@@ -226,7 +259,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST duplicates a workflow definition from sourceDefinitionId", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const sourceDefinition = {
       id: "def_source",
@@ -277,7 +310,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST returns 404 when sourceDefinitionId is missing", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.select.mockReturnValue(selectQuery([]));
 
     const res = await POST(
@@ -297,7 +330,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST returns 400 when sourceDefinitionId is invalid", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await POST(
       new Request("http://localhost/api/workflow-definitions", {
@@ -316,7 +349,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST creates workflow definition with provided statuses", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     const q = insertQuery([{ id: "def_1", name: "Review Flow", version: 1 }]);
     mocks.insert.mockReturnValue({ values: q.values });
 
@@ -344,7 +377,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST returns 400 when statuses payload is invalid", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await POST(
       new Request("http://localhost/api/workflow-definitions", {
@@ -363,7 +396,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST returns 400 when statuses contain duplicate ids", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
 
     const res = await POST(
       new Request("http://localhost/api/workflow-definitions", {
@@ -385,7 +418,7 @@ describe("app/api/workflow-definitions/route", () => {
   });
 
   it("POST returns 500 when insert throws", async () => {
-    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1" });
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:admin" });
     mocks.insert.mockImplementation(() => {
       throw new Error("insert failed");
     });

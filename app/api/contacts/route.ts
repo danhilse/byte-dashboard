@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { contacts } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -13,11 +13,15 @@ import { triggerWorkflowDefinitionsForContactCreated } from "@/lib/workflow-trig
  */
 export async function GET() {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "contacts.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { orgId } = authResult.context;
 
     const contactsList = await db
       .select()
@@ -45,11 +49,15 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "contacts.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId } = authResult.context;
 
     const body = await req.json();
     const {

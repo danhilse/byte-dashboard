@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { notes } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -14,12 +14,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "notes.write",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { userId, orgId } = authResult.context;
 
     // Only allow deletion by the note author within the same org
     const [deletedNote] = await db

@@ -65,6 +65,12 @@
 
 :root {
   --radius: 0.75rem;
+  --font-geist-sans:
+    "SF Pro Text", "SF Pro Display", "Segoe UI", "Inter", "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+  --font-geist-mono:
+    "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Refined neutral palette with warmer undertones */
   --background: oklch(0.99 0.002 90);

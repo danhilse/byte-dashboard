@@ -1,60 +1,29 @@
 // ============================================================================
-// Task Fields Configuration
+// Task Fields Configuration — derived from field registry
 // ============================================================================
 
 import type { FieldInputType } from "./field-input-types"
+import { getFieldsForEntity } from "@/lib/field-registry"
 
-export type TaskField =
-  | "title"
-  | "description"
-  | "status"
-  | "priority"
-  | "assignedTo"
-  | "dueDate"
+const taskFieldDefs = getFieldsForEntity("task")
 
-export const allTaskFields: readonly TaskField[] = [
-  "title",
-  "description",
-  "status",
-  "priority",
-  "assignedTo",
-  "dueDate",
-]
+export type TaskField = (typeof taskFieldDefs)[number]["key"]
 
-export const taskFieldConfig: Record<TaskField, { label: string; description?: string; inputType: FieldInputType }> = {
-  title: {
-    label: "Title",
-    description: "Task title",
-    inputType: "text",
-  },
-  description: {
-    label: "Description",
-    description: "Task description or notes",
-    inputType: "textarea",
-  },
-  status: {
-    label: "Status",
-    description: "Task status (todo, in_progress, completed)",
-    inputType: "status",
-  },
-  priority: {
-    label: "Priority",
-    description: "Task priority level",
-    inputType: "priority",
-  },
-  assignedTo: {
-    label: "Assigned To",
-    description: "User or role assigned to this task",
-    inputType: "role",
-  },
-  dueDate: {
-    label: "Due Date",
-    description: "Task due date",
-    inputType: "days_after",
-  },
-}
+export const allTaskFields: readonly string[] = taskFieldDefs.map((f) => f.key)
 
-export const taskFieldOptions = allTaskFields.map((field) => ({
-  value: field,
-  label: taskFieldConfig[field].label,
+export const taskFieldConfig: Record<string, { label: string; description?: string; inputType: FieldInputType }> =
+  Object.fromEntries(
+    taskFieldDefs.map((f) => [
+      f.key,
+      {
+        label: f.label,
+        description: f.description,
+        inputType: f.inputType,
+      },
+    ])
+  )
+
+export const taskFieldOptions = taskFieldDefs.map((f) => ({
+  value: f.key,
+  label: f.label,
 }))

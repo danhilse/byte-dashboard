@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { workflowDefinitions, workflowExecutions } from "@/lib/db/schema";
 import { and, count, eq, isNotNull, sql } from "drizzle-orm";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import {
   AuthoringCompileError,
   compileAuthoringToRuntime,
@@ -33,14 +33,19 @@ function toIsoTimestamp(value: Date | string | null): string | null {
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId } = await auth();
-
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const full = searchParams.get("full") === "true";
+    const authResult = await requireApiAuth({
+      requiredPermission: full
+        ? "workflow-definitions.read_full"
+        : "workflow-definitions.read",
+    });
+
+    if (!authResult.ok) {
+      return authResult.response;
+    }
+
+    const { orgId } = authResult.context;
 
     if (full) {
       const definitions = await db
@@ -135,11 +140,14 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflow-definitions.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { orgId } = authResult.context;
 
     const body = await req.json();
     const { name, description, statuses, sourceDefinitionId } = body;

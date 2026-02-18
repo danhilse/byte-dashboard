@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { getOrganizationUsers } from "@/lib/users/service";
 
 /**
@@ -9,11 +9,15 @@ import { getOrganizationUsers } from "@/lib/users/service";
  */
 export async function GET() {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "users.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { orgId } = authResult.context;
 
     const organizationUsers = await getOrganizationUsers(orgId);
     const sortedUsers = [...organizationUsers].sort((a, b) => {

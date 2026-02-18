@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   SignInButton,
-  SignUpButton,
   SignedIn,
   SignedOut,
 } from "@clerk/nextjs";
@@ -23,9 +22,6 @@ export default function LandingPage() {
               <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
                 <Button variant="ghost">Sign In</Button>
               </SignInButton>
-              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <Button>Get Started</Button>
-              </SignUpButton>
             </SignedOut>
             <SignedIn>
               <Link href="/dashboard">
@@ -47,11 +43,8 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <SignedOut>
-              <SignUpButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <Button size="lg">Start for Free</Button>
-              </SignUpButton>
               <SignInButton mode="modal" fallbackRedirectUrl="/dashboard">
-                <Button size="lg" variant="outline">
+                <Button size="lg">
                   Sign In
                 </Button>
               </SignInButton>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { activityLog, users } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
@@ -16,11 +16,15 @@ import { and, desc, eq } from "drizzle-orm";
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "activity.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { orgId } = authResult.context;
 
     const url = new URL(req.url);
     const entityType = url.searchParams.get("entityType");

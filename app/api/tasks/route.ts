@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { tasks, contacts, workflowExecutions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
@@ -26,11 +26,15 @@ import { isUserInOrganization } from "@/lib/users/service";
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId, orgRole } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId, orgRole } = authResult.context;
 
     const access = await buildTaskAccessContext({ userId, orgId, orgRole });
 
@@ -137,11 +141,15 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId } = authResult.context;
 
     const body = await req.json();
     const {

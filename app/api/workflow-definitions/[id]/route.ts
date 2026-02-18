@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { tasks, workflowDefinitions, workflowExecutions } from "@/lib/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
@@ -10,9 +9,9 @@ import {
   compileAuthoringToRuntime,
   fromDefinitionToAuthoring,
   hasPersistedAuthoringPayload,
-  type DefinitionRecordLike,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 
 interface DefinitionExecutionRecord {
   id: string;
@@ -66,12 +65,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflow-definitions.read",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { orgId } = authResult.context;
 
     const [definition] = await db
       .select()
@@ -115,12 +117,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflow-definitions.write",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { orgId } = authResult.context;
 
     const body = await req.json();
     const { name, description, steps, phases, variables, statuses } = body;
@@ -313,12 +318,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflow-definitions.write",
+    });
     const { id } = await params;
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { orgId } = authResult.context;
 
     const [definition] = await db
       .select({

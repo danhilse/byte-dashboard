@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
@@ -23,11 +23,15 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { userId, orgId, orgRole } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.claim",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId, orgRole } = authResult.context;
 
     const access = await buildTaskAccessContext({ userId, orgId, orgRole });
 

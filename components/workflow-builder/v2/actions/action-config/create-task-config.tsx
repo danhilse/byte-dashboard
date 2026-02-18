@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { allRoles, roleConfig } from "@/lib/roles-config"
+import { taskPriorityConfig } from "@/lib/status-config"
+import { getFieldDefinition } from "@/lib/field-registry"
 import type { OrganizationUserOption } from "../../organization-user-option"
 import { TemplatedTextInput } from "../../templated-text-input"
 import { Plus, Trash2 } from "lucide-react"
@@ -159,9 +161,11 @@ export function CreateTaskConfig({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
+              {(getFieldDefinition("task", "priority")?.enumValues ?? ["low", "medium", "high"]).map((p) => (
+                <SelectItem key={p} value={p}>
+                  {taskPriorityConfig[p as keyof typeof taskPriorityConfig]?.label ?? p}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

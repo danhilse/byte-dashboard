@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { workflowExecutions, contacts, workflowDefinitions, tasks } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -26,11 +26,15 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflows.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { orgId } = authResult.context;
 
     const [result] = await db
       .select({
@@ -94,11 +98,15 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflows.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId } = authResult.context;
 
     const body = await req.json();
     const {
@@ -267,11 +275,15 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "workflows.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId } = authResult.context;
 
     const [existingWorkflow] = await db
       .select({

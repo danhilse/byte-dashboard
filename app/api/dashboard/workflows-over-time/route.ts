@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { getWorkflowsOverTime } from "@/lib/db/queries";
 
 /**
@@ -10,11 +10,15 @@ import { getWorkflowsOverTime } from "@/lib/db/queries";
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "dashboard.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { orgId } = authResult.context;
 
     const url = new URL(req.url);
     const daysParam = url.searchParams.get("days");

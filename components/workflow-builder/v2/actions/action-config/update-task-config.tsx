@@ -13,8 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { FieldValueInput } from "../../field-value-input"
-import { allTaskFields, taskFieldConfig } from "@/lib/task-fields-config"
-import type { TaskField } from "@/lib/task-fields-config"
+import { taskFieldConfig } from "@/lib/task-fields-config"
+import { getRuntimeWritableFields } from "@/lib/field-registry"
 
 interface UpdateTaskConfigProps {
   action: Extract<WorkflowAction, { type: "update_task" }>
@@ -36,6 +36,8 @@ export function UpdateTaskConfig({ action, variables, statuses, onChange }: Upda
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const runtimeWritableTaskFields = getRuntimeWritableFields("task")
 
   // Get task variables from earlier actions (create_task outputs)
   const taskVariables = variables.filter(
@@ -137,7 +139,7 @@ export function UpdateTaskConfig({ action, variables, statuses, onChange }: Upda
         <div className="space-y-3">
           {action.config.fields.map((field, index) => {
             const fieldConfig = field.field
-              ? taskFieldConfig[field.field as TaskField]
+              ? taskFieldConfig[field.field]
               : undefined
 
             return (
@@ -171,9 +173,9 @@ export function UpdateTaskConfig({ action, variables, statuses, onChange }: Upda
                         <SelectValue placeholder="Select field..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {allTaskFields.map((fieldName) => (
-                          <SelectItem key={fieldName} value={fieldName}>
-                            {taskFieldConfig[fieldName].label}
+                        {runtimeWritableTaskFields.map((fieldDef) => (
+                          <SelectItem key={fieldDef.key} value={fieldDef.key}>
+                            {fieldDef.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

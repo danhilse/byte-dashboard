@@ -4,6 +4,10 @@ import type {
   WorkflowAction,
   WorkflowTrigger,
 } from "./types"
+import type { SemanticDataType } from "@/lib/field-registry/data-types"
+import { isDataTypeCompatible } from "@/lib/field-registry/data-types"
+import { getVariablesForTrigger } from "@/lib/field-registry/trigger-variable-pools"
+import { getActionOutputVariables } from "@/lib/field-registry/action-io"
 
 /**
  * Auto-detect variables from workflow trigger and actions
@@ -27,107 +31,25 @@ export function detectVariables(workflow: WorkflowDefinitionV2): WorkflowVariabl
 }
 
 /**
- * Detect variables from trigger
+ * Detect variables from trigger — delegates to field registry.
  */
 export function getTriggerVariables(trigger: WorkflowTrigger): WorkflowVariable[] {
-  const variables: WorkflowVariable[] = []
-
-  switch (trigger.type) {
-    case "manual":
-    case "contact_created":
-    case "contact_field_changed":
-    case "api":
-      // These triggers provide a contact
-      variables.push({
-        id: "var-contact",
-        name: "Contact",
-        type: "contact",
-        source: { type: "trigger" },
-        readOnly: true,
-        fields: [
-          { key: "email", label: "Email", dataType: "email" },
-          { key: "firstName", label: "First Name", dataType: "text" },
-          { key: "lastName", label: "Last Name", dataType: "text" },
-          { key: "phone", label: "Phone", dataType: "text" },
-          { key: "company", label: "Company", dataType: "text" },
-        ],
-      })
-      break
-
-    case "form_submission":
-      // Form submission provides contact + form data
-      variables.push({
-        id: "var-contact",
-        name: "Contact",
-        type: "contact",
-        source: { type: "trigger" },
-        readOnly: true,
-        fields: [
-          { key: "email", label: "Email", dataType: "email" },
-          { key: "firstName", label: "First Name", dataType: "text" },
-          { key: "lastName", label: "Last Name", dataType: "text" },
-          { key: "phone", label: "Phone", dataType: "text" },
-          { key: "company", label: "Company", dataType: "text" },
-        ],
-      })
-      variables.push({
-        id: "var-form-submission",
-        name: "Form Submission",
-        type: "form_submission",
-        source: { type: "trigger" },
-        readOnly: true,
-        fields: [
-          { key: "submittedAt", label: "Submitted At", dataType: "date" },
-          // Form fields would be dynamically added based on form schema
-        ],
-      })
-      break
-  }
-
-  return variables
+  return getVariablesForTrigger(trigger.type)
 }
 
 /**
- * Detect variables from action outputs
+ * Detect variables from action outputs — delegates to field registry.
+ * Only produces variables for actions that actually emit outputs at runtime.
  */
 function detectFromAction(action: WorkflowAction): WorkflowVariable[] {
-  const variables: WorkflowVariable[] = []
+  const label =
+    action.type === "create_task"
+      ? `Task: ${action.config.title || "Untitled"}`
+      : action.type === "create_contact"
+        ? `Contact: ${action.config.contactType}`
+        : action.type
 
-  switch (action.type) {
-    case "create_task":
-      variables.push({
-        id: `var-task-${action.id}`,
-        name: `Task: ${action.config.title || "Untitled"}`,
-        type: "task",
-        source: { type: "action_output", actionId: action.id },
-        readOnly: true,
-        fields: [
-          { key: "assignedTo", label: "Assigned To", dataType: "user" },
-          { key: "status", label: "Status", dataType: "text" },
-          { key: "outcome", label: "Outcome", dataType: "text" }, // For approval tasks
-          { key: "completedAt", label: "Completed At", dataType: "date" },
-        ],
-      })
-      break
-
-    case "create_contact":
-      variables.push({
-        id: `var-contact-${action.id}`,
-        name: `Contact: ${action.config.contactType}`,
-        type: "contact",
-        source: { type: "action_output", actionId: action.id },
-        readOnly: true,
-        fields: [
-          { key: "email", label: "Email", dataType: "email" },
-          { key: "firstName", label: "First Name", dataType: "text" },
-          { key: "lastName", label: "Last Name", dataType: "text" },
-          { key: "phone", label: "Phone", dataType: "text" },
-        ],
-      })
-      break
-  }
-
-  return variables
+  return getActionOutputVariables(action.type, action.id, label)
 }
 
 /**
@@ -152,29 +74,40 @@ export function getAllVariables(workflow: WorkflowDefinitionV2): WorkflowVariabl
 }
 
 /**
- * Filter variables by data type (for context-aware selectors)
+ * Filter variables by data type using directional compatibility.
+ * Uses isDataTypeCompatible(source, target) from the field registry.
  */
 export function filterVariablesByDataType(
   variables: WorkflowVariable[],
   dataType: string | string[]
 ): Array<{ variableId: string; fieldKey?: string; label: string; dataType: string }> {
-  const types = Array.isArray(dataType) ? dataType : [dataType]
+  const targets = Array.isArray(dataType) ? dataType : [dataType]
   const results: Array<{ variableId: string; fieldKey?: string; label: string; dataType: string }> = []
 
   variables.forEach((variable) => {
     // Check if variable itself matches (for simple variables)
-    if (variable.dataType && types.includes(variable.dataType)) {
-      results.push({
-        variableId: variable.id,
-        label: variable.name,
-        dataType: variable.dataType,
-      })
+    if (variable.dataType) {
+      const source = variable.dataType as SemanticDataType
+      const matches = targets.some((target) =>
+        isDataTypeCompatible(source, target as SemanticDataType)
+      )
+      if (matches) {
+        results.push({
+          variableId: variable.id,
+          label: variable.name,
+          dataType: variable.dataType,
+        })
+      }
     }
 
     // Check fields (for complex variables like contact)
     if (variable.fields) {
       variable.fields.forEach((field) => {
-        if (types.includes(field.dataType)) {
+        const source = field.dataType as SemanticDataType
+        const matches = targets.some((target) =>
+          isDataTypeCompatible(source, target as SemanticDataType)
+        )
+        if (matches) {
           results.push({
             variableId: variable.id,
             fieldKey: field.key,

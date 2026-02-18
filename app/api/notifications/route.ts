@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 
 import {
   getNotificationsForUser,
@@ -13,10 +13,13 @@ import {
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId } = await auth();
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireApiAuth({
+      requiredPermission: "notifications.read",
+    });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { userId, orgId } = authResult.context;
 
     const url = new URL(req.url);
     const limitParam = Number(url.searchParams.get("limit") ?? "");
@@ -43,10 +46,13 @@ export async function GET(req: Request) {
  */
 export async function PATCH() {
   try {
-    const { userId, orgId } = await auth();
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireApiAuth({
+      requiredPermission: "notifications.write",
+    });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+    const { userId, orgId } = authResult.context;
 
     const markedReadCount = await markAllNotificationsRead({ orgId, userId });
     return NextResponse.json({

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { getTemporalClient } from "@/lib/temporal/client";
 import { db } from "@/lib/db";
 import { tasks, workflowExecutions } from "@/lib/db/schema";
@@ -36,11 +36,15 @@ export async function PATCH(
     const { id: taskId } = await params;
 
     // Get authenticated user and org
-    const { userId, orgId, orgRole } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "tasks.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId, orgRole } = authResult.context;
 
     const body = await req.json();
     const { status } = body;

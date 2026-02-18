@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { contacts, notes, tasks, users, workflowExecutions } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
@@ -15,11 +15,15 @@ const UUID_REGEX =
  */
 export async function GET(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "notes.read",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { orgId } = authResult.context;
 
     const url = new URL(req.url);
     const entityType = url.searchParams.get("entityType");
@@ -94,11 +98,15 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { userId, orgId } = await auth();
+    const authResult = await requireApiAuth({
+      requiredPermission: "notes.write",
+    });
 
-    if (!userId || !orgId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return authResult.response;
     }
+
+    const { userId, orgId } = authResult.context;
 
     const body = await req.json();
     const { entityType, entityId, content } = body;

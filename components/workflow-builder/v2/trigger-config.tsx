@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { getWatchableContactFieldOptions } from "@/lib/field-registry"
 import type { LucideIcon } from "lucide-react"
 import type { DefinitionStatus } from "@/types"
 import {
@@ -59,16 +60,7 @@ interface TriggerMenuCategory {
   options: TriggerMenuOption[]
 }
 
-const CONTACT_FIELD_OPTIONS = [
-  { value: "firstName", label: "First Name" },
-  { value: "lastName", label: "Last Name" },
-  { value: "email", label: "Email" },
-  { value: "phone", label: "Phone" },
-  { value: "company", label: "Company" },
-  { value: "role", label: "Role" },
-  { value: "status", label: "Status" },
-  { value: "tags", label: "Tags" },
-]
+const CONTACT_FIELD_OPTIONS = getWatchableContactFieldOptions()
 
 const UNSET_STATUS_VALUE = "__unset__"
 

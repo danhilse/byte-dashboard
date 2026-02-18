@@ -11,8 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { allContactStatuses, contactStatusConfig } from "@/lib/status-config"
+import { allContactStatuses, contactStatusConfig, allTaskStatuses, taskStatusConfig } from "@/lib/status-config"
+import { taskPriorityConfig } from "@/lib/status-config"
 import { allRoles, roleConfig } from "@/lib/roles-config"
+import { getFieldDefinition } from "@/lib/field-registry"
 
 interface FieldValueInputProps {
   inputType: FieldInputType
@@ -113,19 +115,40 @@ export function FieldValueInput({
         </Select>
       )
 
-    case "priority":
+    case "task_status":
+      return (
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger className={className}>
+            <SelectValue placeholder={placeholder || "Select task status..."} />
+          </SelectTrigger>
+          <SelectContent>
+            {allTaskStatuses.map((status) => (
+              <SelectItem key={status} value={status}>
+                {taskStatusConfig[status].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+
+    case "priority": {
+      const priorityField = getFieldDefinition("task", "priority")
+      const priorityValues = priorityField?.enumValues ?? ["low", "medium", "high", "urgent"]
       return (
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger className={className}>
             <SelectValue placeholder={placeholder || "Select priority..."} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
+            {priorityValues.map((p) => (
+              <SelectItem key={p} value={p}>
+                {taskPriorityConfig[p as keyof typeof taskPriorityConfig]?.label ?? p}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )
+    }
 
     case "role":
       return (

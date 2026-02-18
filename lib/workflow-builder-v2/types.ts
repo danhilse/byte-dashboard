@@ -205,7 +205,14 @@ export interface WorkflowPhase {
   order: number
 }
 
-export type VariableDataType = "email" | "text" | "number" | "date" | "boolean" | "user"
+import type { SemanticDataType } from "@/lib/field-registry/data-types"
+
+/**
+ * Alias for backward compatibility.
+ * All original values ("email" | "text" | "number" | "date" | "boolean" | "user")
+ * are preserved as members of SemanticDataType.
+ */
+export type VariableDataType = SemanticDataType
 
 export type VariableType = "contact" | "user" | "task" | "form_submission" | "custom"
 

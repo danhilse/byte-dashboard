@@ -9,6 +9,7 @@ export type FieldInputType =
   | "tel"
   | "status"
   | "contact_status"
+  | "task_status"
   | "priority"
   | "role"
   | "days_after"
