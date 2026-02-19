@@ -22,6 +22,9 @@ import { NativeConnection, Worker } from "@temporalio/worker";
 import * as activities from "../activities";
 import * as path from "path";
 import { getTemporalTaskQueue } from "./task-queue";
+import { patchConsoleWithStructuredLogger } from "@/lib/logging/console-bridge";
+
+patchConsoleWithStructuredLogger("worker");
 
 export async function createWorker() {
   const address = process.env.TEMPORAL_ADDRESS || "localhost:7233";

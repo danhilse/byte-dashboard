@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import { getWorkflowsOverTime } from "@/lib/db/queries";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/dashboard/workflows-over-time?days=30
@@ -8,7 +9,7 @@ import { getWorkflowsOverTime } from "@/lib/db/queries";
  * Returns time series data for workflow creation counts per day.
  * Separated from main stats endpoint because it's a heavier query.
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "dashboard.read",
@@ -47,3 +48,5 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);

@@ -12,6 +12,7 @@ import {
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
 import { requireApiAuth } from "@/lib/auth/api-guard";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 interface DefinitionExecutionRecord {
   id: string;
@@ -60,7 +61,7 @@ async function terminateDefinitionExecutions(
  *
  * Gets a single workflow definition by ID (org-scoped).
  */
-export async function GET(
+async function GETHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -112,7 +113,7 @@ export async function GET(
  * increments the version, applies updates, and deactivates the old row.
  * Running executions keep referencing the old version's UUID.
  */
-export async function PATCH(
+async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -313,7 +314,7 @@ export async function PATCH(
  * Hard delete definition and all linked workflow executions/tasks.
  * Temporal-managed executions are terminated before DB deletion.
  */
-export async function DELETE(
+async function DELETEHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -451,3 +452,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const PATCH = withApiRequestLogging(PATCHHandler);
+export const DELETE = withApiRequestLogging(DELETEHandler);

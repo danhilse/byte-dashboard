@@ -13,6 +13,7 @@ import {
 import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { requiresApprovalComment } from "@/lib/tasks/approval-requirements";
 import { logActivity } from "@/lib/db/log-activity";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * PATCH /api/tasks/[id]/reject
@@ -31,7 +32,7 @@ import { logActivity } from "@/lib/db/log-activity";
  *   "workflowSignaled": true
  * }
  */
-export async function PATCH(
+async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -277,3 +278,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withApiRequestLogging(PATCHHandler);

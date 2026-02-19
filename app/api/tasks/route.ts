@@ -16,6 +16,7 @@ import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 import { isUserInOrganization } from "@/lib/users/service";
 import { validateTaskPayload } from "@/lib/validation/rules";
 import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/tasks
@@ -27,7 +28,7 @@ import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-hel
  *   ?role=manager,reviewer   - filter by assigned role(s)
  *   ?available=true          - only unclaimed role-based tasks for current user
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "tasks.read",
@@ -156,7 +157,7 @@ export async function GET(req: Request) {
  *
  * Creates a new task.
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "tasks.write",
@@ -304,3 +305,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const POST = withApiRequestLogging(POSTHandler);

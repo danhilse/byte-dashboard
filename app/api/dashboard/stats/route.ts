@@ -8,6 +8,7 @@ import {
   getRecentActivity,
 } from "@/lib/db/queries";
 import { resolveContactFieldAccess } from "@/lib/auth/field-visibility";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/dashboard/stats
@@ -16,7 +17,7 @@ import { resolveContactFieldAccess } from "@/lib/auth/field-visibility";
  * recent workflows, user's tasks, and recent activity.
  * Single endpoint to minimize round trips.
  */
-export async function GET() {
+async function GETHandler() {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "dashboard.read",
@@ -61,3 +62,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);

@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/field-visibility";
 import { validateContactPayload } from "@/lib/validation/rules";
 import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 interface ContactMutationPayload {
   firstName?: string;
@@ -94,7 +95,7 @@ function detectChangedContactFields(
  *
  * Gets a single contact by ID
  */
-export async function GET(
+async function GETHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -139,7 +140,7 @@ export async function GET(
  *
  * Updates a contact
  */
-export async function PATCH(
+async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -289,7 +290,7 @@ export async function PATCH(
  *
  * Deletes a contact
  */
-export async function DELETE(
+async function DELETEHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -337,3 +338,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const PATCH = withApiRequestLogging(PATCHHandler);
+export const DELETE = withApiRequestLogging(DELETEHandler);

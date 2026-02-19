@@ -15,6 +15,7 @@ import {
   redactContactForRead,
   resolveContactFieldAccess,
 } from "@/lib/auth/field-visibility";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 const ALLOWED_WORKFLOW_EXECUTION_STATES: ReadonlySet<WorkflowExecutionState> =
   new Set(["running", "completed", "error", "timeout", "cancelled"]);
@@ -24,7 +25,7 @@ const ALLOWED_WORKFLOW_EXECUTION_STATES: ReadonlySet<WorkflowExecutionState> =
  *
  * Gets workflow execution details with joined contact and definition data.
  */
-export async function GET(
+async function GETHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -110,7 +111,7 @@ export async function GET(
  *
  * Partially updates a workflow execution.
  */
-export async function PATCH(
+async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -287,7 +288,7 @@ export async function PATCH(
  * Deletes a workflow execution by ID.
  * For Temporal-managed workflows, attempts to terminate the Temporal execution first.
  */
-export async function DELETE(
+async function DELETEHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -394,3 +395,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const PATCH = withApiRequestLogging(PATCHHandler);
+export const DELETE = withApiRequestLogging(DELETEHandler);

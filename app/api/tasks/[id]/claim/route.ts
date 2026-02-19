@@ -5,6 +5,7 @@ import { tasks } from "@/lib/db/schema";
 import { and, eq, isNull } from "drizzle-orm";
 import { buildTaskAccessContext, canClaimTask } from "@/lib/tasks/access";
 import { logActivity } from "@/lib/db/log-activity";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * PATCH /api/tasks/[id]/claim
@@ -17,7 +18,7 @@ import { logActivity } from "@/lib/db/log-activity";
  *   404 - task not found
  *   409 - task already claimed by another user
  */
-export async function PATCH(
+async function PATCHHandler(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -147,3 +148,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withApiRequestLogging(PATCHHandler);

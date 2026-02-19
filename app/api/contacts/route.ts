@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/field-visibility";
 import { validateContactPayload } from "@/lib/validation/rules";
 import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 interface ContactMutationPayload {
   firstName?: string;
@@ -38,7 +39,7 @@ interface ContactMutationPayload {
  *
  * Lists all contacts for the authenticated user's organization
  */
-export async function GET() {
+async function GETHandler() {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "contacts.read",
@@ -77,7 +78,7 @@ export async function GET() {
  *
  * Creates a new contact
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "contacts.write",
@@ -189,3 +190,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const POST = withApiRequestLogging(POSTHandler);

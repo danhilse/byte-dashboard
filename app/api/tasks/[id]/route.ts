@@ -15,13 +15,14 @@ import { normalizeTaskMetadata } from "@/lib/tasks/presentation";
 import { isUserInOrganization } from "@/lib/users/service";
 import { validateTaskPayload } from "@/lib/validation/rules";
 import { parseJsonBody, validationErrorResponse } from "@/lib/validation/api-helpers";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/tasks/:id
  *
  * Gets a single task by ID with contact info.
  */
-export async function GET(
+async function GETHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -116,7 +117,7 @@ export async function GET(
  *
  * Updates a task's fields (except status — use /status endpoint).
  */
-export async function PATCH(
+async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -294,7 +295,7 @@ export async function PATCH(
  *
  * Deletes a task.
  */
-export async function DELETE(
+async function DELETEHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -367,3 +368,7 @@ export async function DELETE(
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const PATCH = withApiRequestLogging(PATCHHandler);
+export const DELETE = withApiRequestLogging(DELETEHandler);

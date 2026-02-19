@@ -3,6 +3,7 @@ import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { activityLog, organizationMemberships, users } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/activity
@@ -14,7 +15,7 @@ import { and, desc, eq } from "drizzle-orm";
  *
  * Without entityType/entityId: returns dashboard-wide feed.
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "activity.read",
@@ -105,3 +106,5 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);

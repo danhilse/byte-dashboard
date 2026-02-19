@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,7 +21,7 @@ const UUID_REGEX =
  *
  * Lists notes for a specific entity.
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "notes.read",
@@ -110,7 +111,7 @@ export async function GET(req: Request) {
  * Creates a new note for an entity.
  * Body: { entityType, entityId, content }
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "notes.write",
@@ -277,3 +278,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const POST = withApiRequestLogging(POSTHandler);

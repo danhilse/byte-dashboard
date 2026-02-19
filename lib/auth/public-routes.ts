@@ -5,5 +5,6 @@ export const PUBLIC_ROUTE_PATTERNS = [
   "/sign-up(.*)",
   "/logo",
   "/api/webhooks(.*)",
+  "/api/health",
   "/api/health/temporal",
 ];

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import { getOrganizationUsers } from "@/lib/users/service";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/users
  *
  * Lists users for the authenticated organization.
  */
-export async function GET() {
+async function GETHandler() {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "users.read",
@@ -51,3 +52,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);

@@ -16,6 +16,7 @@ import {
   fromDefinitionToAuthoring,
   type DefinitionRecordLike,
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * POST /api/workflows/trigger
@@ -31,7 +32,7 @@ import {
  *   "initialStatus": "string" (optional) - Sets the initial workflow status
  * }
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "workflows.trigger",
@@ -268,3 +269,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = withApiRequestLogging(POSTHandler);

@@ -8,6 +8,8 @@ import {
   isRateLimitingEnabled,
 } from "@/lib/security/rate-limit";
 import { PUBLIC_ROUTE_PATTERNS } from "@/lib/auth/public-routes";
+import { REQUEST_ID_HEADER } from "@/lib/request-id";
+import { buildContentSecurityPolicy } from "@/lib/security/content-security-policy";
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher(PUBLIC_ROUTE_PATTERNS);
@@ -17,6 +19,27 @@ const isWebhookRoute = createRouteMatcher(["/api/webhooks(.*)"]);
 
 const INVITATION_QUERY_KEYS = ["__clerk_ticket", "invitation_token", "token"];
 const DEFAULT_MAX_API_BODY_BYTES = 1_048_576;
+const PERMISSIONS_POLICY = [
+  "accelerometer=()",
+  "ambient-light-sensor=()",
+  "autoplay=()",
+  "battery=()",
+  "camera=()",
+  "display-capture=()",
+  "document-domain=()",
+  "encrypted-media=()",
+  "fullscreen=(self)",
+  "geolocation=()",
+  "gyroscope=()",
+  "magnetometer=()",
+  "microphone=()",
+  "midi=()",
+  "payment=()",
+  "picture-in-picture=()",
+  "publickey-credentials-get=(self)",
+  "usb=()",
+  "xr-spatial-tracking=()",
+].join(", ");
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   if (!value) {
@@ -36,17 +59,33 @@ const MAX_API_BODY_BYTES = parsePositiveInt(
   DEFAULT_MAX_API_BODY_BYTES
 );
 
+function resolveRequestId(request: NextRequest): string {
+  const existing = request.headers.get(REQUEST_ID_HEADER)?.trim();
+
+  if (existing) {
+    return existing.slice(0, 128);
+  }
+
+  return crypto.randomUUID();
+}
+
 function applySecurityHeaders(
   response: NextResponse,
   request: NextRequest
 ): NextResponse {
+  response.headers.set(
+    "Content-Security-Policy",
+    buildContentSecurityPolicy({
+      protocol: request.nextUrl.protocol,
+    })
+  );
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Permissions-Policy",
-    "geolocation=(), microphone=(), camera=()"
-  );
+  response.headers.set("Permissions-Policy", PERMISSIONS_POLICY);
+  response.headers.set("X-DNS-Prefetch-Control", "off");
+  response.headers.set("X-Permitted-Cross-Domain-Policies", "none");
+  response.headers.set("Origin-Agent-Cluster", "?1");
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
   response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
 
@@ -66,16 +105,23 @@ function applySecurityHeaders(
 function finalizeResponse(
   response: NextResponse,
   request: NextRequest,
+  requestId: string,
   rateLimitHeaders?: Record<string, string>
 ): NextResponse {
   if (rateLimitHeaders) {
     addRateLimitHeaders(response.headers, rateLimitHeaders);
   }
 
+  response.headers.set(REQUEST_ID_HEADER, requestId);
+
   return applySecurityHeaders(response, request);
 }
 
 export default clerkMiddleware(async (auth, request) => {
+  const requestId = resolveRequestId(request);
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set(REQUEST_ID_HEADER, requestId);
+
   let apiRateLimitHeaders: Record<string, string> | undefined;
 
   if (isApiRoute(request) && isRateLimitingEnabled()) {
@@ -92,6 +138,7 @@ export default clerkMiddleware(async (auth, request) => {
       return finalizeResponse(
         NextResponse.json({ error: "Too many requests" }, { status: 429 }),
         request,
+        requestId,
         apiRateLimitHeaders
       );
     }
@@ -113,6 +160,7 @@ export default clerkMiddleware(async (auth, request) => {
             { status: 413 }
           ),
           request,
+          requestId,
           apiRateLimitHeaders
         );
       }
@@ -128,6 +176,7 @@ export default clerkMiddleware(async (auth, request) => {
       return finalizeResponse(
         NextResponse.redirect(new URL("/sign-in", request.url)),
         request,
+        requestId,
         apiRateLimitHeaders
       );
     }
@@ -135,7 +184,12 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Protect all routes except public ones
   if (isPublicRoute(request)) {
-    return finalizeResponse(NextResponse.next(), request, apiRateLimitHeaders);
+    return finalizeResponse(
+      NextResponse.next({ request: { headers: forwardedHeaders } }),
+      request,
+      requestId,
+      apiRateLimitHeaders
+    );
   }
 
   await auth.protect();
@@ -149,6 +203,7 @@ export default clerkMiddleware(async (auth, request) => {
           { status: 403 }
         ),
         request,
+        requestId,
         apiRateLimitHeaders
       );
     }
@@ -156,11 +211,17 @@ export default clerkMiddleware(async (auth, request) => {
     return finalizeResponse(
       NextResponse.redirect(new URL("/", request.url)),
       request,
+      requestId,
       apiRateLimitHeaders
     );
   }
 
-  return finalizeResponse(NextResponse.next(), request, apiRateLimitHeaders);
+  return finalizeResponse(
+    NextResponse.next({ request: { headers: forwardedHeaders } }),
+    request,
+    requestId,
+    apiRateLimitHeaders
+  );
 });
 
 export const config = {

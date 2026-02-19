@@ -10,6 +10,7 @@ import {
 } from "@/lib/workflow-builder-v2/adapters/definition-runtime-adapter";
 import type { WorkflowDefinitionV2 } from "@/lib/workflow-builder-v2/types";
 import { normalizeDefinitionStatuses } from "@/lib/workflow-builder-v2/status-guardrails";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 function toIsoTimestamp(value: Date | string | null): string | null {
   if (!value) return null;
@@ -31,7 +32,7 @@ function toIsoTimestamp(value: Date | string | null): string | null {
  * - full=true: Return all columns (steps, phases, etc.) for the builder UI
  * - Default: Lightweight response (id, name, description, version) for pickers
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const full = searchParams.get("full") === "true";
@@ -138,7 +139,7 @@ export async function GET(req: Request) {
  *   "sourceDefinitionId": "string" (optional, duplicates from source definition)
  * }
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "workflow-definitions.write",
@@ -308,3 +309,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const POST = withApiRequestLogging(POSTHandler);
