@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { notificationTypes, timeZones } from "@/lib/data/settings"
+import { EmailSenderSettingsCard } from "@/components/settings/email-sender-settings-card"
 
 export default function SettingsGeneralPage() {
   return (
@@ -122,6 +123,8 @@ export default function SettingsGeneralPage() {
           </CardContent>
         </Card>
       </div>
+
+      <EmailSenderSettingsCard />
     </div>
   )
 }

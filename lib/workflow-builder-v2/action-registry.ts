@@ -32,7 +32,6 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
     icon: Mail,
     description: "Send an email to a contact or team member",
     category: "communication",
-    disabled: true,
     defaultConfig: {
       type: "send_email",
       id: "",
@@ -40,6 +39,8 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
         to: "{{contact.email}}",
         subject: "",
         body: "",
+        failurePolicy: "fail_workflow",
+        retryCount: 1,
       },
     },
   },

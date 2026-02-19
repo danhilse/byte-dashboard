@@ -14,6 +14,7 @@
  * - notes: Notes on any entity (polymorphic with soft FKs)
  * - activity_log: Audit trail (polymorphic with soft FKs)
  * - formstack_config: Formstack integration settings
+ * - organization_email_settings: organization communication settings
  * - formstack_submissions: Raw webhook payloads
  */
 
@@ -484,6 +485,29 @@ export const formstackConfig = pgTable("formstack_config", {
     .defaultNow()
     .notNull(),
 });
+
+// ===========================
+// Organization Email Settings
+// ===========================
+
+export const organizationEmailSettings = pgTable(
+  "organization_email_settings",
+  {
+    orgId: text("org_id").primaryKey(),
+    allowedFromEmails: jsonb("allowed_from_emails").default([]).notNull(),
+    defaultFromEmail: text("default_from_email"),
+    templates: jsonb("templates").default([]).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    updatedAtIdx: index("idx_org_email_settings_updated").on(table.updatedAt),
+  })
+);
 
 // ===========================
 // Formstack Submissions

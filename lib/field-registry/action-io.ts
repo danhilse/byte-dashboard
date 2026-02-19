@@ -57,6 +57,8 @@ const ACTION_IO_REGISTRY: Record<ActionType, ActionIOSchema> = {
       { key: "subject", label: "Subject", dataType: "text", required: true },
       { key: "body", label: "Body", dataType: "textarea", required: true },
       { key: "from", label: "From", dataType: "email" },
+      { key: "failurePolicy", label: "Failure Policy", dataType: "text" },
+      { key: "retryCount", label: "Retry Count", dataType: "number" },
     ],
     outputs: [],
   },

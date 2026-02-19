@@ -8,6 +8,7 @@ import { AdvancementConfig } from "./advancement/advancement-config"
 import { VariableSelector } from "./variable-selector"
 import { parseVariableRef, formatVariableRef } from "@/lib/workflow-builder-v2/variable-utils"
 import type { OrganizationUserOption } from "./organization-user-option"
+import type { WorkflowEmailTemplate } from "@/types/settings"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,6 +38,9 @@ interface StepConfigPanelV2Props {
   statuses: WorkflowStatus[]
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
+  allowedFromEmails: string[]
+  defaultFromEmail: string | null
+  emailTemplates: WorkflowEmailTemplate[]
   onStepUpdate: (step: WorkflowStepV2) => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
@@ -48,6 +52,9 @@ export function StepConfigPanelV2({
   statuses,
   organizationUsers,
   organizationUsersLoading,
+  allowedFromEmails,
+  defaultFromEmail,
+  emailTemplates,
   onStepUpdate,
   onAddVariable,
 }: StepConfigPanelV2Props) {
@@ -595,6 +602,9 @@ export function StepConfigPanelV2({
               statuses={statuses}
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
+              allowedFromEmails={allowedFromEmails}
+              defaultFromEmail={defaultFromEmail}
+              emailTemplates={emailTemplates}
               onChange={handleActionsChange}
               onAddVariable={onAddVariable}
             />
