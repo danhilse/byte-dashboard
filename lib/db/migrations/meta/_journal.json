@@ -57,6 +57,13 @@
       "when": 1771570000000,
       "tag": "0007_remove_legacy_user_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771770000000,
+      "tag": "0008_global_rate_limit_counters",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,12 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { organizationMemberships } from "@/lib/db/schema";
+import { checkGlobalRateLimit } from "@/lib/security/global-rate-limit";
+import {
+  addRateLimitHeaders,
+  getClientIp,
+  isRateLimitingEnabled,
+} from "@/lib/security/rate-limit";
 import {
   removeOrganizationMembership,
   syncOrganizationUsersFromClerk,
@@ -17,6 +23,19 @@ function toOptionalString(value: unknown): string | null {
 }
 
 export async function POST(req: Request) {
+  if (process.env.NODE_ENV !== "test" && isRateLimitingEnabled()) {
+    const rateLimitResult = await checkGlobalRateLimit({
+      policy: "api.webhook",
+      identifier: `ip:${getClientIp(req)}`,
+    });
+
+    if (!rateLimitResult.allowed) {
+      const response = new Response("Error: Too many requests", { status: 429 });
+      addRateLimitHeaders(response.headers, rateLimitResult.headers);
+      return response;
+    }
+  }
+
   // Get the Clerk webhook secret from environment
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 

@@ -26,6 +26,7 @@ import {
   boolean,
   date,
   integer,
+  bigint,
   index,
   primaryKey,
   uniqueIndex,
@@ -344,6 +345,36 @@ export const notifications = pgTable(
     orgUserIdx: index("idx_notifications_org_user").on(table.orgId, table.userId),
     unreadIdx: index("idx_notifications_unread").on(table.orgId, table.userId, table.isRead),
     createdIdx: index("idx_notifications_created").on(table.userId, table.createdAt),
+  })
+);
+
+// ===========================
+// Rate Limit Counters
+// ===========================
+
+export const rateLimitCounters = pgTable(
+  "rate_limit_counters",
+  {
+    policy: text("policy").notNull(),
+    identifier: text("identifier").notNull(),
+    windowStartMs: bigint("window_start_ms", { mode: "number" }).notNull(),
+    requestCount: integer("request_count").default(1).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      columns: [table.policy, table.identifier, table.windowStartMs],
+    }),
+    expiresIdx: index("idx_rate_limit_counters_expires").on(table.expiresAt),
+    identifierIdx: index("idx_rate_limit_counters_identifier").on(
+      table.identifier
+    ),
   })
 );
 

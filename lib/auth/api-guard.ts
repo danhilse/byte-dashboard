@@ -2,6 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { normalizeOrgRole } from "@/lib/auth/roles";
+import { checkGlobalRateLimit } from "@/lib/security/global-rate-limit";
+import {
+  addRateLimitHeaders,
+  checkRateLimit,
+  getAuthenticatedRateLimitIdentifier,
+  isRateLimitingEnabled,
+  type RateLimitPolicyName,
+} from "@/lib/security/rate-limit";
 import {
   type BaseOrgRole,
   type AuthPermission,
@@ -28,6 +36,31 @@ interface RequireApiAuthOptions {
   requireOrg?: boolean;
   requiredPermission?: AuthPermission;
   requireDbMembership?: boolean;
+  rateLimitPolicy?: ApiAuthRateLimitPolicy | false;
+}
+
+type ApiAuthRateLimitPolicy = Extract<
+  RateLimitPolicyName,
+  "api.read" | "api.write" | "api.admin"
+>;
+
+function shouldUseGlobalRateLimiter(policy: ApiAuthRateLimitPolicy): boolean {
+  return policy === "api.write" || policy === "api.admin";
+}
+
+function resolveDefaultRateLimitPolicy(options: {
+  requireAdmin: boolean;
+  requiredPermission?: AuthPermission;
+}): ApiAuthRateLimitPolicy {
+  if (options.requireAdmin) {
+    return "api.admin";
+  }
+
+  if (options.requiredPermission?.endsWith(".read")) {
+    return "api.read";
+  }
+
+  return "api.write";
 }
 
 export async function requireApiAuth(
@@ -55,6 +88,45 @@ export async function requireApiAuth(
         { status: 403 }
       ),
     };
+  }
+
+  const rateLimitPolicy =
+    options?.rateLimitPolicy === undefined
+      ? resolveDefaultRateLimitPolicy({ requireAdmin, requiredPermission })
+      : options.rateLimitPolicy;
+
+  const shouldApplyRateLimit =
+    rateLimitPolicy !== false &&
+    process.env.NODE_ENV !== "test" &&
+    isRateLimitingEnabled();
+
+  if (shouldApplyRateLimit && rateLimitPolicy) {
+    const identifier = getAuthenticatedRateLimitIdentifier(
+      userId,
+      orgId ?? undefined
+    );
+    const rateLimitResult = shouldUseGlobalRateLimiter(rateLimitPolicy)
+      ? await checkGlobalRateLimit({
+          policy: rateLimitPolicy,
+          identifier,
+        })
+      : checkRateLimit({
+          policy: rateLimitPolicy,
+          identifier,
+        });
+
+    if (!rateLimitResult.allowed) {
+      const response = NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429 }
+      );
+      addRateLimitHeaders(response.headers, rateLimitResult.headers);
+
+      return {
+        ok: false,
+        response,
+      };
+    }
   }
 
   let effectiveOrgRole = normalizeOrgRole(orgRole);
