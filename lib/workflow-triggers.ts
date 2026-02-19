@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { workflowDefinitions, workflowExecutions } from "@/lib/db/schema";
 import { getTemporalClient } from "@/lib/temporal/client";
+import { getTemporalTaskQueue } from "@/lib/temporal/task-queue";
 import { logActivity } from "@/lib/db/log-activity";
 import {
   fromDefinitionToAuthoring,
@@ -187,7 +188,7 @@ async function startWorkflowExecutionForDefinition({
 
     const temporalWorkflowId = `generic-workflow-${workflowExecution.id}`;
     const handle = await client.workflow.start("genericWorkflow", {
-      taskQueue: "byte-dashboard",
+      taskQueue: getTemporalTaskQueue(),
       args: [workflowInput],
       workflowId: temporalWorkflowId,
     });

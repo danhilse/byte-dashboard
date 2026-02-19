@@ -7,15 +7,10 @@ import {
   getClientIp,
   isRateLimitingEnabled,
 } from "@/lib/security/rate-limit";
+import { PUBLIC_ROUTE_PATTERNS } from "@/lib/auth/public-routes";
 
 // Define public routes that don't require authentication
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/logo",
-  "/api/webhooks(.*)", // Webhooks need to be public but verified separately
-]);
+const isPublicRoute = createRouteMatcher(PUBLIC_ROUTE_PATTERNS);
 const isSignUpRoute = createRouteMatcher(["/sign-up(.*)"]);
 const isApiRoute = createRouteMatcher(["/(api|trpc)(.*)"]);
 const isWebhookRoute = createRouteMatcher(["/api/webhooks(.*)"]);

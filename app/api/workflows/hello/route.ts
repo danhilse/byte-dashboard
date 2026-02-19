@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTemporalClient } from "@/lib/temporal/client";
+import { getTemporalTaskQueue } from "@/lib/temporal/task-queue";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import type {
   HelloWorkflowInput,
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
 
     // Start the workflow
     const handle = await client.workflow.start("helloWorldWorkflow", {
-      taskQueue: "byte-dashboard",
+      taskQueue: getTemporalTaskQueue(),
       args: [body],
       workflowId: `hello-${orgId}-${userId}-${Date.now()}`,
     });

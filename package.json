@@ -20,7 +20,9 @@
     "auth:provision:dan": "tsx --env-file=.env.local scripts/provision-fayette-org.ts --org-id org_39MlYSFs7Zj040mAH9mAyoqDZZJ --org-name \"Dan's Organization\" --org-slug dan-s-organization-1770513867 --owner-user-id user_39MlXgMvThKGTPaokpN2c2OaQDB",
     "auth:provision:dan:dry-run": "tsx --env-file=.env.local scripts/provision-fayette-org.ts --dry-run --org-id org_39MlYSFs7Zj040mAH9mAyoqDZZJ --org-name \"Dan's Organization\" --org-slug dan-s-organization-1770513867 --owner-user-id user_39MlXgMvThKGTPaokpN2c2OaQDB",
     "worker:dev": "tsx watch --env-file=.env.local lib/temporal/worker.ts",
-    "worker:start": "tsx --env-file=.env.local lib/temporal/worker.ts"
+    "worker:start": "tsx --env-file=.env.local lib/temporal/worker.ts",
+    "worker:prod": "tsx lib/temporal/worker.ts",
+    "temporal:check": "tsx --env-file=.env.local scripts/check-temporal-connectivity.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.1",
