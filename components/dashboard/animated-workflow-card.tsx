@@ -10,7 +10,7 @@ interface AnimatedWorkflowCardProps {
   workflow: {
     id: string
     definitionName: string | null | undefined
-    contactName: string
+    contactName?: string | null
     status: string
     startedAt: string | Date
   }
@@ -31,7 +31,7 @@ export function AnimatedWorkflowCard({ workflow, delay = 0 }: AnimatedWorkflowCa
     >
       <div className="space-y-1 flex-1">
         <p className="text-sm font-medium">{workflow.definitionName ?? "Untitled Workflow"}</p>
-        <p className="text-xs text-muted-foreground">{workflow.contactName}</p>
+        <p className="text-xs text-muted-foreground">{workflow.contactName ?? "Unknown Contact"}</p>
         <p className="text-xs text-muted-foreground">
           Started {formatDistanceToNowStrict(new Date(workflow.startedAt), { addSuffix: true })}
         </p>

@@ -355,11 +355,9 @@ async function run(): Promise<void> {
 
   await upsertClerkUserProfile({
     userId: ownerUser.id,
-    legacyOrgId: organization.id,
     email: ownerEmail,
     firstName: ownerUser.firstName ?? null,
     lastName: ownerUser.lastName ?? null,
-    role: roleForSync,
   });
 
   await upsertOrganizationMembership({
