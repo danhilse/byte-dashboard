@@ -1,32 +1,22 @@
 import { NextResponse } from "next/server";
-import { getTemporalClient } from "@/lib/temporal/client";
+import { checkTemporalHealth } from "@/lib/health/checks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const namespace = process.env.TEMPORAL_NAMESPACE || "default";
+  const temporal = await checkTemporalHealth();
 
-  try {
-    const client = await getTemporalClient();
-
-    // Namespace-scoped check: validates both connectivity AND namespace existence.
-    // getSystemInfo({}) only proves the server is reachable, not that the
-    // configured namespace is valid — describeNamespace catches both.
-    const nsResponse =
-      await client.connection.workflowService.describeNamespace({
-        namespace,
-      });
-
+  if (temporal.status === "ok") {
     return NextResponse.json({
-      status: "ok",
-      namespace,
-      namespaceState: nsResponse.namespaceInfo?.state ?? null,
+      status: temporal.status,
+      namespace: temporal.namespace,
+      namespaceState: temporal.namespaceState ?? null,
     });
-  } catch {
-    return NextResponse.json(
-      { status: "error", namespace },
-      { status: 503 }
-    );
   }
+
+  return NextResponse.json(
+    { status: temporal.status, namespace: temporal.namespace },
+    { status: 503 }
+  );
 }

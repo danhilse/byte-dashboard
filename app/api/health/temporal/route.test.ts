@@ -3,12 +3,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getTemporalClient: vi.fn(),
-  describeNamespace: vi.fn(),
+  checkTemporalHealth: vi.fn(),
 }));
 
-vi.mock("@/lib/temporal/client", () => ({
-  getTemporalClient: mocks.getTemporalClient,
+vi.mock("@/lib/health/checks", () => ({
+  checkTemporalHealth: mocks.checkTemporalHealth,
 }));
 
 import { GET } from "@/app/api/health/temporal/route";
@@ -16,28 +15,18 @@ import { GET } from "@/app/api/health/temporal/route";
 describe("app/api/health/temporal/route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.TEMPORAL_NAMESPACE;
   });
 
   it("returns 200 when namespace is reachable", async () => {
-    process.env.TEMPORAL_NAMESPACE = "byte.xx0ph";
-    mocks.describeNamespace.mockResolvedValue({
-      namespaceInfo: { state: 1 },
-    });
-    mocks.getTemporalClient.mockResolvedValue({
-      connection: {
-        workflowService: {
-          describeNamespace: mocks.describeNamespace,
-        },
-      },
+    mocks.checkTemporalHealth.mockResolvedValue({
+      status: "ok",
+      namespace: "byte.xx0ph",
+      namespaceState: 1,
     });
 
     const res = await GET();
 
     expect(res.status).toBe(200);
-    expect(mocks.describeNamespace).toHaveBeenCalledWith({
-      namespace: "byte.xx0ph",
-    });
     expect(await res.json()).toEqual({
       status: "ok",
       namespace: "byte.xx0ph",
@@ -46,7 +35,11 @@ describe("app/api/health/temporal/route", () => {
   });
 
   it("returns 503 when namespace check fails", async () => {
-    mocks.getTemporalClient.mockRejectedValue(new Error("unavailable"));
+    mocks.checkTemporalHealth.mockResolvedValue({
+      status: "error",
+      namespace: "default",
+      error: "unavailable",
+    });
 
     const res = await GET();
 

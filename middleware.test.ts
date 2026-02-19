@@ -21,6 +21,8 @@ function isPublic(pathname: string): boolean {
 
 describe("middleware public routes", () => {
   it.each([
+    "/api/health",
+    "/api/health/",
     "/api/health/temporal",
     "/api/health/temporal/",
   ])("allows %s as public", (path) => {
@@ -28,7 +30,6 @@ describe("middleware public routes", () => {
   });
 
   it.each([
-    "/api/health",
     "/api/health/other",
     "/api/health/temporalfoo",
   ])("does NOT allow %s as public", (path) => {
