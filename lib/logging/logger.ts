@@ -1,7 +1,6 @@
-import { randomUUID } from "node:crypto";
 import pino from "pino";
 
-import { REQUEST_ID_HEADER } from "@/lib/logging/constants";
+import { REQUEST_ID_HEADER } from "@/lib/request-id";
 import { getLogContext } from "@/lib/logging/context";
 
 type LogService = "api" | "worker" | "app";
@@ -41,8 +40,18 @@ function sanitizeRequestId(value: string | null | undefined): string | undefined
   return trimmed;
 }
 
+function createRequestId(): string {
+  const runtimeCrypto = globalThis.crypto;
+
+  if (runtimeCrypto?.randomUUID) {
+    return runtimeCrypto.randomUUID();
+  }
+
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function getOrCreateRequestId(headers?: Pick<Headers, "get">): string {
-  return sanitizeRequestId(headers?.get(REQUEST_ID_HEADER)) ?? randomUUID();
+  return sanitizeRequestId(headers?.get(REQUEST_ID_HEADER)) ?? createRequestId();
 }
 
 export function getLogger(bindings?: Record<string, unknown>) {

@@ -8,7 +8,7 @@ import {
   isRateLimitingEnabled,
 } from "@/lib/security/rate-limit";
 import { PUBLIC_ROUTE_PATTERNS } from "@/lib/auth/public-routes";
-import { REQUEST_ID_HEADER } from "@/lib/logging/constants";
+import { REQUEST_ID_HEADER } from "@/lib/request-id";
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher(PUBLIC_ROUTE_PATTERNS);

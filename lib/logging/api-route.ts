@@ -1,4 +1,4 @@
-import { REQUEST_ID_HEADER } from "@/lib/logging/constants";
+import { REQUEST_ID_HEADER } from "@/lib/request-id";
 import { runWithLogContext } from "@/lib/logging/context";
 import { getOrCreateRequestId, getServiceLogger } from "@/lib/logging/logger";
 
