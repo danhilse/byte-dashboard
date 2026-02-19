@@ -9,6 +9,7 @@ import {
 } from "@/lib/security/rate-limit";
 import { PUBLIC_ROUTE_PATTERNS } from "@/lib/auth/public-routes";
 import { REQUEST_ID_HEADER } from "@/lib/request-id";
+import { buildContentSecurityPolicy } from "@/lib/security/content-security-policy";
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher(PUBLIC_ROUTE_PATTERNS);
@@ -68,47 +69,16 @@ function resolveRequestId(request: NextRequest): string {
   return crypto.randomUUID();
 }
 
-function buildContentSecurityPolicy(request: NextRequest): string {
-  const isProduction = process.env.NODE_ENV === "production";
-  const allowsHttps = request.nextUrl.protocol === "https:";
-  const scriptSources = ["'self'", "'unsafe-inline'", "https:"];
-  const connectSources = ["'self'", "https:", "wss:"];
-
-  if (!isProduction) {
-    scriptSources.push("'unsafe-eval'");
-    connectSources.push("ws:");
-  }
-
-  const directives = [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    `script-src ${scriptSources.join(" ")}`,
-    "script-src-attr 'none'",
-    "style-src 'self' 'unsafe-inline' https:",
-    "img-src 'self' data: blob: https:",
-    "font-src 'self' data: https:",
-    `connect-src ${connectSources.join(" ")}`,
-    "frame-src 'self' https:",
-    "media-src 'self' blob: https:",
-    "worker-src 'self' blob:",
-    "manifest-src 'self'",
-  ];
-
-  if (isProduction && allowsHttps) {
-    directives.push("upgrade-insecure-requests");
-  }
-
-  return directives.join("; ");
-}
-
 function applySecurityHeaders(
   response: NextResponse,
   request: NextRequest
 ): NextResponse {
-  response.headers.set("Content-Security-Policy", buildContentSecurityPolicy(request));
+  response.headers.set(
+    "Content-Security-Policy",
+    buildContentSecurityPolicy({
+      protocol: request.nextUrl.protocol,
+    })
+  );
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
