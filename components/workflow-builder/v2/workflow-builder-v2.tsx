@@ -15,6 +15,7 @@ import {
 } from "@/lib/workflow-builder-v2/builder-session-state"
 import { findSelectedStep } from "@/lib/workflow-builder-v2/workflow-operations"
 import type { OrganizationUserOption } from "./organization-user-option"
+import type { WorkflowEmailTemplate } from "@/types/settings"
 
 interface WorkflowBuilderV2Props {
   workflow: WorkflowDefinitionV2
@@ -39,6 +40,8 @@ export function WorkflowBuilderV2({
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUserOption[]>([])
   const [organizationUsersLoading, setOrganizationUsersLoading] = useState(true)
   const [allowedFromEmails, setAllowedFromEmails] = useState<string[]>([])
+  const [defaultFromEmail, setDefaultFromEmail] = useState<string | null>(null)
+  const [emailTemplates, setEmailTemplates] = useState<WorkflowEmailTemplate[]>([])
   const hasSyncedInitialWorkflow = useRef(false)
 
   useEffect(() => {
@@ -80,13 +83,31 @@ export function WorkflowBuilderV2({
         const payload = await senderEmailsResult.value.json().catch(() => null)
         if (
           senderEmailsResult.value.ok &&
-          Array.isArray(payload?.allowedFromEmails)
+          Array.isArray(payload?.allowedFromEmails) &&
+          Array.isArray(payload?.templates)
         ) {
           if (!cancelled) {
             setAllowedFromEmails(
               payload.allowedFromEmails.filter(
                 (email: unknown): email is string =>
                   typeof email === "string" && email.length > 0
+              )
+            )
+            setDefaultFromEmail(
+              typeof payload.defaultFromEmail === "string" && payload.defaultFromEmail.length > 0
+                ? payload.defaultFromEmail
+                : null
+            )
+            setEmailTemplates(
+              payload.templates.filter(
+                (template: unknown): template is WorkflowEmailTemplate =>
+                  Boolean(template) &&
+                  typeof template === "object" &&
+                  !Array.isArray(template) &&
+                  typeof (template as WorkflowEmailTemplate).id === "string" &&
+                  typeof (template as WorkflowEmailTemplate).name === "string" &&
+                  typeof (template as WorkflowEmailTemplate).subject === "string" &&
+                  typeof (template as WorkflowEmailTemplate).body === "string"
               )
             )
           }
@@ -97,12 +118,16 @@ export function WorkflowBuilderV2({
           )
           if (!cancelled) {
             setAllowedFromEmails([])
+            setDefaultFromEmail(null)
+            setEmailTemplates([])
           }
         }
       } else {
         console.error("Error fetching sender email settings:", senderEmailsResult.reason)
         if (!cancelled) {
           setAllowedFromEmails([])
+          setDefaultFromEmail(null)
+          setEmailTemplates([])
         }
       }
     }
@@ -278,6 +303,8 @@ export function WorkflowBuilderV2({
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
               allowedFromEmails={allowedFromEmails}
+              defaultFromEmail={defaultFromEmail}
+              emailTemplates={emailTemplates}
               onStepUpdate={handleStepUpdate}
               onAddVariable={handleAddVariable}
             />

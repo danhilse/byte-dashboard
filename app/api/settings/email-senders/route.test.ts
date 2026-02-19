@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   getOrganizationEmailSenderSettings: vi.fn(),
+  normalizeOrganizationWorkflowEmailSettingsPatch: vi.fn(),
   upsertOrganizationEmailSenderSettings: vi.fn(),
 }))
 
@@ -14,26 +15,8 @@ vi.mock("@clerk/nextjs/server", () => ({
 
 vi.mock("@/lib/settings/email-senders", () => ({
   getOrganizationEmailSenderSettings: mocks.getOrganizationEmailSenderSettings,
-  normalizeAllowedFromEmails: (input: unknown) => {
-    if (!Array.isArray(input)) {
-      return { ok: false as const, error: "allowedFromEmails must be an array of email strings" }
-    }
-    const values = [...new Set(
-      input
-        .filter((value): value is string => typeof value === "string")
-        .map((value) => value.trim().toLowerCase())
-        .filter((value) => value.length > 0)
-    )]
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    for (const value of values) {
-      if (!emailPattern.test(value)) {
-        return { ok: false as const, error: `Invalid sender email address: ${value}` }
-      }
-    }
-
-    return { ok: true as const, allowedFromEmails: values }
-  },
+  normalizeOrganizationWorkflowEmailSettingsPatch:
+    mocks.normalizeOrganizationWorkflowEmailSettingsPatch,
   upsertOrganizationEmailSenderSettings: mocks.upsertOrganizationEmailSenderSettings,
 }))
 
@@ -42,6 +25,11 @@ import { GET, PATCH } from "@/app/api/settings/email-senders/route"
 describe("app/api/settings/email-senders/route", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.getOrganizationEmailSenderSettings.mockResolvedValue({
+      allowedFromEmails: [],
+      defaultFromEmail: null,
+      templates: [],
+    })
   })
 
   it("returns 401 for unauthenticated GET requests", async () => {
@@ -61,6 +49,8 @@ describe("app/api/settings/email-senders/route", () => {
     })
     mocks.getOrganizationEmailSenderSettings.mockResolvedValue({
       allowedFromEmails: ["ops@example.com", "support@example.com"],
+      defaultFromEmail: "ops@example.com",
+      templates: [],
     })
 
     const response = await GET()
@@ -68,6 +58,8 @@ describe("app/api/settings/email-senders/route", () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       allowedFromEmails: ["ops@example.com", "support@example.com"],
+      defaultFromEmail: "ops@example.com",
+      templates: [],
     })
     expect(mocks.getOrganizationEmailSenderSettings).toHaveBeenCalledWith("org_1")
   })
@@ -98,6 +90,11 @@ describe("app/api/settings/email-senders/route", () => {
       orgRole: "org:admin",
     })
 
+    mocks.normalizeOrganizationWorkflowEmailSettingsPatch.mockReturnValue({
+      ok: false,
+      error: "Invalid sender email address: not-an-email",
+    })
+
     const response = await PATCH(
       new Request("http://localhost/api/settings/email-senders", {
         method: "PATCH",
@@ -118,8 +115,32 @@ describe("app/api/settings/email-senders/route", () => {
       orgId: "org_1",
       orgRole: "org:admin",
     })
+    mocks.normalizeOrganizationWorkflowEmailSettingsPatch.mockReturnValue({
+      ok: true,
+      settings: {
+        allowedFromEmails: ["ops@example.com", "support@example.com"],
+        defaultFromEmail: "ops@example.com",
+        templates: [
+          {
+            id: "template_1",
+            name: "Welcome",
+            subject: "Welcome {{contact.firstName}}",
+            body: "Hello {{contact.firstName}}",
+          },
+        ],
+      },
+    })
     mocks.upsertOrganizationEmailSenderSettings.mockResolvedValue({
       allowedFromEmails: ["ops@example.com", "support@example.com"],
+      defaultFromEmail: "ops@example.com",
+      templates: [
+        {
+          id: "template_1",
+          name: "Welcome",
+          subject: "Welcome {{contact.firstName}}",
+          body: "Hello {{contact.firstName}}",
+        },
+      ],
     })
 
     const response = await PATCH(
@@ -127,6 +148,15 @@ describe("app/api/settings/email-senders/route", () => {
         method: "PATCH",
         body: JSON.stringify({
           allowedFromEmails: ["OPS@example.com", "support@example.com", "ops@example.com"],
+          defaultFromEmail: "OPS@example.com",
+          templates: [
+            {
+              id: "template_1",
+              name: "Welcome",
+              subject: "Welcome {{contact.firstName}}",
+              body: "Hello {{contact.firstName}}",
+            },
+          ],
         }),
       })
     )
@@ -134,10 +164,28 @@ describe("app/api/settings/email-senders/route", () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       allowedFromEmails: ["ops@example.com", "support@example.com"],
+      defaultFromEmail: "ops@example.com",
+      templates: [
+        {
+          id: "template_1",
+          name: "Welcome",
+          subject: "Welcome {{contact.firstName}}",
+          body: "Hello {{contact.firstName}}",
+        },
+      ],
     })
-    expect(mocks.upsertOrganizationEmailSenderSettings).toHaveBeenCalledWith("org_1", [
-      "ops@example.com",
-      "support@example.com",
-    ])
+    expect(mocks.normalizeOrganizationWorkflowEmailSettingsPatch).toHaveBeenCalled()
+    expect(mocks.upsertOrganizationEmailSenderSettings).toHaveBeenCalledWith("org_1", {
+      allowedFromEmails: ["ops@example.com", "support@example.com"],
+      defaultFromEmail: "ops@example.com",
+      templates: [
+        {
+          id: "template_1",
+          name: "Welcome",
+          subject: "Welcome {{contact.firstName}}",
+          body: "Hello {{contact.firstName}}",
+        },
+      ],
+    })
   })
 })

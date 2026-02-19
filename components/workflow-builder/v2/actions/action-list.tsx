@@ -21,6 +21,7 @@ import {
 import { createActionId } from "@/lib/workflow-builder-v2/id-utils"
 import { duplicateActionInList } from "@/lib/workflow-builder-v2/workflow-operations"
 import type { OrganizationUserOption } from "../organization-user-option"
+import type { WorkflowEmailTemplate } from "@/types/settings"
 
 interface ActionListProps {
   actions: WorkflowAction[]
@@ -29,6 +30,8 @@ interface ActionListProps {
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
   allowedFromEmails: string[]
+  defaultFromEmail: string | null
+  emailTemplates: WorkflowEmailTemplate[]
   onChange: (actions: WorkflowAction[]) => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
@@ -40,6 +43,8 @@ export function ActionList({
   organizationUsers,
   organizationUsersLoading,
   allowedFromEmails,
+  defaultFromEmail,
+  emailTemplates,
   onChange,
   onAddVariable,
 }: ActionListProps) {
@@ -98,6 +103,8 @@ export function ActionList({
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
               allowedFromEmails={allowedFromEmails}
+              defaultFromEmail={defaultFromEmail}
+              emailTemplates={emailTemplates}
               isExpanded={expandedActionId === action.id}
               onToggle={() =>
                 setExpandedActionId(expandedActionId === action.id ? null : action.id)

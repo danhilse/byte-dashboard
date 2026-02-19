@@ -5,7 +5,7 @@ import { withApiRequestLogging } from "@/lib/logging/api-route"
 import { parseJsonBody } from "@/lib/validation/api-helpers"
 import {
   getOrganizationEmailSenderSettings,
-  normalizeAllowedFromEmails,
+  normalizeOrganizationWorkflowEmailSettingsPatch,
   upsertOrganizationEmailSenderSettings,
 } from "@/lib/settings/email-senders"
 
@@ -50,7 +50,8 @@ async function PATCHHandler(req: Request) {
       return parsed.error
     }
 
-    const normalized = normalizeAllowedFromEmails(parsed.body.allowedFromEmails)
+    const currentSettings = await getOrganizationEmailSenderSettings(authResult.context.orgId)
+    const normalized = normalizeOrganizationWorkflowEmailSettingsPatch(parsed.body, currentSettings)
     if (!normalized.ok) {
       return NextResponse.json(
         { error: normalized.error },
@@ -61,7 +62,7 @@ async function PATCHHandler(req: Request) {
     const { orgId } = authResult.context
     const updated = await upsertOrganizationEmailSenderSettings(
       orgId,
-      normalized.allowedFromEmails
+      normalized.settings
     )
 
     return NextResponse.json(updated)

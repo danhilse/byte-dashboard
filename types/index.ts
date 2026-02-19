@@ -157,6 +157,8 @@ export interface SendEmailStep extends BaseStep {
     subject: string
     body: string
     from?: string
+    failurePolicy?: "fail_workflow" | "continue" | "retry"
+    retryCount?: number
   }
 }
 

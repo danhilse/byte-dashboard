@@ -39,6 +39,8 @@ export const actionRegistry: Record<ActionType, ActionMetadata> = {
         to: "{{contact.email}}",
         subject: "",
         body: "",
+        failurePolicy: "fail_workflow",
+        retryCount: 1,
       },
     },
   },

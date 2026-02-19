@@ -68,7 +68,12 @@ async function resolveSenderEmail(
   }
 
   if (!explicitFrom) {
-    return settings.allowedFromEmails[0]
+    if (!settings.defaultFromEmail) {
+      throw new Error(
+        `Organization "${orgId}" has allowed sender emails configured but no defaultFromEmail.`
+      )
+    }
+    return settings.defaultFromEmail
   }
 
   if (!isAllowedFromEmail(settings.allowedFromEmails, explicitFrom)) {

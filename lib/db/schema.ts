@@ -495,6 +495,8 @@ export const organizationEmailSettings = pgTable(
   {
     orgId: text("org_id").primaryKey(),
     allowedFromEmails: jsonb("allowed_from_emails").default([]).notNull(),
+    defaultFromEmail: text("default_from_email"),
+    templates: jsonb("templates").default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -504,7 +504,30 @@ export function validateAuthoring(
 
       const variableSensitiveValues: string[] = []
       switch (action.type) {
-        case "send_email":
+        case "send_email": {
+          const failurePolicy = action.config.failurePolicy ?? "fail_workflow"
+          if (!["fail_workflow", "continue", "retry"].includes(failurePolicy)) {
+            issues.push({
+              code: "invalid_shape",
+              path: `${actionPath}.config.failurePolicy`,
+              message: `Unsupported send_email failurePolicy "${failurePolicy}".`,
+            })
+          }
+
+          if (failurePolicy === "retry") {
+            const retryCount = action.config.retryCount
+            if (
+              retryCount !== undefined &&
+              (!Number.isFinite(retryCount) || retryCount < 1 || retryCount > 5)
+            ) {
+              issues.push({
+                code: "invalid_shape",
+                path: `${actionPath}.config.retryCount`,
+                message: "send_email retryCount must be between 1 and 5.",
+              })
+            }
+          }
+
           variableSensitiveValues.push(
             action.config.to,
             action.config.subject,
@@ -512,6 +535,7 @@ export function validateAuthoring(
             action.config.from ?? ""
           )
           break
+        }
         case "notification":
           variableSensitiveValues.push(action.config.title, action.config.message)
           if (action.config.recipients.type === "user") {
@@ -776,6 +800,13 @@ function compileStandardStep(
 
     if (action.type === "send_email") {
       const from = action.config.from?.trim()
+      const failurePolicy = action.config.failurePolicy ?? "fail_workflow"
+      const retryCount = action.config.retryCount
+      const normalizedRetryCount =
+        typeof retryCount === "number" && Number.isFinite(retryCount)
+          ? Math.max(1, Math.min(5, Math.floor(retryCount)))
+          : 1
+
       runtimeSteps.push({
         id: actionStepId,
         type: "send_email",
@@ -786,6 +817,8 @@ function compileStandardStep(
           subject: convertValueTemplate(action.config.subject),
           body: convertValueTemplate(action.config.body),
           ...(from ? { from: convertValueTemplate(from) } : {}),
+          failurePolicy,
+          ...(failurePolicy === "retry" ? { retryCount: normalizedRetryCount } : {}),
         },
       })
       continue

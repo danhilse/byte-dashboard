@@ -17,6 +17,7 @@ import { CreateContactConfig } from "./action-config/create-contact-config"
 import { SetVariableConfig } from "./action-config/set-variable-config"
 import { NotificationConfig } from "./action-config/notification-config"
 import type { OrganizationUserOption } from "../organization-user-option"
+import type { WorkflowEmailTemplate } from "@/types/settings"
 
 interface ActionCardProps {
   action: WorkflowAction
@@ -25,6 +26,8 @@ interface ActionCardProps {
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
   allowedFromEmails: string[]
+  defaultFromEmail: string | null
+  emailTemplates: WorkflowEmailTemplate[]
   isExpanded: boolean
   onToggle: () => void
   onUpdate: (action: WorkflowAction) => void
@@ -40,6 +43,8 @@ export function ActionCard({
   organizationUsers,
   organizationUsersLoading,
   allowedFromEmails,
+  defaultFromEmail,
+  emailTemplates,
   isExpanded,
   onToggle,
   onUpdate,
@@ -66,7 +71,14 @@ export function ActionCard({
     switch (action.type) {
       case "send_email": {
         const to = resolveDisplayValue(action.config.to, variables, "(no recipient)")
-        return `To: ${to}, Subject: ${action.config.subject || "(no subject)"}`
+        const failurePolicy = action.config.failurePolicy ?? "fail_workflow"
+        const policyLabel =
+          failurePolicy === "continue"
+            ? "Continue"
+            : failurePolicy === "retry"
+              ? `Retry x${action.config.retryCount ?? 1}`
+              : "Fail workflow"
+        return `To: ${to}, Subject: ${action.config.subject || "(no subject)"}, On fail: ${policyLabel}`
       }
       case "create_task": {
         const title = action.config.title || "(untitled)"
@@ -171,6 +183,8 @@ export function ActionCard({
               action={action}
               variables={variables}
               allowedFromEmails={allowedFromEmails}
+              defaultFromEmail={defaultFromEmail}
+              emailTemplates={emailTemplates}
               onChange={onUpdate}
             />
           )}

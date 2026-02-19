@@ -71,6 +71,13 @@
       "when": 1771800000000,
       "tag": "0009_org_email_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771810000000,
+      "tag": "0010_org_email_defaults_and_templates",
+      "breakpoints": true
     }
   ]
 }

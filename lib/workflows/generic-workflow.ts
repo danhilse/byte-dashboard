@@ -559,7 +559,54 @@ export async function genericWorkflow(
           const subject = resolveVariable(config.subject);
           const body = resolveVariable(config.body);
           const from = config.from ? resolveVariable(config.from) : undefined;
-          await sendEmail(to, subject, body, from, input.orgId);
+          const failurePolicy = config.failurePolicy ?? "fail_workflow";
+          const retryCount =
+            typeof config.retryCount === "number" && Number.isFinite(config.retryCount)
+              ? Math.max(1, Math.min(5, Math.floor(config.retryCount)))
+              : 1;
+
+          const sendOnce = async () =>
+            await sendEmail(to, subject, body, from, input.orgId);
+
+          if (failurePolicy === "continue") {
+            try {
+              await sendOnce();
+            } catch (error) {
+              console.log(
+                `[GenericWorkflow] send_email failed at step "${step.label}" and will continue: ${String(
+                  error
+                )}`
+              );
+            }
+            break;
+          }
+
+          if (failurePolicy === "retry") {
+            let lastError: unknown;
+            for (let attempt = 1; attempt <= retryCount + 1; attempt++) {
+              try {
+                await sendOnce();
+                lastError = undefined;
+                break;
+              } catch (error) {
+                lastError = error;
+                if (attempt <= retryCount) {
+                  console.log(
+                    `[GenericWorkflow] send_email attempt ${attempt} failed at step "${step.label}". Retrying...`
+                  );
+                  await sleep(30_000);
+                }
+              }
+            }
+
+            if (lastError) {
+              throw lastError;
+            }
+
+            break;
+          }
+
+          await sendOnce();
           break;
         }
 
