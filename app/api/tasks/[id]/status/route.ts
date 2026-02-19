@@ -12,6 +12,7 @@ import { buildTaskAccessContext, canMutateTask } from "@/lib/tasks/access";
 import { logActivity } from "@/lib/db/log-activity";
 import { getFieldDefinition } from "@/lib/field-registry";
 import { parseJsonBody } from "@/lib/validation/api-helpers";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * PATCH /api/tasks/[id]/status
@@ -30,7 +31,7 @@ import { parseJsonBody } from "@/lib/validation/api-helpers";
  *   "workflowSignaled": true | false
  * }
  */
-export async function PATCH(
+async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -300,3 +301,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withApiRequestLogging(PATCHHandler);

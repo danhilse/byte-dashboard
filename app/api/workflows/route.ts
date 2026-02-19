@@ -13,6 +13,7 @@ import {
   redactContactForRead,
   resolveContactFieldAccess,
 } from "@/lib/auth/field-visibility";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * GET /api/workflows
@@ -20,7 +21,7 @@ import {
  * Lists workflow executions for the authenticated organization.
  * Joins contacts and workflow_definitions for display names.
  */
-export async function GET() {
+async function GETHandler() {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "workflows.read",
@@ -103,7 +104,7 @@ export async function GET() {
  *
  * Creates a new workflow execution (manual, no Temporal).
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "workflows.write",
@@ -248,3 +249,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const POST = withApiRequestLogging(POSTHandler);

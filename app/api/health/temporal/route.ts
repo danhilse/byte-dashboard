@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { checkTemporalHealth } from "@/lib/health/checks";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+async function GETHandler() {
   const temporal = await checkTemporalHealth();
 
   if (temporal.status === "ok") {
@@ -20,3 +21,5 @@ export async function GET() {
     { status: 503 }
   );
 }
+
+export const GET = withApiRequestLogging(GETHandler);

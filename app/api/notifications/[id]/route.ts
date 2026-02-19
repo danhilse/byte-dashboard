@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 import { markNotificationRead } from "@/lib/notifications/service";
 
@@ -8,7 +9,7 @@ import { markNotificationRead } from "@/lib/notifications/service";
  *
  * Marks an individual notification as read/dismissed.
  */
-export async function PATCH(
+async function PATCHHandler(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -48,3 +49,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withApiRequestLogging(PATCHHandler);

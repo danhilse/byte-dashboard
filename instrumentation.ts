@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 import { validateServerEnvironment } from "@/lib/env/server-env";
+import { patchConsoleWithStructuredLogger } from "@/lib/logging/console-bridge";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "edge") {
@@ -8,6 +9,9 @@ export async function register() {
     return;
   }
 
+  if (process.env.NODE_ENV !== "test") {
+    patchConsoleWithStructuredLogger("api");
+  }
   await import("./sentry.server.config");
   validateServerEnvironment();
 }

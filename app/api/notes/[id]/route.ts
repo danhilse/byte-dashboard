@@ -3,13 +3,14 @@ import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
 import { notes } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * DELETE /api/notes/[id]
  *
  * Deletes a note. Only the note author can delete it.
  */
-export async function DELETE(
+async function DELETEHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -61,3 +62,5 @@ export async function DELETE(
     );
   }
 }
+
+export const DELETE = withApiRequestLogging(DELETEHandler);

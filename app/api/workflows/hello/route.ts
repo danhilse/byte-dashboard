@@ -6,6 +6,7 @@ import type {
   HelloWorkflowInput,
   HelloWorkflowResult,
 } from "@/lib/workflows/hello-world";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 /**
  * API Route to start a Hello World workflow
@@ -14,7 +15,7 @@ import type {
  * POST /api/workflows/hello
  * Body: { "name": "John", "email": "john@example.com" }
  */
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "workflows.trigger",
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
  * Example request:
  * GET /api/workflows/hello?temporalWorkflowId=hello-john-123456789
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "workflows.trigger",
@@ -119,3 +120,6 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const POST = withApiRequestLogging(POSTHandler);

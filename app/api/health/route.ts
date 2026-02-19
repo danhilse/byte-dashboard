@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 import {
   checkAppHealth,
@@ -9,7 +10,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+async function GETHandler() {
   const app = checkAppHealth();
   const [db, temporal] = await Promise.all([
     checkDatabaseHealth(),
@@ -35,3 +36,5 @@ export async function GET() {
     status: status === "ok" ? 200 : 503,
   });
 }
+
+export const GET = withApiRequestLogging(GETHandler);

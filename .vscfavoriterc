@@ -1,0 +1,11 @@
+{
+  "resources": [
+    {
+      "filePath": "context/phase_2.md",
+      "group": "Default"
+    }
+  ],
+  "groups": [
+    "Default"
+  ]
+}

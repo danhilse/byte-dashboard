@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 import {
   getNotificationsForUser,
@@ -11,7 +12,7 @@ import {
  *
  * Returns notifications for the authenticated user.
  */
-export async function GET(req: Request) {
+async function GETHandler(req: Request) {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "notifications.read",
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
  *
  * Marks all unread notifications as read for the authenticated user.
  */
-export async function PATCH() {
+async function PATCHHandler() {
   try {
     const authResult = await requireApiAuth({
       requiredPermission: "notifications.write",
@@ -71,3 +72,6 @@ export async function PATCH() {
     );
   }
 }
+
+export const GET = withApiRequestLogging(GETHandler);
+export const PATCH = withApiRequestLogging(PATCHHandler);

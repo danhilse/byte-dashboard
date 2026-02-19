@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
+import { withApiRequestLogging } from "@/lib/logging/api-route";
 
 import { db } from "@/lib/db";
 import { organizationMemberships } from "@/lib/db/schema";
@@ -22,7 +23,7 @@ function toOptionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   if (process.env.NODE_ENV !== "test" && isRateLimitingEnabled()) {
     const rateLimitResult = await checkGlobalRateLimit({
       policy: "api.webhook",
@@ -206,3 +207,5 @@ export async function POST(req: Request) {
 
   return new Response("Webhook processed successfully", { status: 200 });
 }
+
+export const POST = withApiRequestLogging(POSTHandler);
