@@ -37,6 +37,7 @@ interface StepConfigPanelV2Props {
   statuses: WorkflowStatus[]
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
+  allowedFromEmails: string[]
   onStepUpdate: (step: WorkflowStepV2) => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
@@ -48,6 +49,7 @@ export function StepConfigPanelV2({
   statuses,
   organizationUsers,
   organizationUsersLoading,
+  allowedFromEmails,
   onStepUpdate,
   onAddVariable,
 }: StepConfigPanelV2Props) {
@@ -595,6 +597,7 @@ export function StepConfigPanelV2({
               statuses={statuses}
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
+              allowedFromEmails={allowedFromEmails}
               onChange={handleActionsChange}
               onAddVariable={onAddVariable}
             />

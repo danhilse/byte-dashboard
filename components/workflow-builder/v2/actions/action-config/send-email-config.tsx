@@ -4,14 +4,29 @@ import type { WorkflowAction, WorkflowVariable } from "../../../types/workflow-v
 import { Label } from "@/components/ui/label"
 import { VariableSelector } from "../../variable-selector"
 import { TemplatedTextInput } from "../../templated-text-input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface SendEmailConfigProps {
   action: Extract<WorkflowAction, { type: "send_email" }>
   variables: WorkflowVariable[]
+  allowedFromEmails: string[]
   onChange: (action: WorkflowAction) => void
 }
 
-export function SendEmailConfig({ action, variables, onChange }: SendEmailConfigProps) {
+const FROM_DEFAULT_VALUE = "__org_default__"
+
+export function SendEmailConfig({
+  action,
+  variables,
+  allowedFromEmails,
+  onChange,
+}: SendEmailConfigProps) {
   const handleChange = (field: keyof typeof action.config, value: string) => {
     onChange({
       ...action,
@@ -21,6 +36,12 @@ export function SendEmailConfig({ action, variables, onChange }: SendEmailConfig
       },
     })
   }
+
+  const hasConfiguredFromEmails = allowedFromEmails.length > 0
+  const selectedFromValue =
+    action.config.from && allowedFromEmails.includes(action.config.from)
+      ? action.config.from
+      : FROM_DEFAULT_VALUE
 
   return (
     <div className="space-y-4">
@@ -66,18 +87,33 @@ export function SendEmailConfig({ action, variables, onChange }: SendEmailConfig
 
       <div className="space-y-2">
         <Label htmlFor={`${action.id}-from`}>From (Optional)</Label>
-        <VariableSelector
-          value={action.config.from || ""}
-          onChange={(value) => handleChange("from", value)}
-          variables={variables}
-          filterByDataType="email"
-          allowManualEntry={true}
-          placeholder="Select email or enter manually..."
-          className="w-full"
-        />
+        <Select
+          value={selectedFromValue}
+          onValueChange={(value) =>
+            handleChange("from", value === FROM_DEFAULT_VALUE ? "" : value)
+          }
+        >
+          <SelectTrigger id={`${action.id}-from`}>
+            <SelectValue placeholder="Select sender address..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={FROM_DEFAULT_VALUE}>Use organization default</SelectItem>
+            {allowedFromEmails.map((email) => (
+              <SelectItem key={email} value={email}>
+                {email}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <p className="text-xs text-muted-foreground">
-          Defaults to system email if left empty
+          Sender addresses are restricted to your organization allowlist.
         </p>
+        {!hasConfiguredFromEmails && (
+          <p className="text-xs text-amber-700">
+            No sender addresses configured in Settings. This action will use the
+            environment default sender.
+          </p>
+        )}
       </div>
     </div>
   )

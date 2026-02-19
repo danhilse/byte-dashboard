@@ -28,6 +28,7 @@ interface ActionListProps {
   statuses: WorkflowStatus[]
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
+  allowedFromEmails: string[]
   onChange: (actions: WorkflowAction[]) => void
   onAddVariable?: (variable: WorkflowVariable) => void
 }
@@ -38,6 +39,7 @@ export function ActionList({
   statuses,
   organizationUsers,
   organizationUsersLoading,
+  allowedFromEmails,
   onChange,
   onAddVariable,
 }: ActionListProps) {
@@ -95,6 +97,7 @@ export function ActionList({
               statuses={statuses}
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
+              allowedFromEmails={allowedFromEmails}
               isExpanded={expandedActionId === action.id}
               onToggle={() =>
                 setExpandedActionId(expandedActionId === action.id ? null : action.id)

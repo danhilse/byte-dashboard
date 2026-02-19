@@ -56,6 +56,7 @@ describe("definition-runtime-adapter", () => {
                 to: "var-contact.email",
                 subject: "Thanks",
                 body: "We received your submission.",
+                from: "ops@example.com",
               },
             },
           ],
@@ -84,7 +85,7 @@ describe("definition-runtime-adapter", () => {
     })
     const sendEmail = runtimeSteps.find((step) => step.type === "send_email")
     expect(sendEmail).toMatchObject({
-      config: { to: "{{contact.email}}" },
+      config: { to: "{{contact.email}}", from: "ops@example.com" },
     })
   })
 

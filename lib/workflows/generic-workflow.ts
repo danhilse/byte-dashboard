@@ -558,7 +558,8 @@ export async function genericWorkflow(
           const to = resolveVariable(config.to);
           const subject = resolveVariable(config.subject);
           const body = resolveVariable(config.body);
-          await sendEmail(to, subject, body);
+          const from = config.from ? resolveVariable(config.from) : undefined;
+          await sendEmail(to, subject, body, from, input.orgId);
           break;
         }
 

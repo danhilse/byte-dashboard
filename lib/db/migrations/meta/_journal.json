@@ -64,6 +64,13 @@
       "when": 1771770000000,
       "tag": "0008_global_rate_limit_counters",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771800000000,
+      "tag": "0009_org_email_settings",
+      "breakpoints": true
     }
   ]
 }

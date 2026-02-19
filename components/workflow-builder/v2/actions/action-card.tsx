@@ -24,6 +24,7 @@ interface ActionCardProps {
   statuses: WorkflowStatus[]
   organizationUsers: OrganizationUserOption[]
   organizationUsersLoading: boolean
+  allowedFromEmails: string[]
   isExpanded: boolean
   onToggle: () => void
   onUpdate: (action: WorkflowAction) => void
@@ -38,6 +39,7 @@ export function ActionCard({
   statuses,
   organizationUsers,
   organizationUsersLoading,
+  allowedFromEmails,
   isExpanded,
   onToggle,
   onUpdate,
@@ -165,7 +167,12 @@ export function ActionCard({
       {isExpanded && (
         <div className="border-t p-4">
           {action.type === "send_email" && (
-            <SendEmailConfig action={action} variables={variables} onChange={onUpdate} />
+            <SendEmailConfig
+              action={action}
+              variables={variables}
+              allowedFromEmails={allowedFromEmails}
+              onChange={onUpdate}
+            />
           )}
           {action.type === "create_task" && (
             <CreateTaskConfig

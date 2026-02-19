@@ -156,6 +156,7 @@ export interface SendEmailStep extends BaseStep {
     to: string
     subject: string
     body: string
+    from?: string
   }
 }
 

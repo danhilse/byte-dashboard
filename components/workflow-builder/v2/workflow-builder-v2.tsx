@@ -38,36 +38,76 @@ export function WorkflowBuilderV2({
   )
   const [organizationUsers, setOrganizationUsers] = useState<OrganizationUserOption[]>([])
   const [organizationUsersLoading, setOrganizationUsersLoading] = useState(true)
+  const [allowedFromEmails, setAllowedFromEmails] = useState<string[]>([])
   const hasSyncedInitialWorkflow = useRef(false)
 
   useEffect(() => {
     let cancelled = false
 
-    const loadOrganizationUsers = async () => {
-      try {
-        const response = await fetch("/api/users")
-        const payload = await response.json().catch(() => null)
+    const loadBuilderMetadata = async () => {
+      const [usersResult, senderEmailsResult] = await Promise.allSettled([
+        fetch("/api/users"),
+        fetch("/api/settings/email-senders"),
+      ])
 
-        if (!response.ok || !Array.isArray(payload?.users)) {
-          throw new Error(payload?.error || "Failed to load organization users")
-        }
+      if (!cancelled) {
+        setOrganizationUsersLoading(false)
+      }
 
-        if (!cancelled) {
-          setOrganizationUsers(payload.users as OrganizationUserOption[])
+      if (usersResult.status === "fulfilled") {
+        const payload = await usersResult.value.json().catch(() => null)
+        if (usersResult.value.ok && Array.isArray(payload?.users)) {
+          if (!cancelled) {
+            setOrganizationUsers(payload.users as OrganizationUserOption[])
+          }
+        } else {
+          console.error(
+            "Error fetching organization users:",
+            payload?.error || "Failed to load organization users"
+          )
+          if (!cancelled) {
+            setOrganizationUsers([])
+          }
         }
-      } catch (error) {
-        console.error("Error fetching organization users:", error)
+      } else {
+        console.error("Error fetching organization users:", usersResult.reason)
         if (!cancelled) {
           setOrganizationUsers([])
         }
-      } finally {
+      }
+
+      if (senderEmailsResult.status === "fulfilled") {
+        const payload = await senderEmailsResult.value.json().catch(() => null)
+        if (
+          senderEmailsResult.value.ok &&
+          Array.isArray(payload?.allowedFromEmails)
+        ) {
+          if (!cancelled) {
+            setAllowedFromEmails(
+              payload.allowedFromEmails.filter(
+                (email: unknown): email is string =>
+                  typeof email === "string" && email.length > 0
+              )
+            )
+          }
+        } else {
+          console.error(
+            "Error fetching sender email settings:",
+            payload?.error || "Failed to load sender email settings"
+          )
+          if (!cancelled) {
+            setAllowedFromEmails([])
+          }
+        }
+      } else {
+        console.error("Error fetching sender email settings:", senderEmailsResult.reason)
         if (!cancelled) {
-          setOrganizationUsersLoading(false)
+          setAllowedFromEmails([])
         }
       }
     }
 
-    loadOrganizationUsers()
+    loadBuilderMetadata()
 
     return () => {
       cancelled = true
@@ -237,6 +277,7 @@ export function WorkflowBuilderV2({
               statuses={session.builder.workflow.statuses}
               organizationUsers={organizationUsers}
               organizationUsersLoading={organizationUsersLoading}
+              allowedFromEmails={allowedFromEmails}
               onStepUpdate={handleStepUpdate}
               onAddVariable={handleAddVariable}
             />

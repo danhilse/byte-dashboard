@@ -775,6 +775,7 @@ function compileStandardStep(
     }
 
     if (action.type === "send_email") {
+      const from = action.config.from?.trim()
       runtimeSteps.push({
         id: actionStepId,
         type: "send_email",
@@ -784,6 +785,7 @@ function compileStandardStep(
           to: convertValueTemplate(action.config.to),
           subject: convertValueTemplate(action.config.subject),
           body: convertValueTemplate(action.config.body),
+          ...(from ? { from: convertValueTemplate(from) } : {}),
         },
       })
       continue
