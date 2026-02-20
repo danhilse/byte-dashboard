@@ -373,6 +373,37 @@ describe("app/api/tasks/route", () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it("returns 400 when contactId does not match workflow execution contact", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "org:member",
+    });
+    mocks.select
+      .mockReturnValueOnce(createSimpleSelectQuery([{ id: "contact_1" }]))
+      .mockReturnValueOnce(
+        createSimpleSelectQuery([{ id: "workflow_1", contactId: "contact_2" }])
+      );
+
+    const res = await POST(
+      new Request("http://localhost/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: "Review docs",
+          contactId: "contact_1",
+          workflowExecutionId: "workflow_1",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "contactId does not match the workflow execution's contact",
+      code: "CONTACT_EXECUTION_MISMATCH",
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it("auto-assigns task to creator when no assignedTo is provided", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     const insertQuery = createInsertQuery([
@@ -396,7 +427,7 @@ describe("app/api/tasks/route", () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
     mocks.select
       .mockReturnValueOnce(createSimpleSelectQuery([{ id: "contact_1" }]))
-      .mockReturnValueOnce(createSimpleSelectQuery([{ id: "workflow_1" }]));
+      .mockReturnValueOnce(createSimpleSelectQuery([{ id: "workflow_1", contactId: "contact_1" }]));
 
     const insertQuery = createInsertQuery([
       { id: "task_1", title: "Review docs", status: "todo", priority: "medium", assignedTo: "user_1" },

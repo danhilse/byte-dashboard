@@ -295,6 +295,44 @@ describe("app/api/tasks/[id]/route", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
+  it("PATCH returns 400 when contactId mismatches task workflow execution contact", async () => {
+    mocks.auth.mockResolvedValue({
+      userId: "user_1",
+      orgId: "org_1",
+      orgRole: "member",
+    });
+    mocks.canMutateTask.mockReturnValue(true);
+    mocks.select
+      .mockReturnValueOnce(
+        selectQuery([
+          {
+            id: "task_1",
+            assignedTo: "user_1",
+            workflowExecutionId: "workflow_1",
+          },
+        ])
+      )
+      .mockReturnValueOnce(selectQuery([{ id: "contact_2" }]))
+      .mockReturnValueOnce(
+        selectQuery([{ id: "workflow_1", contactId: "contact_1" }])
+      );
+
+    const res = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ contactId: "contact_2" }),
+      }),
+      { params: Promise.resolve({ id: "task_1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "contactId does not match the workflow execution's contact",
+      code: "CONTACT_EXECUTION_MISMATCH",
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it("PATCH creates a notification when assignment changes", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "member" });
     mocks.canMutateTask.mockReturnValue(true);

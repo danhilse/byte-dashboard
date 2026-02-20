@@ -210,7 +210,7 @@ async function POSTHandler(req: Request) {
     // Validate workflowExecutionId belongs to org if provided
     if (workflowExecutionId) {
       const [workflow] = await db
-        .select({ id: workflowExecutions.id })
+        .select({ id: workflowExecutions.id, contactId: workflowExecutions.contactId })
         .from(workflowExecutions)
         .where(and(eq(workflowExecutions.id, workflowExecutionId as string), eq(workflowExecutions.orgId, orgId)));
 
@@ -218,6 +218,18 @@ async function POSTHandler(req: Request) {
         return NextResponse.json(
           { error: "Workflow not found" },
           { status: 404 }
+        );
+      }
+
+      // Consistency guard: if both contactId and workflowExecutionId are provided,
+      // verify the execution's contactId matches the provided contactId
+      if (contactId && workflow.contactId !== contactId) {
+        return NextResponse.json(
+          {
+            error: "contactId does not match the workflow execution's contact",
+            code: "CONTACT_EXECUTION_MISMATCH",
+          },
+          { status: 400 }
         );
       }
     }

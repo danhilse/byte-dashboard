@@ -49,6 +49,15 @@ function updateQuery(result: unknown[]) {
   return { set };
 }
 
+function selectQueryWithLimit(result: unknown[]) {
+  return {
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnValue({
+      limit: vi.fn().mockResolvedValue(result),
+    }),
+  };
+}
+
 function deleteQuery(result: unknown[]) {
   const returning = vi.fn().mockResolvedValue(result);
   const where = vi.fn().mockReturnValue({ returning });
@@ -328,8 +337,42 @@ describe("app/api/contacts/[id]/route", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
+  it("DELETE returns 409 when contact has linked workflow executions", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([{ id: "execution_1" }]));
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "contact_1" }),
+    });
+
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.code).toBe("CONTACT_HAS_LINKED_WORKFLOWS");
+    expect(mocks.delete).not.toHaveBeenCalled();
+  });
+
+  it("DELETE returns 409 when contact has linked tasks", async () => {
+    mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+    // First select: no linked executions
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
+    // Second select: linked task found
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([{ id: "task_1" }]));
+
+    const res = await DELETE(new Request("http://localhost"), {
+      params: Promise.resolve({ id: "contact_1" }),
+    });
+
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.code).toBe("CONTACT_HAS_LINKED_TASKS");
+    expect(mocks.delete).not.toHaveBeenCalled();
+  });
+
   it("DELETE returns 404 when contact does not exist", async () => {
     mocks.auth.mockResolvedValue({ userId: "user_1", orgId: "org_1", orgRole: "org:member" });
+    // Pre-checks: no linked entities
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
     mocks.delete.mockReturnValue(deleteQuery([]));
 
     const res = await DELETE(new Request("http://localhost"), {
@@ -364,6 +407,9 @@ describe("app/api/contacts/[id]/route", () => {
         orgId: "org_1",
         orgRole,
       });
+      // Pre-checks: no linked entities
+      mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
+      mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
       mocks.delete.mockReturnValue(deleteQuery([]));
 
       const res = await DELETE(new Request("http://localhost"), {
@@ -385,6 +431,9 @@ describe("app/api/contacts/[id]/route", () => {
       readableFields: new Set(["firstName"]),
       writableFields: new Set(),
     });
+    // Pre-checks: no linked entities
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
+    mocks.select.mockReturnValueOnce(selectQueryWithLimit([]));
     mocks.delete.mockReturnValue(
       deleteQuery([
         {

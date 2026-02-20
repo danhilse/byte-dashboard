@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
-import { contacts } from "@/lib/db/schema";
+import { contacts, workflowExecutions, tasks } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { logActivity } from "@/lib/db/log-activity";
 import { triggerWorkflowDefinitionsForContactUpdated } from "@/lib/workflow-triggers";
@@ -305,6 +305,39 @@ async function DELETEHandler(
     }
     const { userId, orgId, orgRoles } = authResult.context;
     const fieldAccess = await resolveContactFieldAccess({ orgId, orgRoles });
+
+    // Pre-delete checks: block if linked workflow executions or tasks exist
+    const [linkedExecution] = await db
+      .select({ id: workflowExecutions.id })
+      .from(workflowExecutions)
+      .where(and(eq(workflowExecutions.contactId, id), eq(workflowExecutions.orgId, orgId)))
+      .limit(1);
+
+    if (linkedExecution) {
+      return NextResponse.json(
+        {
+          error: "Contact cannot be deleted while linked workflow executions exist. Complete or remove linked workflows first.",
+          code: "CONTACT_HAS_LINKED_WORKFLOWS",
+        },
+        { status: 409 }
+      );
+    }
+
+    const [linkedTask] = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.contactId, id), eq(tasks.orgId, orgId)))
+      .limit(1);
+
+    if (linkedTask) {
+      return NextResponse.json(
+        {
+          error: "Contact cannot be deleted while linked tasks exist. Complete or reassign linked tasks first.",
+          code: "CONTACT_HAS_LINKED_TASKS",
+        },
+        { status: 409 }
+      );
+    }
 
     const [deletedContact] = await db
       .delete(contacts)

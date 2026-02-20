@@ -136,6 +136,46 @@ describe("tenant safety regressions", () => {
     );
   });
 
+  it("enforces composite (org_id, id) unique constraints on parent tables", () => {
+    const schema = readWorkspaceFile("lib/db/schema.ts");
+    expect(schema).toContain("uq_contacts_org_id");
+    expect(schema).toContain("uq_workflow_definitions_org_id");
+    expect(schema).toContain("uq_workflow_executions_org_id");
+    expect(schema).toContain("uq_tasks_org_id");
+  });
+
+  it("uses composite FKs for cross-entity references", () => {
+    const schema = readWorkspaceFile("lib/db/schema.ts");
+    const compositeFKNames = [
+      "fk_workflow_executions_contact",
+      "fk_workflow_executions_definition",
+      "fk_tasks_workflow_execution",
+      "fk_tasks_contact",
+      "fk_notes_workflow_execution",
+      "fk_notes_contact",
+      "fk_notes_task",
+      "fk_activity_log_workflow_execution",
+      "fk_activity_log_contact",
+      "fk_activity_log_task",
+      "fk_formstack_config_definition",
+      "fk_formstack_submissions_workflow_execution",
+    ];
+    for (const name of compositeFKNames) {
+      expect(schema).toContain(name);
+    }
+  });
+
+  it("does not use single-column .references() for cross-entity business FKs", () => {
+    const schema = readWorkspaceFile("lib/db/schema.ts");
+    // These single-column references should have been replaced with composite FKs
+    expect(schema).not.toContain(".references(() => contacts.id)");
+    expect(schema).not.toContain(".references(() => workflowDefinitions.id)");
+    expect(schema).not.toContain(".references(() => workflowExecutions.id)");
+    expect(schema).not.toContain(".references(() => tasks.id)");
+    // .references(() => users.id) is still allowed (users table is not org-scoped)
+    expect(schema).toContain(".references(() => users.id)");
+  });
+
   it("keeps workflow lookups org-scoped in execution routes", () => {
     const workflowTriggerRoute = readWorkspaceFile("app/api/workflows/trigger/route.ts");
     expect(workflowTriggerRoute).toMatch(

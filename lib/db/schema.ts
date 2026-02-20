@@ -6,13 +6,13 @@
  *
  * Tables:
  * - users: Synced from Clerk
- * - contacts: People/applicants
+ * - contacts: People/contacts
  * - workflow_definitions: Workflow blueprints (steps, phases, variables)
  * - workflow_executions: Workflow execution instances
  * - tasks: Task management
  * - notifications: In-app user notifications
- * - notes: Notes on any entity (polymorphic with soft FKs)
- * - activity_log: Audit trail (polymorphic with soft FKs)
+ * - notes: Notes on any entity (polymorphic with composite FKs + CHECK constraint)
+ * - activity_log: Audit trail (polymorphic with composite FKs + CASCADE delete)
  * - formstack_config: Formstack integration settings
  * - organization_email_settings: organization communication settings
  * - formstack_submissions: Raw webhook payloads
@@ -32,6 +32,8 @@ import {
   primaryKey,
   uniqueIndex,
   check,
+  foreignKey,
+  unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -173,6 +175,7 @@ export const contacts = pgTable(
       .notNull(),
   },
   (table) => ({
+    uqOrgId: unique("uq_contacts_org_id").on(table.orgId, table.id),
     orgIdx: index("idx_contacts_org").on(table.orgId),
     emailIdx: index("idx_contacts_email").on(table.email),
     nameIdx: index("idx_contacts_name").on(table.lastName, table.firstName),
@@ -205,6 +208,7 @@ export const workflowDefinitions = pgTable(
       .notNull(),
   },
   (table) => ({
+    uqOrgId: unique("uq_workflow_definitions_org_id").on(table.orgId, table.id),
     orgIdx: index("idx_workflow_definitions_org").on(table.orgId),
     activeIdx: index("idx_workflow_definitions_active").on(
       table.orgId,
@@ -222,12 +226,8 @@ export const workflowExecutions = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     orgId: text("org_id").notNull(),
-    contactId: uuid("contact_id")
-      .notNull()
-      .references(() => contacts.id),
-    workflowDefinitionId: uuid("workflow_definition_id").references(
-      () => workflowDefinitions.id
-    ),
+    contactId: uuid("contact_id").notNull(),
+    workflowDefinitionId: uuid("workflow_definition_id"),
     definitionVersion: integer("definition_version"), // Snapshot of definition version at execution time
     currentStepId: text("current_step_id"), // Which step is currently executing
     currentPhaseId: text("current_phase_id"), // Legacy optional step-grouping pointer
@@ -255,8 +255,20 @@ export const workflowExecutions = pgTable(
       .notNull(),
   },
   (table) => ({
+    uqOrgId: unique("uq_workflow_executions_org_id").on(table.orgId, table.id),
+    fkContact: foreignKey({
+      name: "fk_workflow_executions_contact",
+      columns: [table.orgId, table.contactId],
+      foreignColumns: [contacts.orgId, contacts.id],
+    }),
+    fkDefinition: foreignKey({
+      name: "fk_workflow_executions_definition",
+      columns: [table.orgId, table.workflowDefinitionId],
+      foreignColumns: [workflowDefinitions.orgId, workflowDefinitions.id],
+    }),
     orgIdx: index("idx_workflow_executions_org").on(table.orgId),
     contactIdx: index("idx_workflow_executions_contact").on(table.contactId),
+    orgContactIdx: index("idx_workflow_executions_org_contact").on(table.orgId, table.contactId),
     statusIdx: index("idx_workflow_executions_status").on(table.orgId, table.status),
     stateIdx: index("idx_workflow_executions_state").on(
       table.orgId,
@@ -265,6 +277,7 @@ export const workflowExecutions = pgTable(
     definitionIdx: index("idx_workflow_executions_definition").on(
       table.workflowDefinitionId
     ),
+    orgDefinitionIdx: index("idx_workflow_executions_org_definition").on(table.orgId, table.workflowDefinitionId),
     temporalIdx: index("idx_workflow_executions_temporal").on(table.temporalWorkflowId),
   })
 );
@@ -278,8 +291,8 @@ export const tasks = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     orgId: text("org_id").notNull(),
-    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id),
-    contactId: uuid("contact_id").references(() => contacts.id),
+    workflowExecutionId: uuid("workflow_execution_id"),
+    contactId: uuid("contact_id"),
     assignedTo: text("assigned_to").references(() => users.id), // Specific user if claimed
     assignedRole: text("assigned_role"), // Role if role-based assignment
     title: text("title").notNull(),
@@ -302,11 +315,24 @@ export const tasks = pgTable(
       .notNull(),
   },
   (table) => ({
+    uqOrgId: unique("uq_tasks_org_id").on(table.orgId, table.id),
+    fkWorkflowExecution: foreignKey({
+      name: "fk_tasks_workflow_execution",
+      columns: [table.orgId, table.workflowExecutionId],
+      foreignColumns: [workflowExecutions.orgId, workflowExecutions.id],
+    }),
+    fkContact: foreignKey({
+      name: "fk_tasks_contact",
+      columns: [table.orgId, table.contactId],
+      foreignColumns: [contacts.orgId, contacts.id],
+    }),
     orgIdx: index("idx_tasks_org").on(table.orgId),
     assignedIdx: index("idx_tasks_assigned").on(table.assignedTo),
     roleIdx: index("idx_tasks_role").on(table.assignedRole),
     statusIdx: index("idx_tasks_status").on(table.orgId, table.status),
     workflowIdx: index("idx_tasks_workflow_execution").on(table.workflowExecutionId),
+    orgContactIdx: index("idx_tasks_org_contact").on(table.orgId, table.contactId),
+    orgWorkflowExecutionIdx: index("idx_tasks_org_workflow_execution").on(table.orgId, table.workflowExecutionId),
     positionIdx: index("idx_tasks_position").on(
       table.orgId,
       table.status,
@@ -390,16 +416,10 @@ export const notes = pgTable(
     orgId: text("org_id").notNull(),
     entityType: text("entity_type").notNull(), // 'workflow', 'contact', 'task'
     entityId: uuid("entity_id").notNull(),
-    // Soft FKs for efficient queries (nullable, indexed)
-    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id, {
-      onDelete: "cascade",
-    }),
-    contactId: uuid("contact_id").references(() => contacts.id, {
-      onDelete: "cascade",
-    }),
-    taskId: uuid("task_id").references(() => tasks.id, {
-      onDelete: "cascade",
-    }),
+    // Polymorphic entity FKs (composite FK enforces tenant isolation)
+    workflowExecutionId: uuid("workflow_execution_id"),
+    contactId: uuid("contact_id"),
+    taskId: uuid("task_id"),
     userId: text("user_id")
       .notNull()
       .references(() => users.id),
@@ -410,11 +430,29 @@ export const notes = pgTable(
       .notNull(),
   },
   (table) => ({
+    fkWorkflowExecution: foreignKey({
+      name: "fk_notes_workflow_execution",
+      columns: [table.orgId, table.workflowExecutionId],
+      foreignColumns: [workflowExecutions.orgId, workflowExecutions.id],
+    }).onDelete("cascade"),
+    fkContact: foreignKey({
+      name: "fk_notes_contact",
+      columns: [table.orgId, table.contactId],
+      foreignColumns: [contacts.orgId, contacts.id],
+    }).onDelete("cascade"),
+    fkTask: foreignKey({
+      name: "fk_notes_task",
+      columns: [table.orgId, table.taskId],
+      foreignColumns: [tasks.orgId, tasks.id],
+    }).onDelete("cascade"),
     entityIdx: index("idx_notes_entity").on(table.entityType, table.entityId),
     orgIdx: index("idx_notes_org").on(table.orgId),
     workflowIdx: index("idx_notes_workflow_execution").on(table.workflowExecutionId),
     contactIdx: index("idx_notes_contact").on(table.contactId),
     taskIdx: index("idx_notes_task").on(table.taskId),
+    orgWorkflowIdx: index("idx_notes_org_workflow_execution").on(table.orgId, table.workflowExecutionId),
+    orgContactIdx: index("idx_notes_org_contact").on(table.orgId, table.contactId),
+    orgTaskIdx: index("idx_notes_org_task").on(table.orgId, table.taskId),
     // Ensure only one FK is set
     oneParentOnly: check(
       "one_parent_only",
@@ -439,16 +477,10 @@ export const activityLog = pgTable(
     userId: text("user_id").references(() => users.id),
     entityType: text("entity_type").notNull(), // 'workflow', 'contact', 'task'
     entityId: uuid("entity_id").notNull(),
-    // Soft FKs for efficient queries (nullable, indexed)
-    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id, {
-      onDelete: "cascade",
-    }),
-    contactId: uuid("contact_id").references(() => contacts.id, {
-      onDelete: "cascade",
-    }),
-    taskId: uuid("task_id").references(() => tasks.id, {
-      onDelete: "cascade",
-    }),
+    // Polymorphic entity FKs (composite FK enforces tenant isolation)
+    workflowExecutionId: uuid("workflow_execution_id"),
+    contactId: uuid("contact_id"),
+    taskId: uuid("task_id"),
     action: text("action").notNull(), // 'created', 'updated', 'deleted', 'status_changed'
     details: jsonb("details").default({}).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -456,12 +488,30 @@ export const activityLog = pgTable(
       .notNull(),
   },
   (table) => ({
+    fkWorkflowExecution: foreignKey({
+      name: "fk_activity_log_workflow_execution",
+      columns: [table.orgId, table.workflowExecutionId],
+      foreignColumns: [workflowExecutions.orgId, workflowExecutions.id],
+    }).onDelete("cascade"),
+    fkContact: foreignKey({
+      name: "fk_activity_log_contact",
+      columns: [table.orgId, table.contactId],
+      foreignColumns: [contacts.orgId, contacts.id],
+    }).onDelete("cascade"),
+    fkTask: foreignKey({
+      name: "fk_activity_log_task",
+      columns: [table.orgId, table.taskId],
+      foreignColumns: [tasks.orgId, tasks.id],
+    }).onDelete("cascade"),
     orgIdx: index("idx_activity_org").on(table.orgId),
     entityIdx: index("idx_activity_entity").on(table.entityType, table.entityId),
     timeIdx: index("idx_activity_time").on(table.createdAt),
     workflowIdx: index("idx_activity_workflow_execution").on(table.workflowExecutionId),
     contactIdx: index("idx_activity_contact").on(table.contactId),
     taskIdx: index("idx_activity_task").on(table.taskId),
+    orgWorkflowIdx: index("idx_activity_org_workflow_execution").on(table.orgId, table.workflowExecutionId),
+    orgContactIdx: index("idx_activity_org_contact").on(table.orgId, table.contactId),
+    orgTaskIdx: index("idx_activity_org_task").on(table.orgId, table.taskId),
   })
 );
 
@@ -469,22 +519,31 @@ export const activityLog = pgTable(
 // Formstack Config
 // ===========================
 
-export const formstackConfig = pgTable("formstack_config", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  orgId: text("org_id").notNull().unique(),
-  webhookSecret: text("webhook_secret"),
-  fieldMappings: jsonb("field_mappings").default({}).notNull(),
-  defaultWorkflowDefinitionId: uuid("default_workflow_definition_id").references(
-    () => workflowDefinitions.id
-  ),
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const formstackConfig = pgTable(
+  "formstack_config",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: text("org_id").notNull().unique(),
+    webhookSecret: text("webhook_secret"),
+    fieldMappings: jsonb("field_mappings").default({}).notNull(),
+    defaultWorkflowDefinitionId: uuid("default_workflow_definition_id"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fkDefinition: foreignKey({
+      name: "fk_formstack_config_definition",
+      columns: [table.orgId, table.defaultWorkflowDefinitionId],
+      foreignColumns: [workflowDefinitions.orgId, workflowDefinitions.id],
+    }),
+    orgDefinitionIdx: index("idx_formstack_config_org_definition").on(table.orgId, table.defaultWorkflowDefinitionId),
+  })
+);
 
 // ===========================
 // Organization Email Settings
@@ -522,15 +581,21 @@ export const formstackSubmissions = pgTable(
     submissionId: text("submission_id").notNull(),
     rawPayload: jsonb("raw_payload").notNull(),
     processed: boolean("processed").default(false).notNull(),
-    workflowExecutionId: uuid("workflow_execution_id").references(() => workflowExecutions.id),
+    workflowExecutionId: uuid("workflow_execution_id"),
     error: text("error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (table) => ({
+    fkWorkflowExecution: foreignKey({
+      name: "fk_formstack_submissions_workflow_execution",
+      columns: [table.orgId, table.workflowExecutionId],
+      foreignColumns: [workflowExecutions.orgId, workflowExecutions.id],
+    }),
     orgIdx: index("idx_formstack_org").on(table.orgId),
     processedIdx: index("idx_formstack_processed").on(table.processed),
+    orgWorkflowIdx: index("idx_formstack_org_workflow_execution").on(table.orgId, table.workflowExecutionId),
     // Prevent duplicate webhook processing
     uniqueSubmission: uniqueIndex("unique_formstack_submission").on(
       table.orgId,

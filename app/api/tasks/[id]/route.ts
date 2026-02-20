@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiAuth } from "@/lib/auth/api-guard";
 import { db } from "@/lib/db";
-import { tasks, contacts } from "@/lib/db/schema";
+import { tasks, contacts, workflowExecutions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import {
   buildTaskAccessContext,
@@ -172,6 +172,7 @@ async function PATCHHandler(
       .select({
         id: tasks.id,
         assignedTo: tasks.assignedTo,
+        workflowExecutionId: tasks.workflowExecutionId,
       })
       .from(tasks)
       .where(and(eq(tasks.id, id), eq(tasks.orgId, orgId)));
@@ -199,6 +200,40 @@ async function PATCHHandler(
           { error: "Contact not found" },
           { status: 404 }
         );
+      }
+
+      // Consistency guard: if this task is tied to a workflow execution and a contactId
+      // update is provided, the task contact must match the workflow execution's contact.
+      if (existingTask.workflowExecutionId) {
+        const [workflowExecution] = await db
+          .select({
+            id: workflowExecutions.id,
+            contactId: workflowExecutions.contactId,
+          })
+          .from(workflowExecutions)
+          .where(
+            and(
+              eq(workflowExecutions.id, existingTask.workflowExecutionId),
+              eq(workflowExecutions.orgId, orgId)
+            )
+          );
+
+        if (!workflowExecution) {
+          return NextResponse.json(
+            { error: "Workflow not found" },
+            { status: 404 }
+          );
+        }
+
+        if (workflowExecution.contactId !== contactId) {
+          return NextResponse.json(
+            {
+              error: "contactId does not match the workflow execution's contact",
+              code: "CONTACT_EXECUTION_MISMATCH",
+            },
+            { status: 400 }
+          );
+        }
       }
     }
 
